@@ -757,7 +757,7 @@ git commit -m "feat: add article publishing foundation"
 - Create: `frontend/src/features/analytics/AdminDashboardPage.tsx`
 - Create: `docs/apis/analytics.md`
 
-- [ ] **Step 1: 写统计聚合测试**
+- [x] **Step 1: 写统计聚合测试**
 
 Create `backend/internal/analytics/service_test.go`:
 
@@ -778,7 +778,7 @@ func TestSummaryTotals(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 实现聚合函数**
+- [x] **Step 2: 实现聚合函数**
 
 Create `backend/internal/analytics/service.go`:
 
@@ -798,7 +798,7 @@ func TotalViews(days []DailyView) int {
 }
 ```
 
-- [ ] **Step 3: 写统计 API 文档**
+- [x] **Step 3: 写统计 API 文档**
 
 Create `docs/apis/analytics.md`:
 
@@ -836,7 +836,7 @@ Create `docs/apis/analytics.md`:
 ```
 ```
 
-- [ ] **Step 4: 创建后台看板页面**
+- [x] **Step 4: 创建后台看板页面**
 
 Create `frontend/src/features/analytics/AdminDashboardPage.tsx`:
 
@@ -854,7 +854,7 @@ export function AdminDashboardPage() {
 }
 ```
 
-- [ ] **Step 5: 验证统计任务**
+- [x] **Step 5: 验证统计任务**
 
 Run:
 
@@ -867,7 +867,7 @@ npm run build
 
 Expected: PASS，前端构建成功。
 
-- [ ] **Step 6: 提交统计基础**
+- [x] **Step 6: 提交统计基础**
 
 Run:
 

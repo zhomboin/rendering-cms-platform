@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"rendering-cms-platform/backend/internal/analytics"
 	"rendering-cms-platform/backend/internal/articles"
 	"rendering-cms-platform/backend/internal/auth"
 	"rendering-cms-platform/backend/internal/config"
@@ -28,6 +29,7 @@ func main() {
 	queries := dbgen.New(db)
 	userFinder := auth.NewDatabaseUserFinder(queries)
 	articleHandler := articles.NewHandler(queries)
+	analyticsHandler := analytics.NewHandler(queries)
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
@@ -35,7 +37,9 @@ func main() {
 			httpapi.WithJWTSecret(cfg.JWTSecret),
 			httpapi.WithLoginHandler(auth.NewLoginHandler(cfg.JWTSecret, userFinder)),
 			httpapi.WithPublicRoutes(articleHandler.RegisterPublicRoutes),
+			httpapi.WithPublicRoutes(analyticsHandler.RegisterPublicRoutes),
 			httpapi.WithAdminRoutes(articleHandler.RegisterAdminRoutes),
+			httpapi.WithAdminRoutes(analyticsHandler.RegisterAdminRoutes),
 		),
 	}
 

@@ -11,6 +11,92 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getTodaySiteViews = `-- name: GetTodaySiteViews :one
+select coalesce(views, 0)::int as views
+from site_view_daily
+where view_date = current_date
+`
+
+func (q *Queries) GetTodaySiteViews(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, getTodaySiteViews)
+	var views int32
+	err := row.Scan(&views)
+	return views, err
+}
+
+const listHotArticles = `-- name: ListHotArticles :many
+select
+  a.article_id,
+  a.slug,
+  a.title,
+  coalesce(sum(v.views), 0)::int as views
+from articles a
+left join article_view_daily v on v.article_id = a.article_id
+where a.status = 'published'
+group by a.article_id, a.slug, a.title
+order by views desc, a.published_at desc nulls last
+limit $1
+`
+
+type ListHotArticlesRow struct {
+	ArticleID pgtype.UUID
+	Slug      string
+	Title     string
+	Views     int32
+}
+
+func (q *Queries) ListHotArticles(ctx context.Context, limit int32) ([]ListHotArticlesRow, error) {
+	rows, err := q.db.Query(ctx, listHotArticles, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHotArticlesRow
+	for rows.Next() {
+		var i ListHotArticlesRow
+		if err := rows.Scan(
+			&i.ArticleID,
+			&i.Slug,
+			&i.Title,
+			&i.Views,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSiteViewsLast7Days = `-- name: ListSiteViewsLast7Days :many
+select view_date, views
+from site_view_daily
+where view_date >= current_date - interval '6 days'
+order by view_date asc
+`
+
+func (q *Queries) ListSiteViewsLast7Days(ctx context.Context) ([]SiteViewDaily, error) {
+	rows, err := q.db.Query(ctx, listSiteViewsLast7Days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SiteViewDaily
+	for rows.Next() {
+		var i SiteViewDaily
+		if err := rows.Scan(&i.ViewDate, &i.Views); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertArticleViewDaily = `-- name: UpsertArticleViewDaily :exec
 insert into article_view_daily (article_id, view_date, views)
 values ($1, $2, $3)

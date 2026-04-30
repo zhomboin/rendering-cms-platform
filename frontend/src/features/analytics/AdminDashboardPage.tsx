@@ -5,65 +5,28 @@ import {
   MessageOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { useQuery } from '@tanstack/react-query';
+import { apiGet } from '../../api/client';
 
 const { Title } = Typography;
-
-const stats = [
-  {
-    key: 'visits',
-    label: '今日访问',
-    value: '1,284',
-    suffix: '',
-    subtitle: '较昨日 +12%',
-    icon: <ArrowUpOutlined />,
-    iconColor: '#22C55E',
-    valueColor: '#22C55E',
-  },
-  {
-    key: 'articles',
-    label: '文章总数',
-    value: '32',
-    suffix: '',
-    subtitle: '已发布 28 篇',
-    icon: <FileTextOutlined />,
-    iconColor: '#4F46E5',
-    valueColor: '#0F172A',
-  },
-  {
-    key: 'comments',
-    label: '待审核评论',
-    value: '7',
-    suffix: '',
-    subtitle: '共 45 条评论',
-    icon: <MessageOutlined />,
-    iconColor: '#F59E0B',
-    valueColor: '#F59E0B',
-  },
-];
-
-const weeklyData = [
-  { day: '04/24', visits: 980 },
-  { day: '04/25', visits: 1240 },
-  { day: '04/26', visits: 860 },
-  { day: '04/27', visits: 1530 },
-  { day: '04/28', visits: 1120 },
-  { day: '04/29', visits: 1380 },
-  { day: '04/30', visits: 1284 },
-];
 
 interface HotArticle {
   rank: number;
   title: string;
-  visits: number;
+  views: number;
+  slug: string;
 }
 
-const hotArticles: HotArticle[] = [
-  { rank: 1, title: '深入理解 React Server Components', visits: 892 },
-  { rank: 2, title: 'Go 语言并发编程实战', visits: 654 },
-  { rank: 3, title: 'TypeScript 类型体操进阶', visits: 521 },
-  { rank: 4, title: 'PostgreSQL 索引优化指南', visits: 487 },
-  { rank: 5, title: '使用 Chi 构建 RESTful API', visits: 312 },
-];
+interface DailyView {
+  date: string;
+  views: number;
+}
+
+interface AnalyticsSummary {
+  todayViews: number;
+  last7Days: DailyView[];
+  hotArticles: HotArticle[];
+}
 
 const hotColumns: ColumnsType<HotArticle> = [
   {
@@ -84,16 +47,55 @@ const hotColumns: ColumnsType<HotArticle> = [
   },
   {
     title: '访问量',
-    dataIndex: 'visits',
-    key: 'visits',
+    dataIndex: 'views',
+    key: 'views',
     width: 100,
     align: 'right',
   },
 ];
 
-const maxVisits = Math.max(...weeklyData.map((d) => d.visits));
-
 function AdminDashboardPage() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['analytics-summary'],
+    queryFn: () => apiGet<AnalyticsSummary>('/admin/analytics/summary'),
+  });
+
+  const weeklyData = data?.last7Days ?? [];
+  const hotArticles = data?.hotArticles ?? [];
+  const maxVisits = Math.max(...weeklyData.map((d) => d.views), 1);
+  const stats = [
+    {
+      key: 'visits',
+      label: '今日访问',
+      value: data?.todayViews ?? 0,
+      suffix: '',
+      subtitle: '来自站点日聚合统计',
+      icon: <ArrowUpOutlined />,
+      iconColor: '#22C55E',
+      valueColor: '#22C55E',
+    },
+    {
+      key: 'articles',
+      label: '热门文章',
+      value: hotArticles.length,
+      suffix: '',
+      subtitle: '按累计访问量排序',
+      icon: <FileTextOutlined />,
+      iconColor: '#4F46E5',
+      valueColor: '#0F172A',
+    },
+    {
+      key: 'comments',
+      label: '近 7 天访问',
+      value: weeklyData.reduce((sum, item) => sum + item.views, 0),
+      suffix: '',
+      subtitle: '近 7 天站点访问总量',
+      icon: <MessageOutlined />,
+      iconColor: '#F59E0B',
+      valueColor: '#F59E0B',
+    },
+  ];
+
   return (
     <div>
       {/* Page title */}
@@ -181,10 +183,10 @@ function AdminDashboardPage() {
       >
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 200, padding: '0 8px' }}>
           {weeklyData.map((d) => {
-            const barHeight = Math.max((d.visits / maxVisits) * 160, 12);
+            const barHeight = Math.max((d.views / maxVisits) * 160, 12);
             return (
               <div
-                key={d.day}
+                key={d.date}
                 style={{
                   flex: 1,
                   display: 'flex',
@@ -193,7 +195,7 @@ function AdminDashboardPage() {
                   gap: 8,
                 }}
               >
-                <span style={{ fontSize: 11, color: '#64748B', lineHeight: 1.2 }}>{d.visits}</span>
+                <span style={{ fontSize: 11, color: '#64748B', lineHeight: 1.2 }}>{d.views}</span>
                 <div
                   style={{
                     width: '100%',
@@ -204,9 +206,9 @@ function AdminDashboardPage() {
                     transition: 'height 0.3s ease',
                     minHeight: 4,
                   }}
-                  aria-label={`${d.day}: ${d.visits} 次访问`}
+                  aria-label={`${d.date}: ${d.views} 次访问`}
                 />
-                <span style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>{d.day}</span>
+                <span style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>{d.date.slice(5)}</span>
               </div>
             );
           })}
@@ -232,6 +234,7 @@ function AdminDashboardPage() {
           columns={hotColumns}
           dataSource={hotArticles}
           pagination={false}
+          loading={isLoading}
           rowKey="rank"
           style={{ borderRadius: 8 }}
         />

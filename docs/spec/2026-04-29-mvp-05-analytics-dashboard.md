@@ -17,20 +17,28 @@
 
 ## 子任务
 
-- [ ] 在 `service_test.go` 编写 `TestSummaryTotals`。
-- [ ] 在 `service.go` 定义 `DailyView` 和 `TotalViews(days []DailyView) int`。
-- [ ] 在 `backend/sql/analytics.sql` 增加文章日访问量 upsert SQL。
-- [ ] 在 `backend/sql/analytics.sql` 增加站点日访问量 upsert SQL。
-- [ ] 在 `backend/sql/analytics.sql` 增加今日访问量查询 SQL。
-- [ ] 在 `backend/sql/analytics.sql` 增加近 7 天访问量查询 SQL。
-- [ ] 在 `backend/sql/analytics.sql` 增加热门文章查询 SQL。
-- [ ] 在 `handler.go` 实现 `POST /api/v1/articles/{slug}/views`。
-- [ ] 在 `handler.go` 实现 `GET /api/v1/admin/analytics/summary`。
-- [ ] 在前端创建 `AdminDashboardPage.tsx`。
-- [ ] 看板展示今日访问量、近 7 天访问量、热门文章列表三个区域。
-- [ ] 创建 `docs/apis/analytics.md`，记录统计写入和后台汇总 API。
-- [ ] 运行 `cd backend && go test ./internal/analytics`。
-- [ ] 运行 `cd frontend && npm run build`。
+- [x] 在 `service_test.go` 编写 `TestSummaryTotals`。
+- [x] 在 `service.go` 定义 `DailyView` 和 `TotalViews(days []DailyView) int`。
+- [x] 在 `backend/sql/analytics.sql` 增加文章日访问量 upsert SQL。
+- [x] 在 `backend/sql/analytics.sql` 增加站点日访问量 upsert SQL。
+- [x] 在 `backend/sql/analytics.sql` 增加今日访问量查询 SQL。
+- [x] 在 `backend/sql/analytics.sql` 增加近 7 天访问量查询 SQL。
+- [x] 在 `backend/sql/analytics.sql` 增加热门文章查询 SQL。
+- [x] 在 `handler.go` 实现 `POST /api/v1/articles/{slug}/views`。
+- [x] 在 `handler.go` 实现 `GET /api/v1/admin/analytics/summary`。
+- [x] 在前端创建 `AdminDashboardPage.tsx`。
+- [x] 看板展示今日访问量、近 7 天访问量、热门文章列表三个区域。
+- [x] 创建 `docs/apis/analytics.md`，记录统计写入和后台汇总 API。
+- [x] 运行 `cd backend && go test ./internal/analytics`。
+- [x] 运行 `cd frontend && npm run build`。
+
+## 完成记录
+
+- 完成时间：2026-04-30。
+- 文章访问写入会同步更新 `article_view_daily` 和 `site_view_daily`。
+- 后台统计汇总接口挂载在 `/api/v1/admin/analytics/summary`，由后台认证中间件保护。
+- 前端看板已接入 API client，展示今日访问、近 7 天访问和热门文章。
+- 验证命令已通过：`cd backend && go test ./internal/analytics ./...`、`cd frontend && npm run build`。
 
 ## 验收标准
 
