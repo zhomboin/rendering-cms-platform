@@ -1,0 +1,11 @@
+drop table if exists download_events;
+drop table if exists assets;
+drop table if exists site_view_daily;
+drop table if exists article_view_daily;
+drop table if exists comments;
+drop table if exists article_revisions;
+drop table if exists articles;
+drop table if exists users;
+drop type if exists comment_status;
+drop type if exists article_status;
+drop type if exists user_role;

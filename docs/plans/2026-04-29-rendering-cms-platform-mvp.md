@@ -238,7 +238,7 @@ git commit -m "feat: scaffold cms platform"
 - Create: `backend/sql/assets.sql`
 - Create: `docs/sql/schema.md`
 
-- [ ] **Step 1: 创建 migration**
+- [x] **Step 1: 创建 migration**
 
 Create `backend/migrations/000001_init.up.sql` with the core tables:
 
@@ -331,7 +331,7 @@ create table download_events (
 );
 ```
 
-- [ ] **Step 2: 创建 down migration**
+- [x] **Step 2: 创建 down migration**
 
 Create `backend/migrations/000001_init.down.sql`:
 
@@ -349,7 +349,7 @@ drop type if exists article_status;
 drop type if exists user_role;
 ```
 
-- [ ] **Step 3: 配置 sqlc**
+- [x] **Step 3: 配置 sqlc**
 
 Create `backend/sqlc.yaml`:
 
@@ -366,7 +366,7 @@ sql:
         sql_package: "pgx/v5"
 ```
 
-- [ ] **Step 4: 创建数据库连接**
+- [x] **Step 4: 创建数据库连接**
 
 Create `backend/internal/database/db.go`:
 
@@ -384,7 +384,7 @@ func Open(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 }
 ```
 
-- [ ] **Step 5: 写入 schema 文档**
+- [x] **Step 5: 写入 schema 文档**
 
 Create `docs/sql/schema.md`:
 
@@ -409,7 +409,7 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。
 评论和下载审计不得保存原始 IP，只保存哈希值。
 ```
 
-- [ ] **Step 6: 验证 schema 文件**
+- [x] **Step 6: 验证 schema 文件**
 
 Run:
 
@@ -420,7 +420,7 @@ go test ./...
 
 Expected: Go package 编译通过；如尚未生成 sqlc 代码，本任务只验证手写 Go 文件。
 
-- [ ] **Step 7: 提交 schema**
+- [x] **Step 7: 提交 schema**
 
 Run:
 
