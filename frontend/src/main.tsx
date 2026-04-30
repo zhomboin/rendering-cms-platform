@@ -7,10 +7,80 @@ import { AppRoutes } from './routes';
 
 const queryClient = new QueryClient();
 
+const themeTokens = {
+  colorPrimary: '#4F46E5',
+  colorSuccess: '#22C55E',
+  colorWarning: '#F59E0B',
+  colorError: '#EF4444',
+  colorInfo: '#4F46E5',
+  colorBgLayout: '#F8FAFC',
+  colorBgContainer: '#FFFFFF',
+  colorBorder: '#E2E8F0',
+  colorBorderSecondary: '#E2E8F0',
+  colorText: '#0F172A',
+  colorTextSecondary: '#64748B',
+  colorTextTertiary: '#64748B',
+  borderRadius: 8,
+  borderRadiusLG: 24,
+  borderRadiusSM: 6,
+  fontSize: 14,
+  fontSizeHeading1: 24,
+  fontSizeHeading2: 18,
+  fontSizeHeading3: 16,
+  fontFamily: "Inter, PingFang SC, 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif",
+  lineHeight: 1.6,
+  controlHeight: 36,
+  controlHeightLG: 44,
+  controlHeightSM: 28,
+  padding: 20,
+  paddingSM: 12,
+  paddingXS: 8,
+  marginXS: 8,
+  marginSM: 12,
+  margin: 20,
+  marginLG: 24,
+};
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider>
+      <ConfigProvider
+        theme={{
+          token: themeTokens,
+          components: {
+            Card: {
+              borderRadiusLG: 24,
+              paddingLG: 20,
+            },
+            Button: {
+              borderRadius: 8,
+              controlHeight: 36,
+              primaryShadow: 'none',
+            },
+            Table: {
+              borderRadiusLG: 8,
+              rowHoverBg: 'rgba(79, 70, 229, 0.04)',
+              headerBg: '#F8FAFC',
+            },
+            Layout: {
+              siderBg: '#FFFFFF',
+              headerBg: '#FFFFFF',
+              bodyBg: '#F8FAFC',
+              triggerBg: '#F8FAFC',
+            },
+            Menu: {
+              itemBg: 'transparent',
+              subMenuItemBg: 'transparent',
+              itemActiveBg: '#4F46E5',
+              itemSelectedBg: '#4F46E5',
+              itemSelectedColor: '#FFFFFF',
+              itemColor: '#0F172A',
+              itemHoverBg: 'rgba(79, 70, 229, 0.06)',
+              fontSize: 14,
+            },
+          },
+        }}
+      >
         <AppRoutes />
       </ConfigProvider>
     </QueryClientProvider>
