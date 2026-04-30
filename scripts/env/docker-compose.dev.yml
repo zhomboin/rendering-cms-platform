@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rendering-cms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rendering_cms}
+      POSTGRES_USER: ${POSTGRES_USER:-rendering}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rendering_dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - rendering_cms_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rendering} -d ${POSTGRES_DB:-rendering_cms}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: rendering-cms-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-rendering}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rendering_dev_password}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - rendering_cms_minio:/data
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: rendering-cms-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-rendering} ${MINIO_ROOT_PASSWORD:-rendering_dev_password};
+      mc mb --ignore-existing local/${MINIO_BUCKET:-rendering-assets};
+      mc anonymous set none local/${MINIO_BUCKET:-rendering-assets};
+      "
+
+  frontend:
+    image: node:22-alpine
+    container_name: rendering-cms-frontend
+    profiles:
+      - frontend
+    working_dir: /workspace/frontend
+    command: >
+      sh -lc "
+      if [ ! -f package.json ]; then
+        echo 'frontend/package.json not found. Create the Vite frontend before starting this service.';
+        exit 1;
+      fi;
+      npm install;
+      npm run dev -- --host 0.0.0.0
+      "
+    environment:
+      VITE_API_BASE: ${VITE_API_BASE:-http://127.0.0.1:8080/api/v1}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../..:/workspace
+      - rendering_cms_frontend_node_modules:/workspace/frontend/node_modules
+
+volumes:
+  rendering_cms_postgres:
+  rendering_cms_minio:
+  rendering_cms_frontend_node_modules:

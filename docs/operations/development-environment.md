@@ -1,0 +1,283 @@
+# WSL2 Ubuntu 24.04 开发环境配置指南
+
+## 当前项目环境
+
+检查时间：2026-04-30。
+
+当前项目明确运行在 WSL2 Ubuntu 24.04 环境中，仓库路径为：
+
+```text
+/home/administrator/workspace/rendering-cms-platform
+```
+
+本项目后续开发、依赖服务启动、前端启动、后端测试和数据库操作都默认在 WSL2 Ubuntu 24.04 终端中执行。项目不再维护 PowerShell 启动脚本。
+
+## 当前工具状态
+
+| 工具 | 当前状态 | 项目要求 |
+| --- | --- | --- |
+| Go | 未安装 | Go 1.22+ |
+| Node.js | 未安装 | Node.js 20+，推荐 22 LTS |
+| npm | 未安装 | npm 10+ |
+| Docker | 未安装 | Docker Engine 或 Docker Desktop WSL integration |
+| Docker Compose | 未安装 | Docker Compose v2 |
+| PostgreSQL client `psql` | 未安装 | PostgreSQL client 16+ |
+| `sqlc` | 未安装 | sqlc 1.25+ |
+| `migrate` | 未安装 | golang-migrate CLI |
+
+## 必需工具
+
+### Go
+
+用途：
+
+- 编译 `backend/`。
+- 运行 `go test ./...`。
+- 安装 `sqlc` 和 `migrate` 等 Go CLI。
+
+安装示例：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y golang-go
+go version
+```
+
+如果 apt 源中的 Go 版本低于 1.22，使用 Go 官方安装包或版本管理工具安装。
+
+### Node.js 和 npm
+
+用途：
+
+- 创建 `frontend/`。
+- 本地或 Docker 容器内运行 Vite 前端。
+- 执行 `npm run build`。
+
+安装示例：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y nodejs npm
+node --version
+npm --version
+```
+
+如果 apt 源版本过低，使用 NodeSource、nvm 或 fnm 安装 Node.js 20+。
+
+### Docker 和 Docker Compose
+
+用途：
+
+- 启动 PostgreSQL。
+- 启动 MinIO，模拟 S3 兼容对象存储。
+- 可选：用 Docker 启动前端 Vite 开发服务。
+
+检查命令：
+
+```bash
+docker --version
+docker compose version
+```
+
+### PostgreSQL Client
+
+用途：
+
+- 使用 `psql` 检查本地数据库连接。
+- 执行 SQL 验证。
+- 备份和恢复时使用 `pg_dump` 与 `psql`。
+
+安装示例：
+
+```bash
+sudo apt-get update
+sudo apt-get install -y postgresql-client
+psql --version
+```
+
+### sqlc
+
+用途：
+
+- 从 `backend/sql/*.sql` 和 `backend/migrations/*.sql` 生成类型安全 Go 数据访问代码。
+
+安装示例：
+
+```bash
+go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+export PATH="$HOME/go/bin:$PATH"
+sqlc version
+```
+
+### golang-migrate
+
+用途：
+
+- 执行 PostgreSQL migration。
+
+安装示例：
+
+```bash
+go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+export PATH="$HOME/go/bin:$PATH"
+migrate -version
+```
+
+## 环境变量
+
+复制示例配置：
+
+```bash
+cp scripts/env/dev.env.example .env
+```
+
+MVP 本地开发变量：
+
+```env
+HTTP_ADDR=:8080
+DATABASE_URL=postgres://rendering:rendering_dev_password@127.0.0.1:5432/rendering_cms?sslmode=disable
+JWT_SECRET=replace-with-32-plus-character-secret
+FRONTEND_ORIGIN=http://127.0.0.1:5173
+VITE_API_BASE=http://127.0.0.1:8080/api/v1
+
+S3_ENDPOINT=http://127.0.0.1:9000
+S3_REGION=us-east-1
+S3_BUCKET=rendering-assets
+S3_ACCESS_KEY_ID=rendering
+S3_SECRET_ACCESS_KEY=rendering_dev_password
+
+POSTGRES_DB=rendering_cms
+POSTGRES_USER=rendering
+POSTGRES_PASSWORD=rendering_dev_password
+
+MINIO_ROOT_USER=rendering
+MINIO_ROOT_PASSWORD=rendering_dev_password
+MINIO_BUCKET=rendering-assets
+```
+
+不要提交 `.env`。
+
+## Docker 服务
+
+Docker Compose 配置文件：
+
+```text
+scripts/env/docker-compose.dev.yml
+```
+
+服务列表：
+
+| 服务 | 说明 | 端口 |
+| --- | --- | --- |
+| `postgres` | 本地 PostgreSQL 数据库 | `127.0.0.1:5432` |
+| `minio` | 本地 S3 兼容对象存储 | `127.0.0.1:9000` |
+| `minio-init` | 初始化 MinIO bucket | 无对外端口 |
+| `frontend` | Vite 前端开发服务，使用 `node:22-alpine` | `127.0.0.1:5173` |
+
+`frontend` 使用 Docker Compose profile，不会随前置服务自动启动。这样可以先启动数据库和 MinIO，再按需要启动前端。
+
+## 脚本说明
+
+### 环境检查
+
+```bash
+bash scripts/env/check-env.sh
+```
+
+脚本只检查工具，不安装软件。检查项：
+
+- Go
+- Node.js
+- npm
+- Docker
+- Docker Compose
+- psql
+- sqlc
+- migrate
+
+### 启动前置依赖服务
+
+```bash
+bash scripts/env/start-prerequisites.sh
+```
+
+启动：
+
+- `postgres`
+- `minio`
+- `minio-init`
+
+这是后端开发、migration、文件上传下载开发前必须先启动的服务。
+
+### 启动前端 Docker 服务
+
+```bash
+bash scripts/env/start-frontend-docker.sh
+```
+
+前提：
+
+- 已创建 `frontend/package.json`。
+- 已复制 `.env`。
+- Docker 可用。
+
+该脚本通过 Docker 运行 Vite 前端服务，监听：
+
+```text
+http://127.0.0.1:5173
+```
+
+### 启动完整开发栈
+
+```bash
+bash scripts/env/start-dev-stack.sh
+```
+
+执行顺序：
+
+1. 启动前置依赖服务。
+2. 启动前端 Docker 服务。
+
+如果 `frontend/package.json` 尚不存在，第二步会失败并提示先创建前端。
+
+### 兼容旧入口
+
+```bash
+bash scripts/env/start-dev-services.sh
+```
+
+当前等同于：
+
+```bash
+bash scripts/env/start-prerequisites.sh
+```
+
+### 停止开发服务
+
+```bash
+bash scripts/env/stop-dev-services.sh
+```
+
+停止 Compose 中的前置依赖服务和前端 profile 服务。
+
+## 推荐开发启动顺序
+
+1. 安装 Go、Node.js、npm、Docker、psql、sqlc、migrate。
+2. 运行 `bash scripts/env/check-env.sh`。
+3. 复制 `scripts/env/dev.env.example` 为 `.env`。
+4. 运行 `bash scripts/env/start-prerequisites.sh`。
+5. 创建并实现 `backend/`。
+6. 在 `backend/` 下执行 migration。
+7. 在 `backend/` 下运行 `go test ./...`。
+8. 创建并实现 `frontend/`。
+9. 运行 `bash scripts/env/start-frontend-docker.sh`，或在 `frontend/` 下直接运行 `npm run dev -- --host 0.0.0.0`。
+10. 运行 `bash scripts/env/start-dev-stack.sh` 验证依赖服务和前端可一起启动。
+
+## 注意事项
+
+- 本项目运行环境以 WSL2 Ubuntu 24.04 为准。
+- 不维护 PowerShell 环境脚本。
+- 不要把 `.env` 提交到 Git。
+- 不要把上传文件写入 Git 或 `frontend/public/`。
+- 本地 MinIO 只用于开发，不等同于生产 R2/S3 权限模型。
+- 生产 migration 前必须先备份 PostgreSQL。

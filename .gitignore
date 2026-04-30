@@ -1,0 +1,69 @@
+# 环境变量与本地配置
+.env
+.env.*
+!.env.example
+!*.env.example
+
+# 日志与临时文件
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# 操作系统与编辑器文件
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.code-workspace
+
+# Node.js / React / Vite
+node_modules/
+frontend/node_modules/
+dist/
+build/
+coverage/
+frontend/dist/
+frontend/build/
+frontend/coverage/
+.vite/
+frontend/.vite/
+
+# Go 后端
+backend/bin/
+backend/tmp/
+backend/coverage.out
+backend/*.test
+*.exe
+*.dll
+*.so
+*.dylib
+
+# 数据库与本地服务数据
+*.db
+*.sqlite
+*.sqlite3
+postgres-data/
+minio-data/
+data/postgres/
+data/minio/
+
+# 上传文件与运行时资源
+uploads/
+storage/
+public/uploads/
+frontend/public/uploads/
+
+# Docker / Compose 本地覆盖文件
+docker-compose.override.yml
+scripts/env/docker-compose.override.yml
+
+# 构建缓存
+.cache/
+.parcel-cache/
+.turbo/
+.next/
