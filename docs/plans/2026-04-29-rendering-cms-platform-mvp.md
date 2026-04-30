@@ -441,7 +441,7 @@ git commit -m "feat: add cms database schema"
 - Create: `backend/internal/http/middleware.go`
 - Create: `docs/apis/auth.md`
 
-- [ ] **Step 1: 写失败测试：密码哈希可验证**
+- [x] **Step 1: 写失败测试：密码哈希可验证**
 
 Create `backend/internal/auth/password_test.go`:
 
@@ -464,7 +464,7 @@ func TestPasswordHashAndVerify(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run:
 
@@ -475,7 +475,7 @@ go test ./internal/auth
 
 Expected: FAIL，提示 `HashPassword` 或 `VerifyPassword` 未定义。
 
-- [ ] **Step 3: 实现密码哈希**
+- [x] **Step 3: 实现密码哈希**
 
 Create `backend/internal/auth/password.go`:
 
@@ -497,7 +497,7 @@ func VerifyPassword(hash string, password string) bool {
 }
 ```
 
-- [ ] **Step 4: 写 token 测试**
+- [x] **Step 4: 写 token 测试**
 
 Create `backend/internal/auth/token_test.go`:
 
@@ -521,7 +521,7 @@ func TestIssueAndParseToken(t *testing.T) {
 }
 ```
 
-- [ ] **Step 5: 实现 token**
+- [x] **Step 5: 实现 token**
 
 Create `backend/internal/auth/token.go`:
 
@@ -564,7 +564,7 @@ func ParseToken(secret string, raw string) (*Claims, error) {
 }
 ```
 
-- [ ] **Step 6: 写认证 API 文档**
+- [x] **Step 6: 写认证 API 文档**
 
 Create `docs/apis/auth.md`:
 
@@ -595,7 +595,7 @@ Create `docs/apis/auth.md`:
 MVP 使用 JWT 时前端删除本地 token；后端返回 `204 No Content`。
 ```
 
-- [ ] **Step 7: 验证认证模块**
+- [x] **Step 7: 验证认证模块**
 
 Run:
 
@@ -606,7 +606,7 @@ go test ./internal/auth
 
 Expected: PASS。
 
-- [ ] **Step 8: 提交认证模块**
+- [x] **Step 8: 提交认证模块**
 
 Run:
 
