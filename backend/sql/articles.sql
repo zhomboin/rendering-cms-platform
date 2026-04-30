@@ -14,7 +14,25 @@ select
   created_at,
   updated_at
 from articles
-where slug = $1;
+where slug = $1 and status = 'published';
+
+-- name: GetArticleByID :one
+select
+  article_id,
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at
+from articles
+where article_id = $1;
 
 -- name: ListPublishedArticles :many
 select
@@ -34,3 +52,111 @@ select
 from articles
 where status = 'published'
 order by published_at desc nulls last, created_at desc;
+
+-- name: ListAdminArticles :many
+select
+  article_id,
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at
+from articles
+order by updated_at desc, created_at desc;
+
+-- name: CreateDraftArticle :one
+insert into articles (
+  slug,
+  title,
+  summary,
+  body_mdx,
+  tags,
+  featured,
+  cover_image_url,
+  author_id
+) values (
+  $1, $2, $3, $4, $5, $6, $7, $8
+)
+returning
+  article_id,
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at;
+
+-- name: UpdateDraftArticle :one
+update articles
+set
+  slug = $2,
+  title = $3,
+  summary = $4,
+  body_mdx = $5,
+  tags = $6,
+  featured = $7,
+  cover_image_url = $8,
+  updated_at = now()
+where article_id = $1
+returning
+  article_id,
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at;
+
+-- name: PublishArticle :one
+update articles
+set
+  status = 'published',
+  published_at = coalesce(published_at, now()),
+  updated_at = now()
+where article_id = $1
+returning
+  article_id,
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at;
+
+-- name: CreateArticleRevision :one
+insert into article_revisions (
+  article_id,
+  title,
+  summary,
+  body_mdx,
+  status,
+  created_by
+) values (
+  $1, $2, $3, $4, $5, $6
+)
+returning revision_id, article_id, title, summary, body_mdx, status, created_by, created_at;

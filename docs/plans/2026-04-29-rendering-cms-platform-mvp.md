@@ -625,7 +625,7 @@ git commit -m "feat: add admin authentication primitives"
 - Create: `backend/cmd/import-mdx/main.go`
 - Create: `docs/apis/articles.md`
 
-- [ ] **Step 1: 写 slug 校验测试**
+- [x] **Step 1: 写 slug 校验测试**
 
 Create `backend/internal/articles/service_test.go`:
 
@@ -650,7 +650,7 @@ func TestValidateSlug(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 实现 slug 校验**
+- [x] **Step 2: 实现 slug 校验**
 
 Create `backend/internal/articles/service.go`:
 
@@ -666,7 +666,7 @@ func ValidSlug(slug string) bool {
 }
 ```
 
-- [ ] **Step 3: 定义文章接口文档**
+- [x] **Step 3: 定义文章接口文档**
 
 Create `docs/apis/articles.md`:
 
@@ -698,7 +698,7 @@ Create `docs/apis/articles.md`:
 发布文章，设置 `published_at`，并写入 `article_revisions`。
 ```
 
-- [ ] **Step 4: 创建 MDX 导入工具入口**
+- [x] **Step 4: 创建 MDX 导入工具入口**
 
 Create `backend/cmd/import-mdx/main.go`:
 
@@ -726,7 +726,7 @@ func main() {
 }
 ```
 
-- [ ] **Step 5: 验证文章模块**
+- [x] **Step 5: 验证文章模块**
 
 Run:
 
@@ -738,7 +738,7 @@ go test ./cmd/import-mdx
 
 Expected: PASS。
 
-- [ ] **Step 6: 提交文章基础**
+- [x] **Step 6: 提交文章基础**
 
 Run:
 

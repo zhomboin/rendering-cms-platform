@@ -10,9 +10,12 @@ import (
 type RouterConfig struct {
 	LoginHandler http.HandlerFunc
 	JWTSecret    string
+	PublicRoutes []RouteRegistrar
+	AdminRoutes  []RouteRegistrar
 }
 
 type RouterOption func(*RouterConfig)
+type RouteRegistrar func(chi.Router)
 
 func WithLoginHandler(handler http.HandlerFunc) RouterOption {
 	return func(config *RouterConfig) {
@@ -23,6 +26,18 @@ func WithLoginHandler(handler http.HandlerFunc) RouterOption {
 func WithJWTSecret(secret string) RouterOption {
 	return func(config *RouterConfig) {
 		config.JWTSecret = secret
+	}
+}
+
+func WithPublicRoutes(registrar RouteRegistrar) RouterOption {
+	return func(config *RouterConfig) {
+		config.PublicRoutes = append(config.PublicRoutes, registrar)
+	}
+}
+
+func WithAdminRoutes(registrar RouteRegistrar) RouterOption {
+	return func(config *RouterConfig) {
+		config.AdminRoutes = append(config.AdminRoutes, registrar)
 	}
 }
 
@@ -43,6 +58,17 @@ func NewRouter(options ...RouterOption) http.Handler {
 	})
 	if config.LoginHandler != nil {
 		router.Post("/api/v1/auth/login", config.LoginHandler)
+	}
+	for _, registrar := range config.PublicRoutes {
+		registrar(router)
+	}
+	if config.JWTSecret != "" && len(config.AdminRoutes) > 0 {
+		router.Route("/api/v1/admin", func(admin chi.Router) {
+			admin.Use(AdminAuthMiddleware(config.JWTSecret))
+			for _, registrar := range config.AdminRoutes {
+				registrar(admin)
+			}
+		})
 	}
 
 	return router

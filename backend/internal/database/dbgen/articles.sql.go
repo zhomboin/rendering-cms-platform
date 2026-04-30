@@ -7,7 +7,165 @@ package dbgen
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const createArticleRevision = `-- name: CreateArticleRevision :one
+insert into article_revisions (
+  article_id,
+  title,
+  summary,
+  body_mdx,
+  status,
+  created_by
+) values (
+  $1, $2, $3, $4, $5, $6
+)
+returning revision_id, article_id, title, summary, body_mdx, status, created_by, created_at
+`
+
+type CreateArticleRevisionParams struct {
+	ArticleID pgtype.UUID
+	Title     string
+	Summary   string
+	BodyMdx   string
+	Status    ArticleStatus
+	CreatedBy pgtype.UUID
+}
+
+func (q *Queries) CreateArticleRevision(ctx context.Context, arg CreateArticleRevisionParams) (ArticleRevision, error) {
+	row := q.db.QueryRow(ctx, createArticleRevision,
+		arg.ArticleID,
+		arg.Title,
+		arg.Summary,
+		arg.BodyMdx,
+		arg.Status,
+		arg.CreatedBy,
+	)
+	var i ArticleRevision
+	err := row.Scan(
+		&i.RevisionID,
+		&i.ArticleID,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.CreatedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createDraftArticle = `-- name: CreateDraftArticle :one
+insert into articles (
+  slug,
+  title,
+  summary,
+  body_mdx,
+  tags,
+  featured,
+  cover_image_url,
+  author_id
+) values (
+  $1, $2, $3, $4, $5, $6, $7, $8
+)
+returning
+  article_id,
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at
+`
+
+type CreateDraftArticleParams struct {
+	Slug          string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	AuthorID      pgtype.UUID
+}
+
+func (q *Queries) CreateDraftArticle(ctx context.Context, arg CreateDraftArticleParams) (Article, error) {
+	row := q.db.QueryRow(ctx, createDraftArticle,
+		arg.Slug,
+		arg.Title,
+		arg.Summary,
+		arg.BodyMdx,
+		arg.Tags,
+		arg.Featured,
+		arg.CoverImageUrl,
+		arg.AuthorID,
+	)
+	var i Article
+	err := row.Scan(
+		&i.ArticleID,
+		&i.Slug,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.Tags,
+		&i.Featured,
+		&i.CoverImageUrl,
+		&i.PublishedAt,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getArticleByID = `-- name: GetArticleByID :one
+select
+  article_id,
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at
+from articles
+where article_id = $1
+`
+
+func (q *Queries) GetArticleByID(ctx context.Context, articleID pgtype.UUID) (Article, error) {
+	row := q.db.QueryRow(ctx, getArticleByID, articleID)
+	var i Article
+	err := row.Scan(
+		&i.ArticleID,
+		&i.Slug,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.Tags,
+		&i.Featured,
+		&i.CoverImageUrl,
+		&i.PublishedAt,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
 
 const getArticleBySlug = `-- name: GetArticleBySlug :one
 select
@@ -25,7 +183,7 @@ select
   created_at,
   updated_at
 from articles
-where slug = $1
+where slug = $1 and status = 'published'
 `
 
 func (q *Queries) GetArticleBySlug(ctx context.Context, slug string) (Article, error) {
@@ -47,6 +205,59 @@ func (q *Queries) GetArticleBySlug(ctx context.Context, slug string) (Article, e
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listAdminArticles = `-- name: ListAdminArticles :many
+select
+  article_id,
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at
+from articles
+order by updated_at desc, created_at desc
+`
+
+func (q *Queries) ListAdminArticles(ctx context.Context) ([]Article, error) {
+	rows, err := q.db.Query(ctx, listAdminArticles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Article
+	for rows.Next() {
+		var i Article
+		if err := rows.Scan(
+			&i.ArticleID,
+			&i.Slug,
+			&i.Title,
+			&i.Summary,
+			&i.BodyMdx,
+			&i.Status,
+			&i.Tags,
+			&i.Featured,
+			&i.CoverImageUrl,
+			&i.PublishedAt,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listPublishedArticles = `-- name: ListPublishedArticles :many
@@ -101,4 +312,117 @@ func (q *Queries) ListPublishedArticles(ctx context.Context) ([]Article, error) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const publishArticle = `-- name: PublishArticle :one
+update articles
+set
+  status = 'published',
+  published_at = coalesce(published_at, now()),
+  updated_at = now()
+where article_id = $1
+returning
+  article_id,
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at
+`
+
+func (q *Queries) PublishArticle(ctx context.Context, articleID pgtype.UUID) (Article, error) {
+	row := q.db.QueryRow(ctx, publishArticle, articleID)
+	var i Article
+	err := row.Scan(
+		&i.ArticleID,
+		&i.Slug,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.Tags,
+		&i.Featured,
+		&i.CoverImageUrl,
+		&i.PublishedAt,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateDraftArticle = `-- name: UpdateDraftArticle :one
+update articles
+set
+  slug = $2,
+  title = $3,
+  summary = $4,
+  body_mdx = $5,
+  tags = $6,
+  featured = $7,
+  cover_image_url = $8,
+  updated_at = now()
+where article_id = $1
+returning
+  article_id,
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at
+`
+
+type UpdateDraftArticleParams struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+}
+
+func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticleParams) (Article, error) {
+	row := q.db.QueryRow(ctx, updateDraftArticle,
+		arg.ArticleID,
+		arg.Slug,
+		arg.Title,
+		arg.Summary,
+		arg.BodyMdx,
+		arg.Tags,
+		arg.Featured,
+		arg.CoverImageUrl,
+	)
+	var i Article
+	err := row.Scan(
+		&i.ArticleID,
+		&i.Slug,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.Tags,
+		&i.Featured,
+		&i.CoverImageUrl,
+		&i.PublishedAt,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

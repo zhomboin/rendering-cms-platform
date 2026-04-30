@@ -17,25 +17,34 @@
 
 ## 子任务
 
-- [ ] 在 `service_test.go` 编写 `TestValidateSlug`。
-- [ ] 在 `service.go` 实现 `ValidSlug(slug string) bool`，规则为 `^[a-z0-9]+(?:-[a-z0-9]+)*$`。
-- [ ] 在 `backend/sql/articles.sql` 增加创建草稿文章 SQL。
-- [ ] 在 `backend/sql/articles.sql` 增加更新草稿文章 SQL。
-- [ ] 在 `backend/sql/articles.sql` 增加发布文章 SQL，设置 `status='published'` 和 `published_at`。
-- [ ] 在 `backend/sql/articles.sql` 增加写入 `article_revisions` SQL。
-- [ ] 在 `backend/sql/articles.sql` 增加公开文章列表 SQL，只返回 `published`。
-- [ ] 在 `backend/sql/articles.sql` 增加公开文章详情 SQL，只返回 `published`。
-- [ ] 在 `handler.go` 实现 `GET /api/v1/articles`。
-- [ ] 在 `handler.go` 实现 `GET /api/v1/articles/{slug}`。
-- [ ] 在 `handler.go` 实现 `GET /api/v1/admin/articles`。
-- [ ] 在 `handler.go` 实现 `POST /api/v1/admin/articles`。
-- [ ] 在 `handler.go` 实现 `PATCH /api/v1/admin/articles/{id}`。
-- [ ] 在 `handler.go` 实现 `POST /api/v1/admin/articles/{id}/publish`。
-- [ ] 创建 `backend/cmd/import-mdx/main.go`，支持 `-source` 参数扫描 `*.mdx`。
-- [ ] 导入工具第一版输出待导入文件列表，后续接入数据库写入。
-- [ ] 创建 `docs/apis/articles.md`，记录公开和后台文章 API。
-- [ ] 运行 `cd backend && go test ./internal/articles`。
-- [ ] 运行 `cd backend && go test ./cmd/import-mdx`。
+- [x] 在 `service_test.go` 编写 `TestValidateSlug`。
+- [x] 在 `service.go` 实现 `ValidSlug(slug string) bool`，规则为 `^[a-z0-9]+(?:-[a-z0-9]+)*$`。
+- [x] 在 `backend/sql/articles.sql` 增加创建草稿文章 SQL。
+- [x] 在 `backend/sql/articles.sql` 增加更新草稿文章 SQL。
+- [x] 在 `backend/sql/articles.sql` 增加发布文章 SQL，设置 `status='published'` 和 `published_at`。
+- [x] 在 `backend/sql/articles.sql` 增加写入 `article_revisions` SQL。
+- [x] 在 `backend/sql/articles.sql` 增加公开文章列表 SQL，只返回 `published`。
+- [x] 在 `backend/sql/articles.sql` 增加公开文章详情 SQL，只返回 `published`。
+- [x] 在 `handler.go` 实现 `GET /api/v1/articles`。
+- [x] 在 `handler.go` 实现 `GET /api/v1/articles/{slug}`。
+- [x] 在 `handler.go` 实现 `GET /api/v1/admin/articles`。
+- [x] 在 `handler.go` 实现 `POST /api/v1/admin/articles`。
+- [x] 在 `handler.go` 实现 `PATCH /api/v1/admin/articles/{id}`。
+- [x] 在 `handler.go` 实现 `POST /api/v1/admin/articles/{id}/publish`。
+- [x] 创建 `backend/cmd/import-mdx/main.go`，支持 `-source` 参数扫描 `*.mdx`。
+- [x] 导入工具第一版输出待导入文件列表，后续接入数据库写入。
+- [x] 创建 `docs/apis/articles.md`，记录公开和后台文章 API。
+- [x] 运行 `cd backend && go test ./internal/articles`。
+- [x] 运行 `cd backend && go test ./cmd/import-mdx`。
+
+## 完成记录
+
+- 完成时间：2026-04-30。
+- 公开文章接口只读取 `published` 状态文章。
+- 后台文章接口挂载在 `/api/v1/admin/articles`，由后台认证中间件保护。
+- 创建草稿、更新草稿和发布文章都会写入 `article_revisions`。
+- MDX 导入工具第一版支持 `-source` 扫描并输出 `.mdx` 文件列表。
+- 验证命令已通过：`cd backend && go test ./internal/articles ./cmd/import-mdx ./...`。
 
 ## 验收标准
 
