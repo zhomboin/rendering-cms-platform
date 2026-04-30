@@ -83,7 +83,7 @@
 - Create: `frontend/src/main.tsx`
 - Create: `frontend/src/routes/index.tsx`
 
-- [ ] **Step 1: 初始化后端模块**
+- [x] **Step 1: 初始化后端模块**
 
 Run:
 
@@ -96,7 +96,7 @@ go get github.com/go-chi/chi/v5 github.com/jackc/pgx/v5/pgxpool github.com/golan
 
 Expected: `backend/go.mod` 存在，并包含 `module rendering-cms-platform/backend`。
 
-- [ ] **Step 2: 写入配置结构**
+- [x] **Step 2: 写入配置结构**
 
 Create `backend/internal/config/config.go`:
 
@@ -140,7 +140,7 @@ func getEnv(key string, fallback string) string {
 }
 ```
 
-- [ ] **Step 3: 写入健康检查路由**
+- [x] **Step 3: 写入健康检查路由**
 
 Create `backend/internal/http/router.go`:
 
@@ -164,7 +164,7 @@ func NewRouter() nethttp.Handler {
 }
 ```
 
-- [ ] **Step 4: 写入服务入口**
+- [x] **Step 4: 写入服务入口**
 
 Create `backend/cmd/server/main.go`:
 
@@ -188,7 +188,7 @@ func main() {
 }
 ```
 
-- [ ] **Step 5: 初始化前端**
+- [x] **Step 5: 初始化前端**
 
 Run:
 
@@ -201,7 +201,7 @@ npm install react-router-dom @tanstack/react-query antd
 
 Expected: `frontend/package.json` 存在，且 `npm run build` 可执行。
 
-- [ ] **Step 6: 验证骨架**
+- [x] **Step 6: 验证骨架**
 
 Run:
 
@@ -214,7 +214,7 @@ npm run build
 
 Expected: 后端测试通过，前端生产构建成功。
 
-- [ ] **Step 7: 提交骨架**
+- [x] **Step 7: 提交骨架**
 
 Run:
 

@@ -18,18 +18,26 @@
 
 ## 子任务
 
-- [ ] 创建后端目录：`backend/cmd/server`、`backend/internal/config`、`backend/internal/http`。
-- [ ] 在 `backend/` 下执行 `go mod init rendering-cms-platform/backend`。
-- [ ] 安装后端基础依赖：`chi`、`pgxpool`、`jwt`、`bcrypt`、`uuid`、`aws-sdk-go-v2`。
-- [ ] 在 `backend/internal/config/config.go` 实现 `Config` 结构和 `Load()`，读取 `HTTP_ADDR`、`DATABASE_URL`、`JWT_SECRET`、`FRONTEND_ORIGIN`、S3 配置。
-- [ ] 在 `backend/internal/http/router.go` 实现 `NewRouter()`。
-- [ ] 添加 `GET /api/v1/health`，返回 `{ "status": "ok" }`。
-- [ ] 在 `backend/cmd/server/main.go` 启动 HTTP 服务，默认监听 `:8080`。
-- [ ] 创建前端 Vite React TypeScript 项目。
-- [ ] 安装前端基础依赖：`react-router-dom`、`@tanstack/react-query`、`antd`。
-- [ ] 创建 `frontend/src/routes/index.tsx`，集中声明后续页面路由入口。
-- [ ] 运行 `cd backend && go test ./...`。
-- [ ] 运行 `cd frontend && npm run build`。
+- [x] 创建后端目录：`backend/cmd/server`、`backend/internal/config`、`backend/internal/http`。
+- [x] 在 `backend/` 下执行 `go mod init rendering-cms-platform/backend`。
+- [x] 安装后端基础依赖：`chi`、`pgxpool`、`jwt`、`bcrypt`、`uuid`、`aws-sdk-go-v2`。
+- [x] 在 `backend/internal/config/config.go` 实现 `Config` 结构和 `Load()`，读取 `HTTP_ADDR`、`DATABASE_URL`、`JWT_SECRET`、`FRONTEND_ORIGIN`、S3 配置。
+- [x] 在 `backend/internal/http/router.go` 实现 `NewRouter()`。
+- [x] 添加 `GET /api/v1/health`，返回 `{ "status": "ok" }`。
+- [x] 在 `backend/cmd/server/main.go` 启动 HTTP 服务，默认监听 `:8080`。
+- [x] 创建前端 Vite React TypeScript 项目。
+- [x] 安装前端基础依赖：`react-router-dom`、`@tanstack/react-query`、`antd`。
+- [x] 创建 `frontend/src/routes/index.tsx`，集中声明后续页面路由入口。
+- [x] 运行 `cd backend && go test ./...`。
+- [x] 运行 `cd frontend && npm run build`。
+
+## 完成记录
+
+- 完成时间：2026-04-30。
+- 后端已提供 `GET /api/v1/health`，返回 `{ "status": "ok" }`。
+- 后端已补充 `config.Load()` 和路由单元测试。
+- 前端已完成 Vite + React + TypeScript 最小后台壳层。
+- 验证命令已通过：`cd backend && go test ./...`、`cd frontend && npm run build`。
 
 ## 验收标准
 
