@@ -22,22 +22,22 @@
 
 ## 子任务
 
-- [ ] 在 `frontend/src/api/client.ts` 定义 `API_BASE`，默认值为 `http://127.0.0.1:8080/api/v1`。
-- [ ] 在 `client.ts` 实现 `apiGet<T>(path: string)`。
-- [ ] 在 `client.ts` 实现 `apiPost<T>(path: string, body: unknown)`。
-- [ ] 在 `client.ts` 统一处理非 2xx 响应。
-- [ ] 创建 `LoginPage.tsx`，包含邮箱、密码和登录按钮。
-- [ ] 创建 `ArticleListPage.tsx`，用于公开文章列表。
-- [ ] 创建 `ArticleDetailPage.tsx`，用于公开文章详情和评论展示入口。
-- [ ] 创建 `AdminArticleListPage.tsx`，用于后台文章列表。
-- [ ] 创建 `AdminArticleEditorPage.tsx`，包含标题、slug、摘要、标签、MDX 正文、保存草稿、发布按钮。
-- [ ] 将 `AdminDashboardPage.tsx` 接入 API client。
-- [ ] 将 `AdminCommentsPage.tsx` 接入评论审核 API 的页面结构。
-- [ ] 将 `AdminAssetsPage.tsx` 接入上传和下载 API 的页面结构。
-- [ ] 在 `routes/index.tsx` 声明公开路由：`/`、`/articles/:slug`。
-- [ ] 在 `routes/index.tsx` 声明后台路由：`/admin/login`、`/admin`、`/admin/articles`、`/admin/articles/new`、`/admin/comments`、`/admin/assets`。
-- [ ] 在 `main.tsx` 挂载 React Router 和 TanStack Query。
-- [ ] 运行 `cd frontend && npm run build`。
+- [x] 在 `frontend/src/api/client.ts` 定义 `API_BASE`，默认值为 `http://127.0.0.1:8080/api/v1`。
+- [x] 在 `client.ts` 实现 `apiGet<T>(path: string)`。
+- [x] 在 `client.ts` 实现 `apiPost<T>(path: string, body: unknown)`。
+- [x] 在 `client.ts` 统一处理非 2xx 响应。
+- [x] 创建 `LoginPage.tsx`，包含邮箱、密码和登录按钮。
+- [x] 创建 `ArticleListPage.tsx`，用于公开文章列表。
+- [x] 创建 `ArticleDetailPage.tsx`，用于公开文章详情和评论展示入口。
+- [x] 创建 `AdminArticleListPage.tsx`，用于后台文章列表。
+- [x] 创建 `AdminArticleEditorPage.tsx`，包含标题、slug、摘要、标签、MDX 正文、保存草稿、发布按钮。
+- [x] 将 `AdminDashboardPage.tsx` 接入 API client。
+- [x] 将 `AdminCommentsPage.tsx` 接入评论审核 API 的页面结构。
+- [x] 将 `AdminAssetsPage.tsx` 接入上传和下载 API 的页面结构。
+- [x] 在 `routes/index.tsx` 声明公开路由：`/`、`/articles/:slug`。
+- [x] 在 `routes/index.tsx` 声明后台路由：`/admin/login`、`/admin`、`/admin/articles`、`/admin/articles/new`、`/admin/comments`、`/admin/assets`。
+- [x] 在 `main.tsx` 挂载 React Router 和 TanStack Query。
+- [x] 运行 `cd frontend && npm run build`。
 
 ## 验收标准
 
@@ -52,3 +52,10 @@
 git add frontend/src
 git commit -m "feat: add cms frontend shell"
 ```
+
+## 完成记录
+
+- API client 统一读取 `VITE_API_BASE`，默认回退到 `http://127.0.0.1:8080/api/v1`，并统一处理非 2xx 响应。
+- 登录成功后保存 Bearer token，后台 API 请求自动携带 `Authorization`。
+- 公开文章列表、文章详情、评论提交、后台文章列表、文章编辑、统计、评论和资源页面均已接入 API client。
+- `/` 作为公开文章列表入口，`/articles/:slug` 作为详情页入口。

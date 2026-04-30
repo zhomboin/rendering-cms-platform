@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8080/api/v1';
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:8080/api/v1';
+const AUTH_TOKEN_KEY = 'rendering-cms-token';
 
 interface ApiError {
   status: number;
@@ -35,7 +36,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: jsonHeaders(),
     credentials: 'include',
   });
   return handleResponse<T>(response);
@@ -44,7 +45,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: jsonHeaders(),
     credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
@@ -54,11 +55,30 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
 export async function apiPatch<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: jsonHeaders(),
     credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return handleResponse<T>(response);
+}
+
+function jsonHeaders(): HeadersInit {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+export function setAuthToken(token: string) {
+  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+export function clearAuthToken() {
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+export function getAuthToken() {
+  return window.localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
 export { ApiRequestError };

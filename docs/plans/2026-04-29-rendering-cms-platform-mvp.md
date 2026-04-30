@@ -1126,7 +1126,7 @@ git commit -m "feat: add asset upload validation"
 - Modify: `frontend/src/routes/index.tsx`
 - Modify: `frontend/src/main.tsx`
 
-- [ ] **Step 1: 创建 API client**
+- [x] **Step 1: 创建 API client**
 
 Create `frontend/src/api/client.ts`:
 
@@ -1142,7 +1142,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 ```
 
-- [ ] **Step 2: 创建登录页**
+- [x] **Step 2: 创建登录页**
 
 Create `frontend/src/features/auth/LoginPage.tsx`:
 
@@ -1167,7 +1167,7 @@ export function LoginPage() {
 }
 ```
 
-- [ ] **Step 3: 创建公开文章列表页**
+- [x] **Step 3: 创建公开文章列表页**
 
 Create `frontend/src/features/articles/ArticleListPage.tsx`:
 
@@ -1182,7 +1182,7 @@ export function ArticleListPage() {
 }
 ```
 
-- [ ] **Step 4: 创建后台文章页面**
+- [x] **Step 4: 创建后台文章页面**
 
 Create `frontend/src/features/articles/AdminArticleListPage.tsx`:
 
@@ -1212,7 +1212,7 @@ export function AdminArticleEditorPage() {
 }
 ```
 
-- [ ] **Step 5: 验证前端构建**
+- [x] **Step 5: 验证前端构建**
 
 Run:
 
@@ -1223,7 +1223,7 @@ npm run build
 
 Expected: build success。
 
-- [ ] **Step 6: 提交前端壳层**
+- [x] **Step 6: 提交前端壳层**
 
 Run:
 

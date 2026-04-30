@@ -1,87 +1,25 @@
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Button, Tag, Input, Select, Space, Typography, Popconfirm } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Button, Tag, Input, Select, Space, Typography, Alert } from 'antd';
+import { PlusOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiGet } from '../../api/client';
 
 const { Title } = Typography;
 const { Search } = Input;
 
 interface ArticleItem {
-  id: number;
+  articleId: string;
   title: string;
   slug: string;
+  summary: string;
+  bodyMdx: string;
   status: 'draft' | 'published' | 'archived';
   tags: string[];
   publishedAt: string | null;
+  updatedAt: string;
 }
-
-const mockArticles: ArticleItem[] = [
-  {
-    id: 1,
-    title: 'Go 语言并发编程实战',
-    slug: 'go-concurrency-in-practice',
-    status: 'published',
-    tags: ['Go', '并发'],
-    publishedAt: '2026-04-28 10:00',
-  },
-  {
-    id: 2,
-    title: 'React 19 新特性解读',
-    slug: 'react-19-new-features',
-    status: 'published',
-    tags: ['React', '前端'],
-    publishedAt: '2026-04-25 14:30',
-  },
-  {
-    id: 3,
-    title: '使用 Chi 构建 RESTful API',
-    slug: 'building-rest-api-with-chi',
-    status: 'draft',
-    tags: ['Go', 'API'],
-    publishedAt: null,
-  },
-  {
-    id: 4,
-    title: 'PostgreSQL 索引优化指南',
-    slug: 'postgresql-index-optimization',
-    status: 'published',
-    tags: ['PostgreSQL', '数据库'],
-    publishedAt: '2026-04-20 09:15',
-  },
-  {
-    id: 5,
-    title: '深入理解 MDX 与内容管理',
-    slug: 'understanding-mdx-content-management',
-    status: 'draft',
-    tags: ['MDX', 'CMS'],
-    publishedAt: null,
-  },
-  {
-    id: 6,
-    title: 'TypeScript 5.0 装饰器完全指南',
-    slug: 'typescript-5-decorators-guide',
-    status: 'archived',
-    tags: ['TypeScript'],
-    publishedAt: '2026-03-15 11:00',
-  },
-  {
-    id: 7,
-    title: 'Docker 多阶段构建最佳实践',
-    slug: 'docker-multi-stage-build-best-practices',
-    status: 'published',
-    tags: ['Docker', 'DevOps'],
-    publishedAt: '2026-04-10 16:45',
-  },
-  {
-    id: 8,
-    title: '使用 sqlc 生成类型安全 Go 代码',
-    slug: 'type-safe-go-with-sqlc',
-    status: 'draft',
-    tags: ['Go', 'sqlc', '数据库'],
-    publishedAt: null,
-  },
-];
 
 const statusOptions = [
   { value: '', label: '全部' },
@@ -90,31 +28,42 @@ const statusOptions = [
   { value: 'archived', label: '已归档' },
 ];
 
-const statusConfig: Record<
-  ArticleItem['status'],
-  { color: string; label: string }
-> = {
+const statusConfig: Record<ArticleItem['status'], { color: string; label: string }> = {
   draft: { color: 'default', label: '草稿' },
   published: { color: 'success', label: '已发布' },
   archived: { color: 'warning', label: '已归档' },
 };
 
+function formatDate(value: string | null) {
+  if (!value) return '-';
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
 export default function AdminArticleListPage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
-
-  const filteredArticles = mockArticles.filter((article) => {
-    const matchStatus = !statusFilter || article.status === statusFilter;
-    const matchTitle =
-      !searchText ||
-      article.title.toLowerCase().includes(searchText.toLowerCase());
-    return matchStatus && matchTitle;
+  const { data = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['admin-articles'],
+    queryFn: () => apiGet<ArticleItem[]>('/admin/articles'),
   });
 
-  const handleDelete = (id: number) => {
-    console.log('Delete article', id);
-  };
+  const filteredArticles = useMemo(
+    () =>
+      data.filter((article) => {
+        const matchStatus = !statusFilter || article.status === statusFilter;
+        const keyword = searchText.trim().toLowerCase();
+        const matchTitle = !keyword || article.title.toLowerCase().includes(keyword) || article.slug.includes(keyword);
+        return matchStatus && matchTitle;
+      }),
+    [data, searchText, statusFilter],
+  );
 
   const columns: ColumnsType<ArticleItem> = [
     {
@@ -122,10 +71,7 @@ export default function AdminArticleListPage() {
       dataIndex: 'title',
       key: 'title',
       render: (text: string, record: ArticleItem) => (
-        <a
-          onClick={() => navigate(`/admin/articles/${record.id}/edit`)}
-          style={{ color: '#4F46E5', fontWeight: 500 }}
-        >
+        <a onClick={() => navigate(`/admin/articles/${record.articleId}/edit`)} style={{ color: '#4F46E5', fontWeight: 500 }}>
           {text}
         </a>
       ),
@@ -158,79 +104,50 @@ export default function AdminArticleListPage() {
       title: '发布时间',
       dataIndex: 'publishedAt',
       key: 'publishedAt',
-      width: 170,
-      render: (val: string | null) => val ?? '-',
+      width: 180,
+      render: (val: string | null) => formatDate(val),
     },
     {
       title: '操作',
       key: 'action',
-      width: 140,
+      width: 100,
       render: (_: unknown, record: ArticleItem) => (
-        <Space size={8}>
-          <Button
-            type="link"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => navigate(`/admin/articles/${record.id}/edit`)}
-          >
-            编辑
-          </Button>
-          <Popconfirm
-            title="确认删除"
-            description="确定要删除这篇文章吗？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确认"
-            cancelText="取消"
-          >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-              删除
-            </Button>
-          </Popconfirm>
-        </Space>
+        <Button type="link" size="small" icon={<EditOutlined />} onClick={() => navigate(`/admin/articles/${record.articleId}/edit`)}>
+          编辑
+        </Button>
       ),
     },
   ];
 
   return (
     <div style={{ padding: 24 }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}
-      >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, gap: 16 }}>
         <Title level={1} style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>
           文章管理
         </Title>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5' }}
-          onClick={() => navigate('/admin/articles/new')}
-        >
-          新建文章
-        </Button>
+        <Space>
+          <Button icon={<ReloadOutlined />} loading={isLoading} onClick={() => refetch()}>
+            刷新
+          </Button>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5' }}
+            onClick={() => navigate('/admin/articles/new')}
+          >
+            新建文章
+          </Button>
+        </Space>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          gap: 12,
-          marginBottom: 20,
-          flexWrap: 'wrap',
-        }}
-      >
-        <Select
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={statusOptions}
-          style={{ width: 140 }}
-          placeholder="状态筛选"
-        />
+      {error && (
+        <Alert type="error" showIcon message={error instanceof Error ? error.message : '后台文章列表读取失败'} style={{ marginBottom: 20 }} />
+      )}
+
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+        <Select value={statusFilter} onChange={setStatusFilter} options={statusOptions} style={{ width: 140 }} placeholder="状态筛选" />
         <Search
-          placeholder="搜索文章标题..."
+          placeholder="搜索文章标题或 slug"
           allowClear
           onSearch={setSearchText}
           onChange={(e) => {
@@ -243,17 +160,17 @@ export default function AdminArticleListPage() {
       <Table<ArticleItem>
         columns={columns}
         dataSource={filteredArticles}
-        rowKey="id"
+        rowKey="articleId"
+        loading={isLoading}
         pagination={{
           pageSize: 10,
           showSizeChanger: false,
           showTotal: (total) => `共 ${total} 篇文章`,
         }}
         onRow={(record) => ({
-          onClick: () => navigate(`/admin/articles/${record.id}/edit`),
+          onClick: () => navigate(`/admin/articles/${record.articleId}/edit`),
           style: { cursor: 'pointer', height: 48 },
         })}
-        rowClassName={() => 'admin-article-row'}
         style={{ borderCollapse: 'collapse' }}
       />
     </div>

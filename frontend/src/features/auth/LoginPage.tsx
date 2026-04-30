@@ -2,13 +2,17 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Form, Input, Button, Typography, App } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
-import { apiPost } from '../../api/client';
+import { apiPost, setAuthToken } from '../../api/client';
 
 const { Title } = Typography;
 
 interface LoginFormValues {
   email: string;
   password: string;
+}
+
+interface LoginResponse {
+  token: string;
 }
 
 function LoginForm() {
@@ -19,10 +23,11 @@ function LoginForm() {
   const handleSubmit = async (values: LoginFormValues) => {
     setLoading(true);
     try {
-      await apiPost('/auth/login', {
+      const response = await apiPost<LoginResponse>('/auth/login', {
         email: values.email,
         password: values.password,
       });
+      setAuthToken(response.token);
       void message.success('登录成功');
       navigate('/admin');
     } catch (err) {
