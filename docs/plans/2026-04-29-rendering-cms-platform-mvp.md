@@ -1240,7 +1240,7 @@ git commit -m "feat: add cms frontend shell"
 - Create: `docs/operations/deployment.md`
 - Modify: `docs/plans/2026-04-29-rendering-cms-platform-mvp.md`
 
-- [ ] **Step 1: 写 API 索引**
+- [x] **Step 1: 写 API 索引**
 
 Create `docs/apis/README.md`:
 
@@ -1254,7 +1254,7 @@ Create `docs/apis/README.md`:
 - [文件 API](./assets.md)
 ```
 
-- [ ] **Step 2: 写部署文档**
+- [x] **Step 2: 写部署文档**
 
 Create `docs/operations/deployment.md`:
 
@@ -1285,7 +1285,7 @@ S3_SECRET_ACCESS_KEY=replace-me
 6. 请求 `/api/v1/health`。
 ```
 
-- [ ] **Step 3: 运行 MVP 验证**
+- [x] **Step 3: 运行 MVP 验证**
 
 Run:
 
@@ -1299,7 +1299,7 @@ npm run build
 
 Expected: 后端测试和 vet 通过，前端 build 通过。
 
-- [ ] **Step 4: 提交 MVP 文档**
+- [x] **Step 4: 提交 MVP 文档**
 
 Run:
 
