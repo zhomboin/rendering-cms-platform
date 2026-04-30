@@ -8,6 +8,7 @@ import (
 	"rendering-cms-platform/backend/internal/analytics"
 	"rendering-cms-platform/backend/internal/articles"
 	"rendering-cms-platform/backend/internal/auth"
+	"rendering-cms-platform/backend/internal/comments"
 	"rendering-cms-platform/backend/internal/config"
 	"rendering-cms-platform/backend/internal/database"
 	"rendering-cms-platform/backend/internal/database/dbgen"
@@ -30,6 +31,7 @@ func main() {
 	userFinder := auth.NewDatabaseUserFinder(queries)
 	articleHandler := articles.NewHandler(queries)
 	analyticsHandler := analytics.NewHandler(queries)
+	commentHandler := comments.NewHandler(queries)
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
@@ -38,8 +40,10 @@ func main() {
 			httpapi.WithLoginHandler(auth.NewLoginHandler(cfg.JWTSecret, userFinder)),
 			httpapi.WithPublicRoutes(articleHandler.RegisterPublicRoutes),
 			httpapi.WithPublicRoutes(analyticsHandler.RegisterPublicRoutes),
+			httpapi.WithPublicRoutes(commentHandler.RegisterPublicRoutes),
 			httpapi.WithAdminRoutes(articleHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(analyticsHandler.RegisterAdminRoutes),
+			httpapi.WithAdminRoutes(commentHandler.RegisterAdminRoutes),
 		),
 	}
 

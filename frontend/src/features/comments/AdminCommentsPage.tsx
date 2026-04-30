@@ -1,109 +1,26 @@
-import { useState } from 'react';
-import { Tabs, Card, Button, Tag, Typography, Space, Badge } from 'antd';
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
-import { message } from 'antd';
+import { useMemo, useState } from 'react';
+import { Tabs, Card, Button, Tag, Typography, Space, Badge, Empty, message } from 'antd';
+import { CheckOutlined, CloseOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiGet, apiPatch } from '../../api/client';
 
 const { Title, Text, Paragraph } = Typography;
 
 type CommentStatus = 'pending' | 'approved' | 'rejected';
 
-interface Comment {
-  id: number;
-  author: string;
-  email: string;
-  body: string;
+interface AdminComment {
+  commentId: string;
+  articleId: string;
+  articleSlug: string;
   articleTitle: string;
-  articleId: number;
-  createdAt: string;
+  authorName: string;
+  authorEmail: string | null;
+  body: string;
   status: CommentStatus;
-  reviewedAt?: string;
+  userAgent: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
 }
-
-const mockComments: Comment[] = [
-  {
-    id: 1,
-    author: '张三',
-    email: 'zhangsan@example.com',
-    body: '写得非常好，对 React Server Components 的理解又加深了一层。特别是关于数据获取的部分，讲得很透彻。',
-    articleTitle: '深入理解 React Server Components',
-    articleId: 1,
-    createdAt: '2026-04-30 14:23',
-    status: 'pending',
-  },
-  {
-    id: 2,
-    author: '李四',
-    email: 'lisi@example.com',
-    body: '请问 Go 的 goroutine 和线程的主要区别是什么？文章里提到了一些但没有深入展开。',
-    articleTitle: 'Go 语言并发编程实战',
-    articleId: 2,
-    createdAt: '2026-04-30 12:05',
-    status: 'pending',
-  },
-  {
-    id: 3,
-    author: '王五',
-    email: 'wangwu@example.com',
-    body: '好文章！期待更多 TypeScript 类型体操的内容。',
-    articleTitle: 'TypeScript 类型体操进阶',
-    articleId: 3,
-    createdAt: '2026-04-30 10:47',
-    status: 'pending',
-  },
-  {
-    id: 4,
-    author: '赵六',
-    email: 'zhaoliu@example.com',
-    body: 'PostgreSQL 的索引优化一直是个难点，这篇文章总结得很清晰。',
-    articleTitle: 'PostgreSQL 索引优化指南',
-    articleId: 4,
-    createdAt: '2026-04-30 09:12',
-    status: 'pending',
-  },
-  {
-    id: 5,
-    author: '孙七',
-    email: 'sunqi@example.com',
-    body: 'Chi 的路由设计确实简洁，最近也在用这个库。',
-    articleTitle: '使用 Chi 构建 RESTful API',
-    articleId: 5,
-    createdAt: '2026-04-29 22:30',
-    status: 'pending',
-  },
-  {
-    id: 6,
-    author: '周八',
-    email: 'zhouba@example.com',
-    body: '写得很好，已收藏！希望后续能有更多实战案例。',
-    articleTitle: '深入理解 React Server Components',
-    articleId: 1,
-    createdAt: '2026-04-29 16:18',
-    status: 'approved',
-    reviewedAt: '2026-04-30 08:00',
-  },
-  {
-    id: 7,
-    author: '吴九',
-    email: 'wujiu@example.com',
-    body: '这篇文章对新手很友好，推荐给团队的小伙伴们了。',
-    articleTitle: 'Go 语言并发编程实战',
-    articleId: 2,
-    createdAt: '2026-04-28 20:45',
-    status: 'approved',
-    reviewedAt: '2026-04-29 10:30',
-  },
-  {
-    id: 8,
-    author: '郑十',
-    email: 'zhengshi@example.com',
-    body: '内容不错但有些错别字，希望作者能修正一下。',
-    articleTitle: 'TypeScript 类型体操进阶',
-    articleId: 3,
-    createdAt: '2026-04-27 15:33',
-    status: 'rejected',
-    reviewedAt: '2026-04-28 09:00',
-  },
-];
 
 const statusBorderColor: Record<CommentStatus, string> = {
   pending: '#F59E0B',
@@ -111,7 +28,7 @@ const statusBorderColor: Record<CommentStatus, string> = {
   rejected: '#EF4444',
 };
 
-const statusBadgeColor: Record<CommentStatus, string> = {
+const statusBadgeColor: Record<CommentStatus, 'warning' | 'success' | 'error'> = {
   pending: 'warning',
   approved: 'success',
   rejected: 'error',
@@ -123,43 +40,56 @@ const statusLabel: Record<CommentStatus, string> = {
   rejected: '已拒绝',
 };
 
+function formatDate(value: string | null) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
 function CommentCard({
   comment,
+  reviewing,
   onApprove,
   onReject,
 }: {
-  comment: Comment;
-  onApprove: (id: number) => void;
-  onReject: (id: number) => void;
+  comment: AdminComment;
+  reviewing: boolean;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
 }) {
   return (
     <Card
       style={{
-        borderRadius: 24,
+        borderRadius: 8,
         padding: 20,
         background: '#FFFFFF',
-        border: `1px solid #E2E8F0`,
+        border: '1px solid #E2E8F0',
         borderLeft: `4px solid ${statusBorderColor[comment.status]}`,
         boxShadow: '0 1px 3px 0 rgba(0,0,0,0.06)',
         marginBottom: 16,
       }}
       styles={{ body: { padding: 0 } }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
             <Text strong style={{ fontSize: 14, color: '#0F172A' }}>
-              {comment.author}
+              {comment.authorName}
             </Text>
-            <Text style={{ fontSize: 12, color: '#64748B' }}>{comment.email}</Text>
-            {comment.status !== 'pending' && (
-              <Tag
-                color={statusBadgeColor[comment.status] as 'success' | 'error' | 'warning'}
-                style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px', marginLeft: 8 }}
-              >
-                {statusLabel[comment.status]}
-              </Tag>
+            {comment.authorEmail && (
+              <Text style={{ fontSize: 12, color: '#64748B' }}>{comment.authorEmail}</Text>
             )}
+            <Tag
+              color={statusBadgeColor[comment.status]}
+              style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px' }}
+            >
+              {statusLabel[comment.status]}
+            </Tag>
           </div>
 
           <Paragraph
@@ -178,31 +108,28 @@ function CommentCard({
             <Text style={{ fontSize: 12, color: '#4F46E5' }}>
               文章：{comment.articleTitle}
             </Text>
-            <Text style={{ fontSize: 12, color: '#94A3B8' }}>|</Text>
-            <Text style={{ fontSize: 12, color: '#64748B' }}>{comment.createdAt}</Text>
+            <Text style={{ fontSize: 12, color: '#64748B' }}>{formatDate(comment.createdAt)}</Text>
             {comment.reviewedAt && (
-              <>
-                <Text style={{ fontSize: 12, color: '#94A3B8' }}>|</Text>
-                <Text style={{ fontSize: 12, color: '#64748B' }}>
-                  审核于 {comment.reviewedAt}
-                </Text>
-              </>
+              <Text style={{ fontSize: 12, color: '#64748B' }}>
+                审核于 {formatDate(comment.reviewedAt)}
+              </Text>
             )}
           </div>
         </div>
 
         {comment.status === 'pending' && (
-          <Space style={{ marginLeft: 20, flexShrink: 0 }}>
+          <Space style={{ flexShrink: 0 }}>
             <Button
               type="primary"
               size="small"
               icon={<CheckOutlined />}
+              loading={reviewing}
               style={{
                 borderRadius: 8,
                 background: '#22C55E',
                 borderColor: '#22C55E',
               }}
-              onClick={() => onApprove(comment.id)}
+              onClick={() => onApprove(comment.commentId)}
             >
               通过
             </Button>
@@ -210,8 +137,9 @@ function CommentCard({
               size="small"
               danger
               icon={<CloseOutlined />}
+              loading={reviewing}
               style={{ borderRadius: 8 }}
-              onClick={() => onReject(comment.id)}
+              onClick={() => onReject(comment.commentId)}
             >
               拒绝
             </Button>
@@ -223,58 +151,73 @@ function CommentCard({
 }
 
 function AdminCommentsPage() {
-  const [comments, setComments] = useState<Comment[]>(mockComments);
-  const [activeTab, setActiveTab] = useState<string>('pending');
-
-  const pendingCount = comments.filter((c) => c.status === 'pending').length;
-
-  const handleApprove = (id: number) => {
-    setComments((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? { ...c, status: 'approved' as const, reviewedAt: '2026-04-30 15:00' }
-          : c,
-      ),
-    );
-    message.success('评论已通过');
-  };
-
-  const handleReject = (id: number) => {
-    setComments((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? { ...c, status: 'rejected' as const, reviewedAt: '2026-04-30 15:00' }
-          : c,
-      ),
-    );
-    message.success('评论已拒绝');
-  };
-
-  const filteredComments = comments.filter((c) => {
-    if (activeTab === 'pending') return c.status === 'pending';
-    if (activeTab === 'approved') return c.status === 'approved';
-    if (activeTab === 'rejected') return c.status === 'rejected';
-    return true;
+  const [activeTab, setActiveTab] = useState<CommentStatus>('pending');
+  const queryClient = useQueryClient();
+  const { data = [], isLoading, refetch } = useQuery({
+    queryKey: ['admin-comments'],
+    queryFn: () => apiGet<AdminComment[]>('/admin/comments'),
   });
+
+  const reviewMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: CommentStatus }) =>
+      apiPatch<AdminComment>(`/admin/comments/${id}`, { status }),
+    onSuccess: async (_, variables) => {
+      message.success(variables.status === 'approved' ? '评论已通过' : '评论已拒绝');
+      await queryClient.invalidateQueries({ queryKey: ['admin-comments'] });
+    },
+  });
+
+  const commentsByStatus = useMemo(
+    () => ({
+      pending: data.filter((comment) => comment.status === 'pending'),
+      approved: data.filter((comment) => comment.status === 'approved'),
+      rejected: data.filter((comment) => comment.status === 'rejected'),
+    }),
+    [data],
+  );
+  const filteredComments = commentsByStatus[activeTab];
+
+  const renderComments = (emptyText: string) => (
+    <div style={{ marginTop: 4 }}>
+      {filteredComments.length === 0 && !isLoading ? (
+        <Empty description={emptyText} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      ) : (
+        filteredComments.map((comment) => (
+          <CommentCard
+            key={comment.commentId}
+            comment={comment}
+            reviewing={reviewMutation.isPending}
+            onApprove={(id) => reviewMutation.mutate({ id, status: 'approved' })}
+            onReject={(id) => reviewMutation.mutate({ id, status: 'rejected' })}
+          />
+        ))
+      )}
+    </div>
+  );
 
   return (
     <div>
-      <Title
-        level={4}
-        style={{
-          fontSize: 24,
-          fontWeight: 700,
-          marginBottom: 24,
-          marginTop: 0,
-          color: '#0F172A',
-        }}
-      >
-        评论审核
-      </Title>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <Title
+          level={4}
+          style={{
+            fontSize: 24,
+            fontWeight: 700,
+            marginBottom: 24,
+            marginTop: 0,
+            color: '#0F172A',
+          }}
+        >
+          评论审核
+        </Title>
+        <Button icon={<ReloadOutlined />} loading={isLoading} onClick={() => refetch()}>
+          刷新
+        </Button>
+      </div>
 
       <Tabs
         activeKey={activeTab}
-        onChange={setActiveTab}
+        onChange={(key) => setActiveTab(key as CommentStatus)}
         style={{ marginBottom: 0 }}
         items={[
           {
@@ -283,7 +226,7 @@ function AdminCommentsPage() {
               <span>
                 待审核
                 <Badge
-                  count={pendingCount}
+                  count={commentsByStatus.pending.length}
                   size="small"
                   style={{
                     backgroundColor: '#F59E0B',
@@ -296,59 +239,17 @@ function AdminCommentsPage() {
                 />
               </span>
             ),
-            children: (
-              <div style={{ marginTop: 4 }}>
-                {filteredComments.length === 0 && (
-                  <Text style={{ color: '#64748B' }}>暂无待审核评论</Text>
-                )}
-                {filteredComments.map((c) => (
-                  <CommentCard
-                    key={c.id}
-                    comment={c}
-                    onApprove={handleApprove}
-                    onReject={handleReject}
-                  />
-                ))}
-              </div>
-            ),
+            children: renderComments('暂无待审核评论'),
           },
           {
             key: 'approved',
             label: '已通过',
-            children: (
-              <div style={{ marginTop: 4 }}>
-                {filteredComments.length === 0 && (
-                  <Text style={{ color: '#64748B' }}>暂无已通过评论</Text>
-                )}
-                {filteredComments.map((c) => (
-                  <CommentCard
-                    key={c.id}
-                    comment={c}
-                    onApprove={handleApprove}
-                    onReject={handleReject}
-                  />
-                ))}
-              </div>
-            ),
+            children: renderComments('暂无已通过评论'),
           },
           {
             key: 'rejected',
             label: '已拒绝',
-            children: (
-              <div style={{ marginTop: 4 }}>
-                {filteredComments.length === 0 && (
-                  <Text style={{ color: '#64748B' }}>暂无已拒绝评论</Text>
-                )}
-                {filteredComments.map((c) => (
-                  <CommentCard
-                    key={c.id}
-                    comment={c}
-                    onApprove={handleApprove}
-                    onReject={handleReject}
-                  />
-                ))}
-              </div>
-            ),
+            children: renderComments('暂无已拒绝评论'),
           },
         ]}
       />

@@ -11,6 +11,135 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createComment = `-- name: CreateComment :one
+insert into comments (
+  article_id,
+  author_name,
+  author_email,
+  body,
+  ip_hash,
+  user_agent
+)
+select
+  article_id,
+  $1,
+  $2,
+  $3,
+  $4,
+  $5
+from articles
+where slug = $6 and status = 'published'
+returning
+  comment_id,
+  article_id,
+  author_name,
+  author_email,
+  body,
+  status,
+  ip_hash,
+  user_agent,
+  created_at,
+  reviewed_at
+`
+
+type CreateCommentParams struct {
+	AuthorName  string
+	AuthorEmail pgtype.Text
+	Body        string
+	IpHash      string
+	UserAgent   pgtype.Text
+	Slug        string
+}
+
+func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (Comment, error) {
+	row := q.db.QueryRow(ctx, createComment,
+		arg.AuthorName,
+		arg.AuthorEmail,
+		arg.Body,
+		arg.IpHash,
+		arg.UserAgent,
+		arg.Slug,
+	)
+	var i Comment
+	err := row.Scan(
+		&i.CommentID,
+		&i.ArticleID,
+		&i.AuthorName,
+		&i.AuthorEmail,
+		&i.Body,
+		&i.Status,
+		&i.IpHash,
+		&i.UserAgent,
+		&i.CreatedAt,
+		&i.ReviewedAt,
+	)
+	return i, err
+}
+
+const listAdminComments = `-- name: ListAdminComments :many
+select
+  c.comment_id,
+  c.article_id,
+  a.slug as article_slug,
+  a.title as article_title,
+  c.author_name,
+  c.author_email,
+  c.body,
+  c.status,
+  c.user_agent,
+  c.created_at,
+  c.reviewed_at
+from comments c
+join articles a on a.article_id = c.article_id
+order by c.created_at desc
+`
+
+type ListAdminCommentsRow struct {
+	CommentID    pgtype.UUID
+	ArticleID    pgtype.UUID
+	ArticleSlug  string
+	ArticleTitle string
+	AuthorName   string
+	AuthorEmail  pgtype.Text
+	Body         string
+	Status       CommentStatus
+	UserAgent    pgtype.Text
+	CreatedAt    pgtype.Timestamptz
+	ReviewedAt   pgtype.Timestamptz
+}
+
+func (q *Queries) ListAdminComments(ctx context.Context) ([]ListAdminCommentsRow, error) {
+	rows, err := q.db.Query(ctx, listAdminComments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAdminCommentsRow
+	for rows.Next() {
+		var i ListAdminCommentsRow
+		if err := rows.Scan(
+			&i.CommentID,
+			&i.ArticleID,
+			&i.ArticleSlug,
+			&i.ArticleTitle,
+			&i.AuthorName,
+			&i.AuthorEmail,
+			&i.Body,
+			&i.Status,
+			&i.UserAgent,
+			&i.CreatedAt,
+			&i.ReviewedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listApprovedCommentsByArticle = `-- name: ListApprovedCommentsByArticle :many
 select
   comment_id,
@@ -48,6 +177,52 @@ func (q *Queries) ListApprovedCommentsByArticle(ctx context.Context, articleID p
 			&i.UserAgent,
 			&i.CreatedAt,
 			&i.ReviewedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listApprovedCommentsByArticleSlug = `-- name: ListApprovedCommentsByArticleSlug :many
+select
+  c.comment_id,
+  c.author_name,
+  c.body,
+  c.created_at
+from comments c
+join articles a on a.article_id = c.article_id
+where a.slug = $1
+  and a.status = 'published'
+  and c.status = 'approved'
+order by c.created_at asc
+`
+
+type ListApprovedCommentsByArticleSlugRow struct {
+	CommentID  pgtype.UUID
+	AuthorName string
+	Body       string
+	CreatedAt  pgtype.Timestamptz
+}
+
+func (q *Queries) ListApprovedCommentsByArticleSlug(ctx context.Context, slug string) ([]ListApprovedCommentsByArticleSlugRow, error) {
+	rows, err := q.db.Query(ctx, listApprovedCommentsByArticleSlug, slug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListApprovedCommentsByArticleSlugRow
+	for rows.Next() {
+		var i ListApprovedCommentsByArticleSlugRow
+		if err := rows.Scan(
+			&i.CommentID,
+			&i.AuthorName,
+			&i.Body,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -105,4 +280,47 @@ func (q *Queries) ListPendingComments(ctx context.Context) ([]Comment, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const reviewComment = `-- name: ReviewComment :one
+update comments
+set
+  status = $1::comment_status,
+  reviewed_at = now()
+where comment_id = $2
+  and $1::comment_status in ('approved', 'rejected')
+returning
+  comment_id,
+  article_id,
+  author_name,
+  author_email,
+  body,
+  status,
+  ip_hash,
+  user_agent,
+  created_at,
+  reviewed_at
+`
+
+type ReviewCommentParams struct {
+	Status    CommentStatus
+	CommentID pgtype.UUID
+}
+
+func (q *Queries) ReviewComment(ctx context.Context, arg ReviewCommentParams) (Comment, error) {
+	row := q.db.QueryRow(ctx, reviewComment, arg.Status, arg.CommentID)
+	var i Comment
+	err := row.Scan(
+		&i.CommentID,
+		&i.ArticleID,
+		&i.AuthorName,
+		&i.AuthorEmail,
+		&i.Body,
+		&i.Status,
+		&i.IpHash,
+		&i.UserAgent,
+		&i.CreatedAt,
+		&i.ReviewedAt,
+	)
+	return i, err
 }

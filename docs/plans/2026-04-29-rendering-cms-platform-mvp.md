@@ -886,7 +886,7 @@ git commit -m "feat: add analytics dashboard foundation"
 - Create: `frontend/src/features/comments/AdminCommentsPage.tsx`
 - Create: `docs/apis/comments.md`
 
-- [ ] **Step 1: 写评论状态测试**
+- [x] **Step 1: 写评论状态测试**
 
 Create `backend/internal/comments/service_test.go`:
 
@@ -903,7 +903,7 @@ func TestNewCommentDefaultsToPending(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 实现评论默认状态**
+- [x] **Step 2: 实现评论默认状态**
 
 Create `backend/internal/comments/service.go`:
 
@@ -921,7 +921,7 @@ func NewComment(authorName string, body string) Comment {
 }
 ```
 
-- [ ] **Step 3: 写评论 API 文档**
+- [x] **Step 3: 写评论 API 文档**
 
 Create `docs/apis/comments.md`:
 
@@ -945,7 +945,7 @@ Create `docs/apis/comments.md`:
 审核评论。允许值：`approved`、`rejected`。
 ```
 
-- [ ] **Step 4: 创建评论审核页面**
+- [x] **Step 4: 创建评论审核页面**
 
 Create `frontend/src/features/comments/AdminCommentsPage.tsx`:
 
@@ -960,7 +960,7 @@ export function AdminCommentsPage() {
 }
 ```
 
-- [ ] **Step 5: 验证评论任务**
+- [x] **Step 5: 验证评论任务**
 
 Run:
 
@@ -973,7 +973,7 @@ npm run build
 
 Expected: PASS，前端构建成功。
 
-- [ ] **Step 6: 提交评论基础**
+- [x] **Step 6: 提交评论基础**
 
 Run:
 
