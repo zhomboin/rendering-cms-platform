@@ -18,6 +18,7 @@
 - 环境脚本统一放在 `scripts/env/`，优先使用 `.sh` Bash 脚本；不新增 `.ps1`、`.bat` 或 `.cmd` 开发脚本，除非用户明确要求。
 - Docker 命令使用 Docker Engine 或 Docker Desktop WSL integration 下的 `docker` 与 `docker compose`，不要使用旧版 `docker-compose` 作为默认命令。
 - Node.js、Go、PostgreSQL、sqlc、migrate 等工具的安装、检查和运行说明都以 Ubuntu 24.04 包管理器或 Linux 官方安装方式为准。
+- 后续需要在 WSL Ubuntu 24.04 中执行项目相关命令时，默认直接执行；除非命令具有破坏性、会修改系统级配置、需要安装系统依赖或访问受限凭据，否则不要再次向用户确认。
 
 ## 项目边界
 
