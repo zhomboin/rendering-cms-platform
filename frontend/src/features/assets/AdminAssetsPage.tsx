@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Upload, Table, Button, Tag, Typography, Space, message } from 'antd';
-import { InboxOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Upload, Table, Button, Tag, Typography, message } from 'antd';
+import { InboxOutlined, DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps } from 'antd/es/upload/interface';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiGet, apiPost } from '../../api/client';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
@@ -10,57 +11,28 @@ const { Dragger } = Upload;
 const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf', 'text/plain', 'application/zip'];
 
 interface AssetFile {
-  id: number;
+  assetId: string;
   filename: string;
   contentType: string;
   byteSize: number;
+  publicUrl: string | null;
+  createdBy: string;
   createdAt: string;
 }
 
-const mockFiles: AssetFile[] = [
-  {
-    id: 1,
-    filename: 'blog-banner-hero.png',
-    contentType: 'image/png',
-    byteSize: 2_456_000,
-    createdAt: '2026-04-28 14:30',
-  },
-  {
-    id: 2,
-    filename: 'architecture-diagram.webp',
-    contentType: 'image/webp',
-    byteSize: 384_000,
-    createdAt: '2026-04-27 10:15',
-  },
-  {
-    id: 3,
-    filename: 'api-specification-v2.pdf',
-    contentType: 'application/pdf',
-    byteSize: 1_230_000,
-    createdAt: '2026-04-26 16:45',
-  },
-  {
-    id: 4,
-    filename: 'deployment-guide.txt',
-    contentType: 'text/plain',
-    byteSize: 12_500,
-    createdAt: '2026-04-25 09:20',
-  },
-  {
-    id: 5,
-    filename: 'postgres-backup-20260424.zip',
-    contentType: 'application/zip',
-    byteSize: 8_450_000,
-    createdAt: '2026-04-24 03:00',
-  },
-  {
-    id: 6,
-    filename: 'profile-avatar.jpg',
-    contentType: 'image/jpeg',
-    byteSize: 156_000,
-    createdAt: '2026-04-23 11:30',
-  },
-];
+interface UploadURLResponse {
+  asset: AssetFile;
+  uploadUrl: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+  expiresInSeconds: number;
+}
+
+interface DownloadURLResponse {
+  asset: AssetFile;
+  downloadUrl: string;
+  expiresInSeconds: number;
+}
 
 const contentTypeMap: Record<string, string> = {
   'image/png': 'PNG',
@@ -81,161 +53,165 @@ const contentTypeColor: Record<string, string> = {
 };
 
 function formatBytes(bytes: number): string {
-  if (bytes >= 1_000_000) {
-    return `${(bytes / 1_000_000).toFixed(1)} MB`;
-  }
-  if (bytes >= 1_000) {
-    return `${(bytes / 1_000).toFixed(0)} KB`;
-  }
+  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+  if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(0)} KB`;
   return `${bytes} B`;
 }
 
-const columns: ColumnsType<AssetFile> = [
-  {
-    title: '文件名',
-    dataIndex: 'filename',
-    key: 'filename',
-    render: (name: string) => (
-      <Text style={{ color: '#0F172A', fontWeight: 500 }}>{name}</Text>
-    ),
-  },
-  {
-    title: '类型',
-    dataIndex: 'contentType',
-    key: 'contentType',
-    width: 100,
-    render: (type: string) => (
-      <Tag
-        color={contentTypeColor[type] || 'default'}
-        style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px' }}
-      >
-        {contentTypeMap[type] || type}
-      </Tag>
-    ),
-  },
-  {
-    title: '大小',
-    dataIndex: 'byteSize',
-    key: 'byteSize',
-    width: 100,
-    align: 'right' as const,
-    render: (size: number) => (
-      <Text style={{ color: '#64748B' }}>{formatBytes(size)}</Text>
-    ),
-  },
-  {
-    title: '上传时间',
-    dataIndex: 'createdAt',
-    key: 'createdAt',
-    width: 160,
-    render: (date: string) => (
-      <Text style={{ color: '#64748B' }}>{date}</Text>
-    ),
-  },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 140,
-    render: (_: unknown, record: AssetFile) => (
-      <Space>
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function AdminAssetsPage() {
+  const queryClient = useQueryClient();
+  const { data = [], isLoading, refetch } = useQuery({
+    queryKey: ['admin-assets'],
+    queryFn: () => apiGet<AssetFile[]>('/admin/assets'),
+  });
+
+  const handleDownload = async (asset: AssetFile) => {
+    try {
+      const response = await apiGet<DownloadURLResponse>(`/admin/assets/${asset.assetId}/download-url`);
+      window.open(response.downloadUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '下载链接生成失败');
+    }
+  };
+
+  const columns: ColumnsType<AssetFile> = [
+    {
+      title: '文件名',
+      dataIndex: 'filename',
+      key: 'filename',
+      render: (name: string) => <Text style={{ color: '#0F172A', fontWeight: 500 }}>{name}</Text>,
+    },
+    {
+      title: '类型',
+      dataIndex: 'contentType',
+      key: 'contentType',
+      width: 100,
+      render: (type: string) => (
+        <Tag color={contentTypeColor[type] || 'default'} style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px' }}>
+          {contentTypeMap[type] || type}
+        </Tag>
+      ),
+    },
+    {
+      title: '大小',
+      dataIndex: 'byteSize',
+      key: 'byteSize',
+      width: 100,
+      align: 'right',
+      render: (size: number) => <Text style={{ color: '#64748B' }}>{formatBytes(size)}</Text>,
+    },
+    {
+      title: '上传时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 180,
+      render: (date: string) => <Text style={{ color: '#64748B' }}>{formatDate(date)}</Text>,
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 120,
+      render: (_: unknown, record: AssetFile) => (
         <Button
           type="text"
           size="small"
           icon={<DownloadOutlined />}
           style={{ color: '#4F46E5', borderRadius: 8 }}
-          onClick={() => message.info(`下载 ${record.filename}`)}
+          onClick={() => handleDownload(record)}
         >
           下载
         </Button>
-        <Button
-          type="text"
-          size="small"
-          danger
-          icon={<DeleteOutlined />}
-          style={{ borderRadius: 8 }}
-          onClick={() => message.warning(`删除 ${record.filename}`)}
-        >
-          删除
-        </Button>
-      </Space>
-    ),
-  },
-];
+      ),
+    },
+  ];
 
-const draggerProps: UploadProps = {
-  name: 'file',
-  multiple: true,
-  accept: allowedTypes.join(','),
-  showUploadList: false,
-  beforeUpload: () => false,
-  onChange(info) {
-    const { file } = info;
-    if (file.status !== 'removed') {
-      message.success(`${file.name} 已添加到上传队列`);
-    }
-  },
-  onDrop() {
-    message.info('文件已拖拽上传');
-  },
-};
-
-function AdminAssetsPage() {
-  const [files] = useState<AssetFile[]>(mockFiles);
+  const draggerProps: UploadProps = {
+    name: 'file',
+    multiple: false,
+    accept: allowedTypes.join(','),
+    showUploadList: false,
+    customRequest: async (options) => {
+      const file = options.file as File;
+      if (!allowedTypes.includes(file.type)) {
+        message.error('不支持的文件类型');
+        options.onError?.(new Error('不支持的文件类型'));
+        return;
+      }
+      try {
+        const upload = await apiPost<UploadURLResponse>('/admin/assets/upload-url', {
+          filename: file.name,
+          contentType: file.type,
+          byteSize: file.size,
+        });
+        const response = await fetch(upload.uploadUrl, {
+          method: upload.method,
+          headers: upload.headers,
+          body: file,
+        });
+        if (!response.ok) {
+          throw new Error(`上传失败 (${response.status})`);
+        }
+        message.success(`${file.name} 已上传`);
+        await queryClient.invalidateQueries({ queryKey: ['admin-assets'] });
+        options.onSuccess?.(upload.asset);
+      } catch (error) {
+        const uploadError = error instanceof Error ? error : new Error('上传失败');
+        message.error(uploadError.message);
+        options.onError?.(uploadError);
+      }
+    },
+    onDrop() {
+      message.info('文件已加入上传处理');
+    },
+  };
 
   return (
     <div>
-      <Title
-        level={4}
-        style={{
-          fontSize: 24,
-          fontWeight: 700,
-          marginBottom: 24,
-          marginTop: 0,
-          color: '#0F172A',
-        }}
-      >
-        资源管理
-      </Title>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <Title
+          level={4}
+          style={{
+            fontSize: 24,
+            fontWeight: 700,
+            marginBottom: 24,
+            marginTop: 0,
+            color: '#0F172A',
+          }}
+        >
+          资源管理
+        </Title>
+        <Button icon={<ReloadOutlined />} loading={isLoading} onClick={() => refetch()}>
+          刷新
+        </Button>
+      </div>
 
       <Dragger
         {...draggerProps}
         style={{
-          borderRadius: 24,
+          borderRadius: 8,
           background: '#FAFAFA',
           border: '2px dashed #E2E8F0',
           padding: '32px 0',
           marginBottom: 24,
         }}
       >
-        <p
-          style={{
-            fontSize: 48,
-            color: '#4F46E5',
-            margin: 0,
-            lineHeight: 1,
-            marginBottom: 12,
-          }}
-        >
+        <p style={{ fontSize: 48, color: '#4F46E5', margin: 0, lineHeight: 1, marginBottom: 12 }}>
           <InboxOutlined />
         </p>
-        <p
-          style={{
-            fontSize: 16,
-            color: '#0F172A',
-            fontWeight: 500,
-            margin: 0,
-            marginBottom: 8,
-          }}
-        >
+        <p style={{ fontSize: 16, color: '#0F172A', fontWeight: 500, margin: 0, marginBottom: 8 }}>
           点击或拖拽文件到此处上传
         </p>
-        <p
-          style={{
-            fontSize: 13,
-            color: '#64748B',
-            margin: 0,
-          }}
-        >
+        <p style={{ fontSize: 13, color: '#64748B', margin: 0 }}>
           支持 PNG、JPEG、WebP、PDF、TXT、ZIP，单文件最大 20MB
         </p>
       </Dragger>
@@ -243,7 +219,7 @@ function AdminAssetsPage() {
       <div
         style={{
           background: '#FFFFFF',
-          borderRadius: 24,
+          borderRadius: 8,
           border: '1px solid #E2E8F0',
           boxShadow: '0 1px 3px 0 rgba(0,0,0,0.06)',
           padding: 20,
@@ -251,13 +227,12 @@ function AdminAssetsPage() {
       >
         <Table
           columns={columns}
-          dataSource={files}
-          rowKey="id"
-          pagination={false}
+          dataSource={data}
+          rowKey="assetId"
+          loading={isLoading}
+          pagination={{ pageSize: 10 }}
           style={{ borderRadius: 8 }}
-          onRow={() => ({
-            style: { height: 48 },
-          })}
+          onRow={() => ({ style: { height: 48 } })}
         />
       </div>
     </div>

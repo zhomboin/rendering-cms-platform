@@ -11,6 +11,82 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createAsset = `-- name: CreateAsset :one
+insert into assets (
+  filename,
+  content_type,
+  byte_size,
+  storage_key,
+  public_url,
+  created_by
+) values (
+  $1, $2, $3, $4, $5, $6
+)
+returning asset_id, filename, content_type, byte_size, storage_key, public_url, created_by, created_at
+`
+
+type CreateAssetParams struct {
+	Filename    string
+	ContentType string
+	ByteSize    int32
+	StorageKey  string
+	PublicUrl   pgtype.Text
+	CreatedBy   pgtype.UUID
+}
+
+func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset, error) {
+	row := q.db.QueryRow(ctx, createAsset,
+		arg.Filename,
+		arg.ContentType,
+		arg.ByteSize,
+		arg.StorageKey,
+		arg.PublicUrl,
+		arg.CreatedBy,
+	)
+	var i Asset
+	err := row.Scan(
+		&i.AssetID,
+		&i.Filename,
+		&i.ContentType,
+		&i.ByteSize,
+		&i.StorageKey,
+		&i.PublicUrl,
+		&i.CreatedBy,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createDownloadEvent = `-- name: CreateDownloadEvent :one
+insert into download_events (
+  asset_id,
+  ip_hash,
+  user_agent
+) values (
+  $1, $2, $3
+)
+returning event_id, asset_id, ip_hash, user_agent, created_at
+`
+
+type CreateDownloadEventParams struct {
+	AssetID   pgtype.UUID
+	IpHash    string
+	UserAgent pgtype.Text
+}
+
+func (q *Queries) CreateDownloadEvent(ctx context.Context, arg CreateDownloadEventParams) (DownloadEvent, error) {
+	row := q.db.QueryRow(ctx, createDownloadEvent, arg.AssetID, arg.IpHash, arg.UserAgent)
+	var i DownloadEvent
+	err := row.Scan(
+		&i.EventID,
+		&i.AssetID,
+		&i.IpHash,
+		&i.UserAgent,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getAssetByID = `-- name: GetAssetByID :one
 select asset_id, filename, content_type, byte_size, storage_key, public_url, created_by, created_at
 from assets

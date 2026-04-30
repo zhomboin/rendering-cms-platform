@@ -53,10 +53,11 @@ data/postgres/
 data/minio/
 
 # 上传文件与运行时资源
-uploads/
-storage/
+/uploads/
+/storage/
 public/uploads/
 frontend/public/uploads/
+!backend/internal/storage/
 
 # Docker / Compose 本地覆盖文件
 docker-compose.override.yml

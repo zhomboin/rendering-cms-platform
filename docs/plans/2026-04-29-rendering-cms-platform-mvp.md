@@ -993,7 +993,7 @@ git commit -m "feat: add comment moderation foundation"
 - Create: `frontend/src/features/assets/AdminAssetsPage.tsx`
 - Create: `docs/apis/assets.md`
 
-- [ ] **Step 1: 写文件校验测试**
+- [x] **Step 1: 写文件校验测试**
 
 Create `backend/internal/assets/service_test.go`:
 
@@ -1015,7 +1015,7 @@ func TestValidateUpload(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: 实现文件校验**
+- [x] **Step 2: 实现文件校验**
 
 Create `backend/internal/assets/service.go`:
 
@@ -1049,7 +1049,7 @@ func ValidateUpload(filename string, contentType string, byteSize int) error {
 }
 ```
 
-- [ ] **Step 3: 写文件 API 文档**
+- [x] **Step 3: 写文件 API 文档**
 
 Create `docs/apis/assets.md`:
 
@@ -1076,7 +1076,7 @@ Create `docs/apis/assets.md`:
 申请预签名下载 URL，并写入 `download_events`。
 ```
 
-- [ ] **Step 4: 创建资源管理页面**
+- [x] **Step 4: 创建资源管理页面**
 
 Create `frontend/src/features/assets/AdminAssetsPage.tsx`:
 
@@ -1091,7 +1091,7 @@ export function AdminAssetsPage() {
 }
 ```
 
-- [ ] **Step 5: 验证文件任务**
+- [x] **Step 5: 验证文件任务**
 
 Run:
 
@@ -1104,7 +1104,7 @@ npm run build
 
 Expected: PASS，前端构建成功。
 
-- [ ] **Step 6: 提交文件基础**
+- [x] **Step 6: 提交文件基础**
 
 Run:
 
