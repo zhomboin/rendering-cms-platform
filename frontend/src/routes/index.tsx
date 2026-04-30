@@ -1,20 +1,31 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-
-function DashboardPlaceholder() {
-  return (
-    <main style={{ padding: 24 }}>
-      <h1>Rendering CMS Platform</h1>
-      <p>后台基础壳层已就绪，后续阶段将接入仪表盘、文章、评论和资源管理。</p>
-    </main>
-  );
-}
+import AdminLayout from '../components/AdminLayout';
+import LoginPage from '../features/auth/LoginPage';
+import ArticleListPage from '../features/articles/ArticleListPage';
+import ArticleDetailPage from '../features/articles/ArticleDetailPage';
+import AdminArticleListPage from '../features/articles/AdminArticleListPage';
+import AdminArticleEditorPage from '../features/articles/AdminArticleEditorPage';
+import AdminDashboardPage from '../features/analytics/AdminDashboardPage';
+import AdminCommentsPage from '../features/comments/AdminCommentsPage';
+import AdminAssetsPage from '../features/assets/AdminAssetsPage';
 
 export function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/admin" replace />} />
-        <Route path="/admin" element={<DashboardPlaceholder />} />
+        <Route index element={<Navigate to="/admin" replace />} />
+        <Route path="/articles" element={<ArticleListPage />} />
+        <Route path="/articles/:slug" element={<ArticleDetailPage />} />
+
+        <Route path="/admin/login" element={<LoginPage />} />
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="articles" element={<AdminArticleListPage />} />
+          <Route path="articles/new" element={<AdminArticleEditorPage />} />
+          <Route path="articles/:id/edit" element={<AdminArticleEditorPage />} />
+          <Route path="comments" element={<AdminCommentsPage />} />
+          <Route path="assets" element={<AdminAssetsPage />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
