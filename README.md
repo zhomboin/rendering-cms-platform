@@ -65,11 +65,19 @@ cp scripts/env/dev.env.example .env
 bash scripts/env/start-prerequisites.sh
 ```
 
+启动后端 Docker 服务：
+
+```bash
+bash scripts/env/start-backend-docker.sh
+```
+
 启动完整开发栈：
 
 ```bash
 bash scripts/env/start-dev-stack.sh
 ```
+
+完整开发栈会启动 PostgreSQL、MinIO、Go 后端和 Vite 前端。
 
 停止开发服务：
 

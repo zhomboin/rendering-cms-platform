@@ -43,6 +43,43 @@ services:
       mc anonymous set none local/${MINIO_BUCKET:-rendering-assets};
       "
 
+  backend:
+    image: golang:1.26-alpine
+    container_name: rendering-cms-backend
+    profiles:
+      - backend
+    working_dir: /workspace/backend
+    command: >
+      sh -lc "
+      if [ ! -f go.mod ]; then
+        echo 'backend/go.mod not found. Create the Go backend before starting this service.';
+        exit 1;
+      fi;
+      /usr/local/go/bin/go mod download;
+      /usr/local/go/bin/go run ./cmd/server
+      "
+    environment:
+      HTTP_ADDR: ${HTTP_ADDR:-0.0.0.0:8080}
+      DATABASE_URL: postgres://${POSTGRES_USER:-rendering}:${POSTGRES_PASSWORD:-rendering_dev_password}@postgres:5432/${POSTGRES_DB:-rendering_cms}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-replace-with-32-plus-character-secret}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://127.0.0.1:5173}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://127.0.0.1:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-rendering-assets}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-rendering}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-rendering_dev_password}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    volumes:
+      - ../..:/workspace
+      - rendering_cms_go_pkg_mod:/go/pkg/mod
+      - rendering_cms_go_build_cache:/root/.cache/go-build
+
   frontend:
     image: node:22-alpine
     container_name: rendering-cms-frontend
@@ -70,3 +107,5 @@ volumes:
   rendering_cms_postgres:
   rendering_cms_minio:
   rendering_cms_frontend_node_modules:
+  rendering_cms_go_pkg_mod:
+  rendering_cms_go_build_cache:

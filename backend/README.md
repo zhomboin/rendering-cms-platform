@@ -19,16 +19,31 @@
 ```text
 backend/
   cmd/server/                 # HTTP 服务启动入口
+  cmd/import-mdx/              # MDX 导入命令行工具
   internal/config/            # 环境变量配置加载
   internal/database/          # 数据库连接与 sqlc 生成代码
     dbgen/                    # sqlc generate 输出目录
   internal/http/              # 路由与 HTTP 入口
+  internal/auth/              # 登录、JWT、密码哈希
+  internal/articles/          # 文章管理
+  internal/analytics/         # 访问统计
+  internal/comments/          # 评论提交与审核
+  internal/assets/            # 文件上传下载与审计
+  internal/storage/           # S3 / MinIO 客户端
   migrations/                 # PostgreSQL migration
   sql/                        # sqlc 查询文件
   go.mod
   go.sum
   sqlc.yaml
 ```
+
+## Go 后端学习导读
+
+如果你有 Java Web 开发背景，建议阅读：
+
+- [Go 后端项目导读](./docs/go-backend-guide.md)
+
+该文档按当前代码介绍项目结构、模块职责、Java Web 类比、Go 语法点、sqlc 数据库访问和建议阅读顺序。
 
 ## 环境变量
 
@@ -62,6 +77,13 @@ cd /home/ubuntu/workspace/rendering-cms-platform
 bash scripts/env/start-prerequisites.sh
 ```
 
+使用 Docker 启动后端：
+
+```bash
+cd /home/ubuntu/workspace/rendering-cms-platform
+bash scripts/env/start-backend-docker.sh
+```
+
 运行测试：
 
 ```bash
@@ -69,7 +91,7 @@ cd /home/ubuntu/workspace/rendering-cms-platform/backend
 go test ./...
 ```
 
-启动后端：
+也可以在 WSL 中直接启动后端：
 
 ```bash
 cd /home/ubuntu/workspace/rendering-cms-platform/backend

@@ -6,7 +6,7 @@ ENV_FILE="$ROOT_DIR/.env"
 COMPOSE_FILE="$ROOT_DIR/scripts/env/docker-compose.dev.yml"
 
 if [ -f "$ENV_FILE" ]; then
-  docker compose --profile frontend --env-file "$ENV_FILE" -f "$COMPOSE_FILE" down
+  docker compose --profile backend --profile frontend --env-file "$ENV_FILE" -f "$COMPOSE_FILE" down
 else
-  docker compose --profile frontend -f "$COMPOSE_FILE" down
+  docker compose --profile backend --profile frontend -f "$COMPOSE_FILE" down
 fi

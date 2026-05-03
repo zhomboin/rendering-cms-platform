@@ -44,6 +44,31 @@ func AdminAuthMiddleware(secret string) func(http.Handler) http.Handler {
 	}
 }
 
+func CORSMiddleware(frontendOrigin string) func(http.Handler) http.Handler {
+	allowedMethods := "GET, POST, PATCH, DELETE, OPTIONS"
+	allowedHeaders := "Authorization, Content-Type"
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+			if origin == frontendOrigin {
+				w.Header().Set("Access-Control-Allow-Origin", frontendOrigin)
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Allow-Methods", allowedMethods)
+				w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
+				w.Header().Add("Vary", "Origin")
+			}
+
+			if r.Method == http.MethodOptions && origin == frontendOrigin {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func UserFromContext(ctx context.Context) (AuthenticatedUser, bool) {
 	user, ok := ctx.Value(authContextKey{}).(AuthenticatedUser)
 	return user, ok

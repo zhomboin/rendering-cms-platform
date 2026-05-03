@@ -16,5 +16,7 @@ if [ ! -f "$ROOT_DIR/frontend/package.json" ]; then
   exit 1
 fi
 
+bash "$ROOT_DIR/scripts/env/sync-wsl-network-env.sh"
+
 docker compose --profile frontend --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d frontend
 docker compose --profile frontend --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps frontend

@@ -8,10 +8,11 @@ import (
 )
 
 type RouterConfig struct {
-	LoginHandler http.HandlerFunc
-	JWTSecret    string
-	PublicRoutes []RouteRegistrar
-	AdminRoutes  []RouteRegistrar
+	LoginHandler   http.HandlerFunc
+	JWTSecret      string
+	FrontendOrigin string
+	PublicRoutes   []RouteRegistrar
+	AdminRoutes    []RouteRegistrar
 }
 
 type RouterOption func(*RouterConfig)
@@ -26,6 +27,12 @@ func WithLoginHandler(handler http.HandlerFunc) RouterOption {
 func WithJWTSecret(secret string) RouterOption {
 	return func(config *RouterConfig) {
 		config.JWTSecret = secret
+	}
+}
+
+func WithFrontendOrigin(origin string) RouterOption {
+	return func(config *RouterConfig) {
+		config.FrontendOrigin = origin
 	}
 }
 
@@ -48,6 +55,9 @@ func NewRouter(options ...RouterOption) http.Handler {
 	}
 
 	router := chi.NewRouter()
+	if config.FrontendOrigin != "" {
+		router.Use(CORSMiddleware(config.FrontendOrigin))
+	}
 
 	router.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -44,6 +44,7 @@ func main() {
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.NewRouter(
 			httpapi.WithJWTSecret(cfg.JWTSecret),
+			httpapi.WithFrontendOrigin(cfg.FrontendOrigin),
 			httpapi.WithLoginHandler(auth.NewLoginHandler(cfg.JWTSecret, userFinder)),
 			httpapi.WithPublicRoutes(articleHandler.RegisterPublicRoutes),
 			httpapi.WithPublicRoutes(analyticsHandler.RegisterPublicRoutes),

@@ -134,7 +134,7 @@ cp scripts/env/dev.env.example .env
 MVP 本地开发变量：
 
 ```env
-HTTP_ADDR=:8080
+HTTP_ADDR=0.0.0.0:8080
 DATABASE_URL=postgres://rendering:rendering_dev_password@127.0.0.1:5432/rendering_cms?sslmode=disable
 JWT_SECRET=replace-with-32-plus-character-secret
 FRONTEND_ORIGIN=http://127.0.0.1:5173
@@ -157,6 +157,35 @@ MINIO_BUCKET=rendering-assets
 
 不要提交 `.env`。
 
+### 同步浏览器访问地址
+
+当前后端、前端、PostgreSQL 和 MinIO 都通过 Docker 端口映射暴露到宿主机，Windows 浏览器和 WSL 内部默认都可以使用 `127.0.0.1` 访问。因此 `.env` 中面向浏览器的地址默认写成本机地址。
+
+脚本：
+
+```bash
+bash scripts/env/sync-wsl-network-env.sh
+```
+
+脚本默认使用 `BROWSER_HOST=127.0.0.1`。如果某个环境中 Windows localhost 转发不可用，可以显式设置 `BROWSER_HOST=wsl`，此时脚本会优先使用已导出的 `WSL_IP` 或 `WIN_IP`，否则自动读取 WSL `eth0` 地址。脚本会更新 `.env` 中的以下变量：
+
+```env
+FRONTEND_ORIGIN=http://127.0.0.1:5173
+VITE_API_BASE=http://127.0.0.1:8080/api/v1
+S3_ENDPOINT=http://127.0.0.1:9000
+```
+
+脚本不会修改：
+
+- `HTTP_ADDR`：后端仍应监听 `0.0.0.0:8080`。
+- `DATABASE_URL`：后端在 WSL 内连接 PostgreSQL，仍使用 `127.0.0.1:5432`。
+
+`start-backend-docker.sh` 和 `start-frontend-docker.sh` 会在启动容器前自动执行该同步脚本。如果确实需要使用 WSL 真实 IP，执行启动脚本前先设置：
+
+```bash
+BROWSER_HOST=wsl bash scripts/env/start-dev-stack.sh
+```
+
 ## Docker 服务
 
 Docker Compose 配置文件：
@@ -172,9 +201,10 @@ scripts/env/docker-compose.dev.yml
 | `postgres` | 本地 PostgreSQL 数据库 | `127.0.0.1:5432` |
 | `minio` | 本地 S3 兼容对象存储 | `127.0.0.1:9000` |
 | `minio-init` | 初始化 MinIO bucket | 无对外端口 |
+| `backend` | Go API 开发服务，使用 `golang:1.26-alpine` | `127.0.0.1:8080` |
 | `frontend` | Vite 前端开发服务，使用 `node:22-alpine` | `127.0.0.1:5173` |
 
-`frontend` 使用 Docker Compose profile，不会随前置服务自动启动。这样可以先启动数据库和 MinIO，再按需要启动前端。
+`backend` 和 `frontend` 使用 Docker Compose profile，不会随前置依赖服务自动启动。这样可以先启动数据库和 MinIO，再按需要单独启动后端或前端。
 
 ## 脚本说明
 
@@ -209,6 +239,28 @@ bash scripts/env/start-prerequisites.sh
 
 这是后端开发、migration、文件上传下载开发前必须先启动的服务。
 
+`start-prerequisites.sh` 只负责启动 PostgreSQL、MinIO 和 bucket 初始化，不启动后端或前端。
+
+### 启动后端 Docker 服务
+
+```bash
+bash scripts/env/start-backend-docker.sh
+```
+
+前提：
+
+- 已创建 `backend/go.mod`。
+- 已复制 `.env`。
+- Docker 可用。
+
+该脚本会先同步 WSL 浏览器访问地址，再确保 PostgreSQL、MinIO 和 `minio-init` 已启动，最后启动后端 Docker 服务，监听：
+
+```text
+http://127.0.0.1:8080
+```
+
+如果显式使用 `BROWSER_HOST=wsl`，则按脚本写入 `.env` 的 WSL IP 访问。
+
 ### 启动前端 Docker 服务
 
 ```bash
@@ -227,6 +279,8 @@ bash scripts/env/start-frontend-docker.sh
 http://127.0.0.1:5173
 ```
 
+如果显式使用 `BROWSER_HOST=wsl`，则按脚本写入 `.env` 的 WSL IP 访问。
+
 ### 启动完整开发栈
 
 ```bash
@@ -235,22 +289,8 @@ bash scripts/env/start-dev-stack.sh
 
 执行顺序：
 
-1. 启动前置依赖服务。
-2. 启动前端 Docker 服务。
-
-如果 `frontend/package.json` 尚不存在，第二步会失败并提示先创建前端。
-
-### 兼容旧入口
-
-```bash
-bash scripts/env/start-dev-services.sh
-```
-
-当前等同于：
-
-```bash
-bash scripts/env/start-prerequisites.sh
-```
+1. 运行 `start-backend-docker.sh`，启动 PostgreSQL、MinIO、`minio-init` 和后端。
+2. 运行 `start-frontend-docker.sh`，启动前端。
 
 ### 停止开发服务
 
@@ -258,20 +298,18 @@ bash scripts/env/start-prerequisites.sh
 bash scripts/env/stop-dev-services.sh
 ```
 
-停止 Compose 中的前置依赖服务和前端 profile 服务。
+停止 Compose 中的前置依赖服务、后端 profile 服务和前端 profile 服务。
 
 ## 推荐开发启动顺序
 
 1. 安装 Go、Node.js、npm、Docker、psql、sqlc、migrate。
 2. 运行 `bash scripts/env/check-env.sh`。
 3. 复制 `scripts/env/dev.env.example` 为 `.env`。
-4. 运行 `bash scripts/env/start-prerequisites.sh`。
-5. 创建并实现 `backend/`。
-6. 在 `backend/` 下执行 migration。
-7. 在 `backend/` 下运行 `go test ./...`。
-8. 创建并实现 `frontend/`。
-9. 运行 `bash scripts/env/start-frontend-docker.sh`，或在 `frontend/` 下直接运行 `npm run dev -- --host 0.0.0.0`。
-10. 运行 `bash scripts/env/start-dev-stack.sh` 验证依赖服务和前端可一起启动。
+4. 运行 `bash scripts/env/start-backend-docker.sh` 启动依赖服务和后端。
+5. 在 `backend/` 下执行 migration。
+6. 在 `backend/` 下运行 `go test ./...`。
+7. 运行 `bash scripts/env/start-frontend-docker.sh` 启动前端，或在 `frontend/` 下直接运行 `npm run dev -- --host 0.0.0.0`。
+8. 运行 `bash scripts/env/start-dev-stack.sh` 验证依赖服务、后端和前端可一起启动。
 
 ## 注意事项
 
