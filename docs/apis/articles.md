@@ -120,9 +120,29 @@ Authorization: Bearer <jwt-token>
 
 ## MDX 导入工具
 
-当前导入工具只扫描并输出待导入 `.mdx` 文件列表，后续阶段再接入数据库写入。
+导入工具用于把 Rendering 静态博客中的 `content/posts/*.mdx` 导入 CMS `articles` 表。
 
 ```bash
-cd backend
-go run ./cmd/import-mdx -source /path/to/content/posts
+cd /home/ubuntu/workspace/rendering-cms-platform/backend
+go run ./cmd/import-mdx \
+  -source /path/to/Rendering/content/posts \
+  -database-url "$DATABASE_URL"
 ```
+
+参数说明：
+
+- `-source`：必填，Rendering 静态博客 `content/posts` 目录。
+- `-database-url`：PostgreSQL 连接字符串；未传时读取 `DATABASE_URL`。
+- `-author-email`：可选，指定导入文章的作者邮箱；未传时使用第一个 `admin` 或 `editor` 用户。
+- `-dry-run`：只解析并输出文章状态、slug 和标题，不写数据库。
+
+导入规则：
+
+- `slug` 使用 MDX 文件名。
+- `title` 读取 front matter 的 `title`。
+- `summary` 优先读取 `description`，其次读取 `summary`。
+- `published_at` 读取 `publishedAt`。
+- `tags` 读取 front matter 的 `tags` 列表。
+- `draft: true` 的文章跳过导入。
+- 非草稿文章写入或更新为 `published` 状态。
+- 每次成功导入或更新文章都会写入 `article_revisions`。

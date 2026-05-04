@@ -60,7 +60,9 @@ CMS 统计接口按 `slug` 关联文章。因此，在 Rendering 静态博客开
 
 ```bash
 cd /home/ubuntu/workspace/rendering-cms-platform/backend
-go run ./cmd/import-mdx -source /path/to/Rendering/content/posts
+go run ./cmd/import-mdx \
+  -source /path/to/Rendering/content/posts \
+  -database-url "$DATABASE_URL"
 ```
 
 导入工具需要把 Rendering 静态博客中的 `content/posts/*.mdx` 导入 CMS `articles` 表，并保证：
@@ -71,6 +73,13 @@ go run ./cmd/import-mdx -source /path/to/Rendering/content/posts
 - `published_at` 使用原文章发布时间。
 - `author_id` 指向管理员或系统导入用户。
 - 每次导入或更新文章时写入 `article_revisions`。
+
+如需先检查解析结果而不写入数据库，可以使用：
+
+```bash
+cd /home/ubuntu/workspace/rendering-cms-platform/backend
+go run ./cmd/import-mdx -source /path/to/Rendering/content/posts -dry-run
+```
 
 ## 数据流
 

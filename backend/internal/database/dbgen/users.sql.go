@@ -11,6 +11,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getDefaultImportAuthor = `-- name: GetDefaultImportAuthor :one
+select user_id, email, name, password_hash, role, created_at, updated_at
+from users
+where role in ('admin', 'editor')
+order by (role = 'admin') desc, created_at asc
+limit 1
+`
+
+func (q *Queries) GetDefaultImportAuthor(ctx context.Context) (User, error) {
+	row := q.db.QueryRow(ctx, getDefaultImportAuthor)
+	var i User
+	err := row.Scan(
+		&i.UserID,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.Role,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 select user_id, email, name, password_hash, role, created_at, updated_at
 from users

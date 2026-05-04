@@ -426,3 +426,89 @@ func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticle
 	)
 	return i, err
 }
+
+const upsertPublishedArticleFromImport = `-- name: UpsertPublishedArticleFromImport :one
+insert into articles (
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id
+) values (
+  $1, $2, $3, $4, 'published', $5, $6, $7, $8, $9
+)
+on conflict (slug)
+do update set
+  title = excluded.title,
+  summary = excluded.summary,
+  body_mdx = excluded.body_mdx,
+  status = 'published',
+  tags = excluded.tags,
+  featured = excluded.featured,
+  cover_image_url = excluded.cover_image_url,
+  published_at = excluded.published_at,
+  author_id = excluded.author_id,
+  updated_at = now()
+returning
+  article_id,
+  slug,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at
+`
+
+type UpsertPublishedArticleFromImportParams struct {
+	Slug          string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+}
+
+func (q *Queries) UpsertPublishedArticleFromImport(ctx context.Context, arg UpsertPublishedArticleFromImportParams) (Article, error) {
+	row := q.db.QueryRow(ctx, upsertPublishedArticleFromImport,
+		arg.Slug,
+		arg.Title,
+		arg.Summary,
+		arg.BodyMdx,
+		arg.Tags,
+		arg.Featured,
+		arg.CoverImageUrl,
+		arg.PublishedAt,
+		arg.AuthorID,
+	)
+	var i Article
+	err := row.Scan(
+		&i.ArticleID,
+		&i.Slug,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.Tags,
+		&i.Featured,
+		&i.CoverImageUrl,
+		&i.PublishedAt,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

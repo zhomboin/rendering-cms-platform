@@ -32,7 +32,9 @@
 - [x] 在 `handler.go` 实现 `PATCH /api/v1/admin/articles/{id}`。
 - [x] 在 `handler.go` 实现 `POST /api/v1/admin/articles/{id}/publish`。
 - [x] 创建 `backend/cmd/import-mdx/main.go`，支持 `-source` 参数扫描 `*.mdx`。
-- [x] 导入工具第一版输出待导入文件列表，后续接入数据库写入。
+- [x] 导入工具支持解析 Rendering 静态博客 front matter。
+- [x] 导入工具支持把非草稿 MDX 写入或更新到 `articles` 表。
+- [x] 导入工具导入成功后写入 `article_revisions`。
 - [x] 创建 `docs/apis/articles.md`，记录公开和后台文章 API。
 - [x] 运行 `cd backend && go test ./internal/articles`。
 - [x] 运行 `cd backend && go test ./cmd/import-mdx`。
@@ -43,8 +45,10 @@
 - 公开文章接口只读取 `published` 状态文章。
 - 后台文章接口挂载在 `/api/v1/admin/articles`，由后台认证中间件保护。
 - 创建草稿、更新草稿和发布文章都会写入 `article_revisions`。
-- MDX 导入工具第一版支持 `-source` 扫描并输出 `.mdx` 文件列表。
+- MDX 导入工具支持 `-source`、`-database-url`、`-author-email` 和 `-dry-run` 参数。
+- MDX 导入工具会跳过 `draft: true` 的文章，并把非草稿文章导入为 `published` 状态。
 - 验证命令已通过：`cd backend && go test ./internal/articles ./cmd/import-mdx ./...`。
+- 已使用 Rendering 静态博客真实 `content/posts/*.mdx` dry-run 验证 21 篇文章可解析。
 
 ## 验收标准
 
