@@ -38,6 +38,7 @@ frontend/
 
 当前路由集中在 `src/routes/index.tsx`：
 
+- `/`：默认跳转到后台仪表盘 `/admin`。
 - `/articles`：公开文章列表。
 - `/articles/:slug`：公开文章详情。
 - `/admin/login`：后台登录。
@@ -57,7 +58,7 @@ API client 位于 `src/api/client.ts`。
 前端读取环境变量：
 
 ```env
-VITE_API_BASE_URL=http://127.0.0.1:8080/api/v1
+VITE_API_BASE=http://127.0.0.1:8080/api/v1
 ```
 
 如果未设置，默认使用：
@@ -90,6 +91,12 @@ npm run dev
 
 ```text
 http://127.0.0.1:5173
+```
+
+该地址会进入后台仪表盘；公开文章列表入口为：
+
+```text
+http://127.0.0.1:5173/articles
 ```
 
 构建：

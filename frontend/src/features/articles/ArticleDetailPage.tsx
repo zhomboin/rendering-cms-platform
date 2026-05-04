@@ -86,7 +86,7 @@ export default function ArticleDetailPage() {
   if (!articleQuery.data) {
     return (
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '48px 24px' }}>
-        <Link to="/" style={{ display: 'inline-block', marginBottom: 24, color: '#4F46E5', fontSize: 14 }}>
+        <Link to="/articles" style={{ display: 'inline-block', marginBottom: 24, color: '#4F46E5', fontSize: 14 }}>
           返回文章列表
         </Link>
         <Empty description={articleQuery.error instanceof Error ? articleQuery.error.message : '文章未找到'} />
@@ -99,7 +99,7 @@ export default function ArticleDetailPage() {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '48px 24px' }}>
-      <Link to="/" style={{ display: 'inline-block', marginBottom: 24, color: '#4F46E5', fontSize: 14 }}>
+      <Link to="/articles" style={{ display: 'inline-block', marginBottom: 24, color: '#4F46E5', fontSize: 14 }}>
         返回文章列表
       </Link>
 

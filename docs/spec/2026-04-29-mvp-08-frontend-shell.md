@@ -58,4 +58,5 @@ git commit -m "feat: add cms frontend shell"
 - API client 统一读取 `VITE_API_BASE`，默认回退到 `http://127.0.0.1:8080/api/v1`，并统一处理非 2xx 响应。
 - 登录成功后保存 Bearer token，后台 API 请求自动携带 `Authorization`。
 - 公开文章列表、文章详情、评论提交、后台文章列表、文章编辑、统计、评论和资源页面均已接入 API client。
-- `/` 作为公开文章列表入口，`/articles/:slug` 作为详情页入口。
+- `/` 默认跳转到后台仪表盘 `/admin`，后台页面由统一侧边栏壳层承载。
+- `/articles` 作为公开文章列表入口，`/articles/:slug` 作为详情页入口。

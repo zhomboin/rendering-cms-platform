@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import LoginPage from '../features/auth/LoginPage';
 import ArticleListPage from '../features/articles/ArticleListPage';
@@ -13,7 +13,8 @@ export function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route index element={<ArticleListPage />} />
+        <Route index element={<Navigate to="/admin" replace />} />
+        <Route path="/articles" element={<ArticleListPage />} />
         <Route path="/articles/:slug" element={<ArticleDetailPage />} />
 
         <Route path="/admin/login" element={<LoginPage />} />

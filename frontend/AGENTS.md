@@ -38,7 +38,7 @@
 
 ## API 与状态
 
-- API base URL 使用 `VITE_API_BASE_URL`，默认 `http://127.0.0.1:8080/api/v1`。
+- API base URL 使用 `VITE_API_BASE`，默认 `http://127.0.0.1:8080/api/v1`。
 - API 请求默认携带 `credentials: 'include'`。
 - 服务端状态优先通过 TanStack Query 管理。
 - 不要在页面组件中散落 `fetch` 调用；新增接口应先封装到 `src/api/` 或对应 feature 的服务文件。
