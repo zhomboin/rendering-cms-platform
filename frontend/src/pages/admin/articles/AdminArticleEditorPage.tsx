@@ -7,8 +7,8 @@ import {
   listAdminArticles,
   publishAdminArticle,
   updateAdminArticle,
-} from '../../api/articles';
-import type { AdminArticlePayload, AdminArticleRecord, ArticleFormData } from '../../api/articles';
+} from '../../../api/articles';
+import type { AdminArticlePayload, AdminArticleRecord, ArticleFormData } from '../../../api/articles';
 
 const { Title } = Typography;
 const { TextArea } = Input;

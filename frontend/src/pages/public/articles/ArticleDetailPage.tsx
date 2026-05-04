@@ -7,8 +7,8 @@ import {
   listPublicArticleComments,
   recordArticleView,
   submitPublicArticleComment,
-} from '../../api/articles';
-import type { CommentFormValues } from '../../api/articles';
+} from '../../../api/articles';
+import type { CommentFormValues } from '../../../api/articles';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;

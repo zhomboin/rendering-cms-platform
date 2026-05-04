@@ -19,15 +19,16 @@
 frontend/
   src/
     api/                      # axios client、拦截器和类型化业务 API
-    components/               # 通用布局和组件
-    features/                 # 按业务域拆分页面与组件
-      analytics/
-      articles/
-      assets/
+    app/                      # 应用级 Provider 和主题配置
+    layouts/                  # 跨路由布局
+    pages/                    # 路由页面
+      admin/
       auth/
-      comments/
+      public/
     routes/                   # 路由集中声明
+    types/                    # 全局类型声明
     main.tsx                  # 应用入口
+  ARCHITECTURE.md             # 前端目录结构与代码开发规范
   DESIGN.md                   # 后台管理界面设计规范
   index.html
   package.json
@@ -49,7 +50,7 @@ frontend/
 - `/admin/comments`：评论审核。
 - `/admin/assets`：资源管理。
 
-后台页面使用 `src/components/AdminLayout.tsx` 作为统一壳层。访问 `/admin` 及其子路由时，如果本地没有登录 token，会跳转到 `/admin/login`；登录成功后回到原目标后台页面。
+后台页面使用 `src/layouts/AdminLayout.tsx` 作为统一壳层。访问 `/admin` 及其子路由时，如果本地没有登录 token，会跳转到 `/admin/login`；登录成功后回到原目标后台页面。
 
 ## API 配置
 

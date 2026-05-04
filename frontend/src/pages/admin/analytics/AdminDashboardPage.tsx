@@ -6,8 +6,8 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
-import { getAdminAnalyticsSummary } from '../../api/analytics';
-import type { AnalyticsSummary, HotArticle } from '../../api/analytics';
+import { getAdminAnalyticsSummary } from '../../../api/analytics';
+import type { AnalyticsSummary, HotArticle } from '../../../api/analytics';
 
 const { Title } = Typography;
 

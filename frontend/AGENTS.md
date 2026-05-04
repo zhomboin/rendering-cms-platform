@@ -14,17 +14,20 @@
 - 前端使用 React + TypeScript + Vite。
 - 路由集中维护在 `src/routes/index.tsx`。
 - API 请求入口集中维护在 `src/api/client.ts`，具体业务 API 按领域维护在 `src/api/*.ts`。
-- 后台壳层优先复用 `src/components/AdminLayout.tsx`。
+- 后台壳层优先复用 `src/layouts/AdminLayout.tsx`。
 - 后台界面组件优先使用 Ant Design，不随意引入新的 UI 组件库。
 - 前端不保存运行时业务数据到 JSON 文件；文章、评论、统计、资产等数据来自后端 API。
 
 ## 目录职责
 
 - `src/api/`：axios 实例、请求拦截器、响应拦截器、登录 token 存取和类型化业务 API。
-- `src/components/`：跨页面复用组件和布局。
-- `src/features/`：按业务域组织页面和局部组件。
+- `src/app/`：应用级 Provider、主题和全局装配。
+- `src/layouts/`：跨路由布局，例如后台管理壳层。
+- `src/pages/`：按路由和业务域组织页面组件。
+- `src/components/`：跨页面复用 UI 组件。
 - `src/routes/`：全局路由声明。
 - `DESIGN.md`：后台界面设计规范。
+- `ARCHITECTURE.md`：前端目录结构与代码开发规范。
 
 ## UI 规则
 
@@ -49,8 +52,8 @@
 ## 编码规则
 
 - TypeScript 保持严格类型，不使用无意义的 `any`。
-- 页面级组件放在对应 `src/features/<domain>/` 下。
-- 通用布局和跨业务组件放在 `src/components/`。
+- 页面级组件放在对应 `src/pages/<scope>/<domain>/` 下。
+- 通用布局放在 `src/layouts/`，跨业务组件放在 `src/components/`。
 - 新增路由必须同步更新 `src/routes/index.tsx`。
 - 新增环境变量必须以 `VITE_` 开头，并同步更新 README 或相关文档。
 - 不提交 `dist/`、`node_modules/` 或本地缓存。

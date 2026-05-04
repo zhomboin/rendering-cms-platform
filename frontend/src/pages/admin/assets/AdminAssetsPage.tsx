@@ -8,8 +8,8 @@ import {
   getAdminAssetDownloadUrl,
   listAdminAssets,
   uploadAdminAsset,
-} from '../../api/assets';
-import type { AssetFile } from '../../api/assets';
+} from '../../../api/assets';
+import type { AssetFile } from '../../../api/assets';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;

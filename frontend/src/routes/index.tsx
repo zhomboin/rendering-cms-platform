@@ -1,13 +1,13 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import AdminLayout from '../components/AdminLayout';
-import LoginPage from '../features/auth/LoginPage';
-import ArticleListPage from '../features/articles/ArticleListPage';
-import ArticleDetailPage from '../features/articles/ArticleDetailPage';
-import AdminArticleListPage from '../features/articles/AdminArticleListPage';
-import AdminArticleEditorPage from '../features/articles/AdminArticleEditorPage';
-import AdminDashboardPage from '../features/analytics/AdminDashboardPage';
-import AdminCommentsPage from '../features/comments/AdminCommentsPage';
-import AdminAssetsPage from '../features/assets/AdminAssetsPage';
+import AdminLayout from '../layouts/AdminLayout';
+import AdminDashboardPage from '../pages/admin/analytics/AdminDashboardPage';
+import AdminArticleEditorPage from '../pages/admin/articles/AdminArticleEditorPage';
+import AdminArticleListPage from '../pages/admin/articles/AdminArticleListPage';
+import AdminAssetsPage from '../pages/admin/assets/AdminAssetsPage';
+import AdminCommentsPage from '../pages/admin/comments/AdminCommentsPage';
+import LoginPage from '../pages/auth/LoginPage';
+import ArticleDetailPage from '../pages/public/articles/ArticleDetailPage';
+import ArticleListPage from '../pages/public/articles/ArticleListPage';
 
 export function AppRoutes() {
   return (

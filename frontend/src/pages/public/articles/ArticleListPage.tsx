@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card, Typography, Tag, Empty, Skeleton, Alert } from 'antd';
 import { useQuery } from '@tanstack/react-query';
-import { listPublicArticles } from '../../api/articles';
+import { listPublicArticles } from '../../../api/articles';
 
 const { Title, Text } = Typography;
 

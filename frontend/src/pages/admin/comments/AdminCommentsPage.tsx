@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { Tabs, Card, Button, Tag, Typography, Space, Badge, Empty, message } from 'antd';
 import { CheckOutlined, CloseOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { listAdminComments, reviewAdminComment } from '../../api/comments';
-import type { AdminComment, CommentStatus } from '../../api/comments';
+import { listAdminComments, reviewAdminComment } from '../../../api/comments';
+import type { AdminComment, CommentStatus } from '../../../api/comments';
 
 const { Title, Text, Paragraph } = Typography;
 
