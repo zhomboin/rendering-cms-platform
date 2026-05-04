@@ -440,3 +440,7 @@ limit 20;
 - 按小时维度统计趋势。
 - 增加访问去重策略，例如 `date + slug + ip_hash + user_agent_hash`。
 - 后台支持导出访问统计 CSV。
+
+## 相关文档
+
+- [CMS 文章发布到 Rendering 博客访问方案](./rendering-blog-publishing-integration.md)
