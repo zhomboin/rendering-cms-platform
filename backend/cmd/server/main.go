@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"rendering-cms-platform/backend/internal/analytics"
@@ -45,6 +46,7 @@ func main() {
 		Handler: httpapi.NewRouter(
 			httpapi.WithJWTSecret(cfg.JWTSecret),
 			httpapi.WithFrontendOrigin(cfg.FrontendOrigin),
+			httpapi.WithLogger(slog.Default()),
 			httpapi.WithLoginHandler(auth.NewLoginHandler(cfg.JWTSecret, userFinder)),
 			httpapi.WithPublicRoutes(articleHandler.RegisterPublicRoutes),
 			httpapi.WithPublicRoutes(analyticsHandler.RegisterPublicRoutes),

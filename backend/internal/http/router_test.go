@@ -1,9 +1,12 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -66,5 +69,31 @@ func TestNewRouterHandlesCORSPreflightForConfiguredFrontendOrigin(t *testing.T) 
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Headers"); got == "" {
 		t.Fatal("Access-Control-Allow-Headers is empty")
+	}
+}
+
+func TestNewRouterLogsRequestSummary(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
+	router := NewRouter(WithLogger(logger))
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	req.RemoteAddr = "192.0.2.10:12345"
+	req.Header.Set("User-Agent", "router-test")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	line := logs.String()
+	for _, want := range []string{
+		`"msg":"http_request"`,
+		`"method":"GET"`,
+		`"path":"/api/v1/health"`,
+		`"status":200`,
+		`"remote_addr":"192.0.2.10"`,
+		`"user_agent":"router-test"`,
+	} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("log line %q does not contain %s", line, want)
+		}
 	}
 }

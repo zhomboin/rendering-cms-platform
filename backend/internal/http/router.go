@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -11,6 +12,7 @@ type RouterConfig struct {
 	LoginHandler   http.HandlerFunc
 	JWTSecret      string
 	FrontendOrigin string
+	Logger         *slog.Logger
 	PublicRoutes   []RouteRegistrar
 	AdminRoutes    []RouteRegistrar
 }
@@ -36,6 +38,12 @@ func WithFrontendOrigin(origin string) RouterOption {
 	}
 }
 
+func WithLogger(logger *slog.Logger) RouterOption {
+	return func(config *RouterConfig) {
+		config.Logger = logger
+	}
+}
+
 func WithPublicRoutes(registrar RouteRegistrar) RouterOption {
 	return func(config *RouterConfig) {
 		config.PublicRoutes = append(config.PublicRoutes, registrar)
@@ -55,6 +63,9 @@ func NewRouter(options ...RouterOption) http.Handler {
 	}
 
 	router := chi.NewRouter()
+	if config.Logger != nil {
+		router.Use(RequestLogMiddleware(config.Logger))
+	}
 	if config.FrontendOrigin != "" {
 		router.Use(CORSMiddleware(config.FrontendOrigin))
 	}

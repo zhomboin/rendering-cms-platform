@@ -3,8 +3,11 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
+	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"rendering-cms-platform/backend/internal/auth"
 )
@@ -15,6 +18,54 @@ type AuthenticatedUser struct {
 }
 
 type authContextKey struct{}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+	bytes  int
+}
+
+func (rec *statusRecorder) WriteHeader(status int) {
+	if rec.status != 0 {
+		return
+	}
+	rec.status = status
+	rec.ResponseWriter.WriteHeader(status)
+}
+
+func (rec *statusRecorder) Write(body []byte) (int, error) {
+	if rec.status == 0 {
+		rec.status = http.StatusOK
+	}
+	n, err := rec.ResponseWriter.Write(body)
+	rec.bytes += n
+	return n, err
+}
+
+func RequestLogMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			startedAt := time.Now()
+			rec := &statusRecorder{ResponseWriter: w}
+
+			next.ServeHTTP(rec, r)
+
+			status := rec.status
+			if status == 0 {
+				status = http.StatusOK
+			}
+			logger.InfoContext(r.Context(), "http_request",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"status", status,
+				"bytes", rec.bytes,
+				"duration_ms", time.Since(startedAt).Milliseconds(),
+				"remote_addr", clientIP(r),
+				"user_agent", r.UserAgent(),
+			)
+		})
+	}
+}
 
 func AdminAuthMiddleware(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -72,6 +123,21 @@ func CORSMiddleware(frontendOrigin string) func(http.Handler) http.Handler {
 func UserFromContext(ctx context.Context) (AuthenticatedUser, bool) {
 	user, ok := ctx.Value(authContextKey{}).(AuthenticatedUser)
 	return user, ok
+}
+
+func clientIP(r *http.Request) string {
+	if forwardedFor := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwardedFor != "" {
+		first, _, _ := strings.Cut(forwardedFor, ",")
+		return strings.TrimSpace(first)
+	}
+	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
+		return realIP
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil {
+		return host
+	}
+	return r.RemoteAddr
 }
 
 func writeHTTPError(w http.ResponseWriter, status int, message string) {
