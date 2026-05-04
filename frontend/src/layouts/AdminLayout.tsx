@@ -1,12 +1,16 @@
-import { Layout, Menu, Space, Typography } from 'antd';
+import { Avatar, Button, Dropdown, Layout, Menu, Space, Typography } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   DashboardOutlined,
+  DownOutlined,
   FileTextOutlined,
   MessageOutlined,
   FolderOutlined,
+  LogoutOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { getAuthToken } from '../api/auth';
+import { clearAuthToken, getAuthToken, getAuthUser } from '../api/auth';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -29,6 +33,7 @@ function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const authToken = getAuthToken();
+  const authUser = getAuthUser();
 
   if (!authToken) {
     return <Navigate to="/admin/login" replace state={{ from: location }} />;
@@ -48,6 +53,44 @@ function AdminLayout() {
       .sort((a, b) => b.length - a.length)[0] ?? '/admin';
 
   const pageTitle = pageTitleMap[selectedKey] ?? '';
+  const userName = authUser?.name || '管理员';
+  const userEmail = authUser?.email || '当前账号';
+  const userRole =
+    authUser?.role === 'admin'
+      ? '管理员'
+      : authUser?.role === 'editor'
+        ? '编辑'
+        : authUser?.role || '已登录';
+  const userInitial = userName.trim().slice(0, 1).toUpperCase() || 'A';
+
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'profile',
+      label: (
+        <div style={{ minWidth: 220, padding: '6px 4px' }}>
+          <Text strong style={{ display: 'block', color: '#0F172A', marginBottom: 4 }}>
+            {userName}
+          </Text>
+          <Text style={{ display: 'block', color: '#64748B', fontSize: 12, marginBottom: 4 }}>
+            {userEmail}
+          </Text>
+          <Text style={{ color: '#4F46E5', fontSize: 12 }}>{userRole}</Text>
+        </div>
+      ),
+    },
+    { type: 'divider' },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: '退出登录',
+    },
+  ];
+
+  const handleUserMenuClick: MenuProps['onClick'] = ({ key }) => {
+    if (key !== 'logout') return;
+    clearAuthToken();
+    navigate('/admin/login', { replace: true });
+  };
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -99,10 +142,41 @@ function AdminLayout() {
             {pageTitle}
           </Text>
 
-          {/* Reserved for auth */}
-          <Space>
-            <Text style={{ color: '#64748B' }}>管理员</Text>
-          </Space>
+          <Dropdown
+            trigger={['click']}
+            placement="bottomRight"
+            menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
+          >
+            <Button
+              type="text"
+              style={{
+                height: 44,
+                padding: '0 10px',
+                borderRadius: 8,
+              }}
+            >
+              <Space size={8}>
+                <Avatar
+                  size={28}
+                  icon={!authUser?.name ? <UserOutlined /> : undefined}
+                  style={{ backgroundColor: '#4F46E5', fontSize: 13 }}
+                >
+                  {authUser?.name ? userInitial : null}
+                </Avatar>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    maxWidth: 120,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {userName}
+                </span>
+                <DownOutlined style={{ fontSize: 12, color: '#64748B' }} />
+              </Space>
+            </Button>
+          </Dropdown>
         </Header>
 
         <Content

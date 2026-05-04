@@ -1,5 +1,6 @@
 import { apiPost } from './client';
-import { clearAuthToken, getAuthToken, setAuthToken } from './auth-token';
+import { clearAuthToken, getAuthToken, getAuthUser, setAuthToken, setAuthUser } from './auth-token';
+import type { AuthUser } from './auth-token';
 
 export interface LoginRequest {
   email: string;
@@ -8,10 +9,12 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   token: string;
+  user: AuthUser;
 }
 
 export function loginAdmin(values: LoginRequest) {
   return apiPost<LoginResponse>('/auth/login', values);
 }
 
-export { clearAuthToken, getAuthToken, setAuthToken };
+export { clearAuthToken, getAuthToken, getAuthUser, setAuthToken, setAuthUser };
+export type { AuthUser };
