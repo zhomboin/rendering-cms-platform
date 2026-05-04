@@ -55,8 +55,11 @@ git commit -m "feat: add cms frontend shell"
 
 ## 完成记录
 
-- API client 统一读取 `VITE_API_BASE`，默认回退到 `http://127.0.0.1:8080/api/v1`，并统一处理非 2xx 响应。
+- API client 使用 axios 实例封装，统一读取 `VITE_API_BASE`，默认回退到 `http://127.0.0.1:8080/api/v1`，并统一处理非 2xx 响应。
+- axios 请求拦截器统一设置后台登录 token，响应拦截器遇到后台 `401` 时清理本地 token 并跳转登录页。
+- 具体业务 API 统一维护在 `frontend/src/api/` 下的领域文件中，页面不直接调用底层 `apiGet`、`apiPost`、`apiPatch`、`apiClient`、`fetch` 或 `axios` 方法。
 - 登录成功后保存 Bearer token，后台 API 请求自动携带 `Authorization`。
+- 未登录访问 `/admin` 及其子路由时跳转到 `/admin/login`，登录成功后回到原目标后台页面。
 - 公开文章列表、文章详情、评论提交、后台文章列表、文章编辑、统计、评论和资源页面均已接入 API client。
 - `/` 默认跳转到后台仪表盘 `/admin`，后台页面由统一侧边栏壳层承载。
 - `/articles` 作为公开文章列表入口，`/articles/:slug` 作为详情页入口。

@@ -4,22 +4,11 @@ import { Table, Button, Tag, Input, Select, Space, Typography, Alert } from 'ant
 import { PlusOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
-import { apiGet } from '../../api/client';
+import { listAdminArticles } from '../../api/articles';
+import type { AdminArticleRecord } from '../../api/articles';
 
 const { Title } = Typography;
 const { Search } = Input;
-
-interface ArticleItem {
-  articleId: string;
-  title: string;
-  slug: string;
-  summary: string;
-  bodyMdx: string;
-  status: 'draft' | 'published' | 'archived';
-  tags: string[];
-  publishedAt: string | null;
-  updatedAt: string;
-}
 
 const statusOptions = [
   { value: '', label: '全部' },
@@ -28,7 +17,7 @@ const statusOptions = [
   { value: 'archived', label: '已归档' },
 ];
 
-const statusConfig: Record<ArticleItem['status'], { color: string; label: string }> = {
+const statusConfig: Record<AdminArticleRecord['status'], { color: string; label: string }> = {
   draft: { color: 'default', label: '草稿' },
   published: { color: 'success', label: '已发布' },
   archived: { color: 'warning', label: '已归档' },
@@ -51,7 +40,7 @@ export default function AdminArticleListPage() {
   const [searchText, setSearchText] = useState<string>('');
   const { data = [], isLoading, error, refetch } = useQuery({
     queryKey: ['admin-articles'],
-    queryFn: () => apiGet<ArticleItem[]>('/admin/articles'),
+    queryFn: listAdminArticles,
   });
 
   const filteredArticles = useMemo(
@@ -65,12 +54,12 @@ export default function AdminArticleListPage() {
     [data, searchText, statusFilter],
   );
 
-  const columns: ColumnsType<ArticleItem> = [
+  const columns: ColumnsType<AdminArticleRecord> = [
     {
       title: '标题',
       dataIndex: 'title',
       key: 'title',
-      render: (text: string, record: ArticleItem) => (
+      render: (text: string, record: AdminArticleRecord) => (
         <a onClick={() => navigate(`/admin/articles/${record.articleId}/edit`)} style={{ color: '#4F46E5', fontWeight: 500 }}>
           {text}
         </a>
@@ -81,7 +70,7 @@ export default function AdminArticleListPage() {
       dataIndex: 'status',
       key: 'status',
       width: 110,
-      render: (status: ArticleItem['status']) => {
+      render: (status: AdminArticleRecord['status']) => {
         const cfg = statusConfig[status];
         return <Tag color={cfg.color}>{cfg.label}</Tag>;
       },
@@ -111,7 +100,7 @@ export default function AdminArticleListPage() {
       title: '操作',
       key: 'action',
       width: 100,
-      render: (_: unknown, record: ArticleItem) => (
+      render: (_: unknown, record: AdminArticleRecord) => (
         <Button type="link" size="small" icon={<EditOutlined />} onClick={() => navigate(`/admin/articles/${record.articleId}/edit`)}>
           编辑
         </Button>
@@ -157,7 +146,7 @@ export default function AdminArticleListPage() {
         />
       </div>
 
-      <Table<ArticleItem>
+      <Table<AdminArticleRecord>
         columns={columns}
         dataSource={filteredArticles}
         rowKey="articleId"

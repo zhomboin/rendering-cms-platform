@@ -13,14 +13,14 @@
 
 - 前端使用 React + TypeScript + Vite。
 - 路由集中维护在 `src/routes/index.tsx`。
-- API 请求入口集中维护在 `src/api/client.ts`。
+- API 请求入口集中维护在 `src/api/client.ts`，具体业务 API 按领域维护在 `src/api/*.ts`。
 - 后台壳层优先复用 `src/components/AdminLayout.tsx`。
 - 后台界面组件优先使用 Ant Design，不随意引入新的 UI 组件库。
 - 前端不保存运行时业务数据到 JSON 文件；文章、评论、统计、资产等数据来自后端 API。
 
 ## 目录职责
 
-- `src/api/`：请求封装、API client、后续类型化服务入口。
+- `src/api/`：axios 实例、请求拦截器、响应拦截器、登录 token 存取和类型化业务 API。
 - `src/components/`：跨页面复用组件和布局。
 - `src/features/`：按业务域组织页面和局部组件。
 - `src/routes/`：全局路由声明。
@@ -41,7 +41,9 @@
 - API base URL 使用 `VITE_API_BASE`，默认 `http://127.0.0.1:8080/api/v1`。
 - API 请求默认携带 `credentials: 'include'`。
 - 服务端状态优先通过 TanStack Query 管理。
-- 不要在页面组件中散落 `fetch` 调用；新增接口应先封装到 `src/api/` 或对应 feature 的服务文件。
+- 各页面用到的具体 API 必须先封装在 `src/api/` 目录下的领域文件中，例如 `articles.ts`、`comments.ts`、`assets.ts`。
+- 页面和组件不得直接调用 `apiGet`、`apiPost`、`apiPatch`、`apiClient`、`fetch` 或 `axios` 方法；只能调用 `src/api/` 暴露的类型化业务函数。
+- 新增后端接口时，同步新增或扩展 `src/api/` 下的业务 API 文件，再由页面通过 TanStack Query 或 mutation 调用。
 - 未审核评论、未认证后台数据和敏感字段不得在公开页面展示。
 
 ## 编码规则

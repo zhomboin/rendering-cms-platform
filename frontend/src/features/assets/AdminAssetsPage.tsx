@@ -3,36 +3,16 @@ import { InboxOutlined, DownloadOutlined, ReloadOutlined } from '@ant-design/ico
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps } from 'antd/es/upload/interface';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost } from '../../api/client';
+import {
+  allowedAssetContentTypes,
+  getAdminAssetDownloadUrl,
+  listAdminAssets,
+  uploadAdminAsset,
+} from '../../api/assets';
+import type { AssetFile } from '../../api/assets';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
-
-const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf', 'text/plain', 'application/zip'];
-
-interface AssetFile {
-  assetId: string;
-  filename: string;
-  contentType: string;
-  byteSize: number;
-  publicUrl: string | null;
-  createdBy: string;
-  createdAt: string;
-}
-
-interface UploadURLResponse {
-  asset: AssetFile;
-  uploadUrl: string;
-  method: 'PUT';
-  headers: Record<string, string>;
-  expiresInSeconds: number;
-}
-
-interface DownloadURLResponse {
-  asset: AssetFile;
-  downloadUrl: string;
-  expiresInSeconds: number;
-}
 
 const contentTypeMap: Record<string, string> = {
   'image/png': 'PNG',
@@ -72,13 +52,13 @@ function AdminAssetsPage() {
   const queryClient = useQueryClient();
   const { data = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-assets'],
-    queryFn: () => apiGet<AssetFile[]>('/admin/assets'),
+    queryFn: listAdminAssets,
   });
 
   const handleDownload = async (asset: AssetFile) => {
     try {
-      const response = await apiGet<DownloadURLResponse>(`/admin/assets/${asset.assetId}/download-url`);
-      window.open(response.downloadUrl, '_blank', 'noopener,noreferrer');
+      const downloadUrl = await getAdminAssetDownloadUrl(asset.assetId);
+      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '下载链接生成失败');
     }
@@ -138,32 +118,20 @@ function AdminAssetsPage() {
   const draggerProps: UploadProps = {
     name: 'file',
     multiple: false,
-    accept: allowedTypes.join(','),
+    accept: allowedAssetContentTypes.join(','),
     showUploadList: false,
     customRequest: async (options) => {
       const file = options.file as File;
-      if (!allowedTypes.includes(file.type)) {
+      if (!allowedAssetContentTypes.includes(file.type)) {
         message.error('不支持的文件类型');
         options.onError?.(new Error('不支持的文件类型'));
         return;
       }
       try {
-        const upload = await apiPost<UploadURLResponse>('/admin/assets/upload-url', {
-          filename: file.name,
-          contentType: file.type,
-          byteSize: file.size,
-        });
-        const response = await fetch(upload.uploadUrl, {
-          method: upload.method,
-          headers: upload.headers,
-          body: file,
-        });
-        if (!response.ok) {
-          throw new Error(`上传失败 (${response.status})`);
-        }
+        const asset = await uploadAdminAsset(file);
         message.success(`${file.name} 已上传`);
         await queryClient.invalidateQueries({ queryKey: ['admin-assets'] });
-        options.onSuccess?.(upload.asset);
+        options.onSuccess?.(asset);
       } catch (error) {
         const uploadError = error instanceof Error ? error : new Error('上传失败');
         message.error(uploadError.message);

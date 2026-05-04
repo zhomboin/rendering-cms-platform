@@ -5,7 +5,8 @@ import {
   MessageOutlined,
   FolderOutlined,
 } from '@ant-design/icons';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { getAuthToken } from '../api/auth';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -27,6 +28,11 @@ const pageTitleMap: Record<string, string> = {
 function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const authToken = getAuthToken();
+
+  if (!authToken) {
+    return <Navigate to="/admin/login" replace state={{ from: location }} />;
+  }
 
   // Determine the deepest matching menu key for the current path.
   // This ensures sub-routes (e.g. /admin/articles/new) still highlight the

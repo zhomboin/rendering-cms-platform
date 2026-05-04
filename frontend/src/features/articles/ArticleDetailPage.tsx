@@ -2,33 +2,16 @@ import { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Card, Typography, Tag, Input, Button, Empty, Divider, Skeleton, Alert, Form, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost } from '../../api/client';
+import {
+  getPublicArticle,
+  listPublicArticleComments,
+  recordArticleView,
+  submitPublicArticleComment,
+} from '../../api/articles';
+import type { CommentFormValues } from '../../api/articles';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
-
-interface Article {
-  articleId: string;
-  title: string;
-  slug: string;
-  summary: string;
-  bodyMdx: string;
-  tags: string[];
-  publishedAt: string | null;
-}
-
-interface Comment {
-  commentId: string;
-  authorName: string;
-  body: string;
-  createdAt: string;
-}
-
-interface CommentFormValues {
-  authorName: string;
-  authorEmail?: string;
-  body: string;
-}
 
 function formatDate(value: string | null) {
   if (!value) return '';
@@ -49,22 +32,22 @@ export default function ArticleDetailPage() {
   const articleQuery = useQuery({
     queryKey: ['public-article', slug],
     enabled: Boolean(slug),
-    queryFn: () => apiGet<Article>(`/articles/${slug}`),
+    queryFn: () => getPublicArticle(slug!),
   });
 
   const commentsQuery = useQuery({
     queryKey: ['public-comments', slug],
     enabled: Boolean(slug),
-    queryFn: () => apiGet<Comment[]>(`/articles/${slug}/comments`),
+    queryFn: () => listPublicArticleComments(slug!),
   });
 
   useEffect(() => {
     if (!slug || !articleQuery.data) return;
-    void apiPost(`/articles/${slug}/views`);
+    void recordArticleView(slug);
   }, [slug, articleQuery.data]);
 
   const submitComment = useMutation({
-    mutationFn: (values: CommentFormValues) => apiPost(`/articles/${slug}/comments`, values),
+    mutationFn: (values: CommentFormValues) => submitPublicArticleComment(slug!, values),
     onSuccess: async () => {
       message.success('评论已提交，审核通过后会公开展示');
       form.resetFields();

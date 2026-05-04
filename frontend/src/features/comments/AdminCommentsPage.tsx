@@ -2,25 +2,10 @@ import { useMemo, useState } from 'react';
 import { Tabs, Card, Button, Tag, Typography, Space, Badge, Empty, message } from 'antd';
 import { CheckOutlined, CloseOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPatch } from '../../api/client';
+import { listAdminComments, reviewAdminComment } from '../../api/comments';
+import type { AdminComment, CommentStatus } from '../../api/comments';
 
 const { Title, Text, Paragraph } = Typography;
-
-type CommentStatus = 'pending' | 'approved' | 'rejected';
-
-interface AdminComment {
-  commentId: string;
-  articleId: string;
-  articleSlug: string;
-  articleTitle: string;
-  authorName: string;
-  authorEmail: string | null;
-  body: string;
-  status: CommentStatus;
-  userAgent: string | null;
-  createdAt: string;
-  reviewedAt: string | null;
-}
 
 const statusBorderColor: Record<CommentStatus, string> = {
   pending: '#F59E0B',
@@ -155,12 +140,12 @@ function AdminCommentsPage() {
   const queryClient = useQueryClient();
   const { data = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-comments'],
-    queryFn: () => apiGet<AdminComment[]>('/admin/comments'),
+    queryFn: listAdminComments,
   });
 
   const reviewMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: CommentStatus }) =>
-      apiPatch<AdminComment>(`/admin/comments/${id}`, { status }),
+      reviewAdminComment(id, status),
     onSuccess: async (_, variables) => {
       message.success(variables.status === 'approved' ? '评论已通过' : '评论已拒绝');
       await queryClient.invalidateQueries({ queryKey: ['admin-comments'] });

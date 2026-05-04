@@ -1,35 +1,38 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, Form, Input, Button, Typography, App } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
-import { apiPost, setAuthToken } from '../../api/client';
+import { loginAdmin, setAuthToken } from '../../api/auth';
+import type { LoginRequest } from '../../api/auth';
 
 const { Title } = Typography;
 
-interface LoginFormValues {
-  email: string;
-  password: string;
-}
-
-interface LoginResponse {
-  token: string;
+interface LoginLocationState {
+  from?: {
+    pathname: string;
+    search: string;
+    hash: string;
+  };
 }
 
 function LoginForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
+  const from = (location.state as LoginLocationState | null)?.from;
+  const redirectParam = new URLSearchParams(location.search).get('redirect');
+  const redirectTo = from
+    ? `${from.pathname}${from.search}${from.hash}`
+    : normalizeAdminRedirect(redirectParam);
 
-  const handleSubmit = async (values: LoginFormValues) => {
+  const handleSubmit = async (values: LoginRequest) => {
     setLoading(true);
     try {
-      const response = await apiPost<LoginResponse>('/auth/login', {
-        email: values.email,
-        password: values.password,
-      });
+      const response = await loginAdmin(values);
       setAuthToken(response.token);
       void message.success('登录成功');
-      navigate('/admin');
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       const error = err as { message?: string };
       void message.error(error.message || '登录失败，请检查邮箱和密码');
@@ -71,7 +74,7 @@ function LoginForm() {
           后台登录
         </Title>
 
-        <Form<LoginFormValues>
+        <Form<LoginRequest>
           layout="vertical"
           onFinish={handleSubmit}
           autoComplete="off"
@@ -133,6 +136,12 @@ function LoginForm() {
       </Card>
     </div>
   );
+}
+
+function normalizeAdminRedirect(value: string | null) {
+  if (!value) return '/admin';
+  if (!value.startsWith('/admin') || value.startsWith('/admin/login')) return '/admin';
+  return value;
 }
 
 export default function LoginPage() {

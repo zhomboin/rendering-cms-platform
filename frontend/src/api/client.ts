@@ -1,5 +1,8 @@
+import axios from 'axios';
+import type { AxiosError } from 'axios';
+import { clearAuthToken, getAuthToken } from './auth-token';
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:8080/api/v1';
-const AUTH_TOKEN_KEY = 'rendering-cms-token';
 
 interface ApiError {
   status: number;
@@ -15,71 +18,71 @@ class ApiRequestError extends Error {
   }
 }
 
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    let message = `请求失败 (${response.status})`;
-    try {
-      const body = await response.json();
-      if (body?.error) message = body.error;
-    } catch {
+const apiClient = axios.create({
+  baseURL: API_BASE,
+  timeout: 10000,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+apiClient.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    delete config.headers.Authorization;
+  }
+
+  return config;
+});
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<{ error?: string; message?: string }>) => {
+    const apiError = toApiRequestError(error);
+    if (apiError.status === 401) {
+      clearAuthToken();
+      redirectAdminToLogin();
     }
-    throw new ApiRequestError(response.status, message);
-  }
+    return Promise.reject(apiError);
+  },
+);
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
+function toApiRequestError(error: AxiosError<{ error?: string; message?: string }>) {
+  const status = error.response?.status ?? 0;
+  const responseMessage = error.response?.data?.error ?? error.response?.data?.message;
+  const message = responseMessage ?? (status > 0 ? `请求失败 (${status})` : error.message);
+  return new ApiRequestError(status, message);
+}
 
-  return response.json() as Promise<T>;
+function redirectAdminToLogin() {
+  if (typeof window === 'undefined') return;
+
+  const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const isAdminPage = window.location.pathname.startsWith('/admin');
+  const isLoginPage = window.location.pathname === '/admin/login';
+  if (!isAdminPage || isLoginPage) return;
+
+  const redirect = encodeURIComponent(currentPath);
+  window.location.replace(`/admin/login?redirect=${redirect}`);
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: 'GET',
-    headers: jsonHeaders(),
-    credentials: 'include',
-  });
-  return handleResponse<T>(response);
+  const response = await apiClient.get<T>(path);
+  return response.data;
 }
 
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: jsonHeaders(),
-    credentials: 'include',
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  return handleResponse<T>(response);
+  const response = await apiClient.post<T>(path, body);
+  return response.data;
 }
 
 export async function apiPatch<T>(path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: 'PATCH',
-    headers: jsonHeaders(),
-    credentials: 'include',
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  return handleResponse<T>(response);
+  const response = await apiClient.patch<T>(path, body);
+  return response.data;
 }
 
-function jsonHeaders(): HeadersInit {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const token = getAuthToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-}
-
-export function setAuthToken(token: string) {
-  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-}
-
-export function clearAuthToken() {
-  window.localStorage.removeItem(AUTH_TOKEN_KEY);
-}
-
-export function getAuthToken() {
-  return window.localStorage.getItem(AUTH_TOKEN_KEY);
-}
-
-export { ApiRequestError };
+export { ApiRequestError, apiClient };
 export type { ApiError };

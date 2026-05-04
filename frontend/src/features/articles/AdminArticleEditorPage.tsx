@@ -2,25 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPatch, apiPost } from '../../api/client';
+import {
+  createAdminArticle,
+  listAdminArticles,
+  publishAdminArticle,
+  updateAdminArticle,
+} from '../../api/articles';
+import type { AdminArticlePayload, AdminArticleRecord, ArticleFormData } from '../../api/articles';
 
 const { Title } = Typography;
 const { TextArea } = Input;
-
-interface ArticleFormData {
-  title: string;
-  slug: string;
-  summary: string;
-  tags: string[];
-  bodyMdx: string;
-  coverImageUrl: string;
-}
-
-interface ArticleRecord extends ArticleFormData {
-  articleId: string;
-  status: 'draft' | 'published' | 'archived';
-  publishedAt: string | null;
-}
 
 const initialFormData: ArticleFormData = {
   title: '',
@@ -31,7 +22,7 @@ const initialFormData: ArticleFormData = {
   coverImageUrl: '',
 };
 
-function toPayload(values: ArticleFormData) {
+function toPayload(values: ArticleFormData): AdminArticlePayload {
   return {
     slug: values.slug,
     title: values.title,
@@ -53,7 +44,7 @@ export default function AdminArticleEditorPage() {
 
   const articlesQuery = useQuery({
     queryKey: ['admin-articles'],
-    queryFn: () => apiGet<ArticleRecord[]>('/admin/articles'),
+    queryFn: listAdminArticles,
     enabled: isEdit,
   });
 
@@ -82,9 +73,9 @@ export default function AdminArticleEditorPage() {
   const saveMutation = useMutation({
     mutationFn: async (values: ArticleFormData) => {
       if (isEdit && id) {
-        return apiPatch<ArticleRecord>(`/admin/articles/${id}`, toPayload(values));
+        return updateAdminArticle(id, toPayload(values));
       }
-      return apiPost<ArticleRecord>('/admin/articles', toPayload(values));
+      return createAdminArticle(toPayload(values));
     },
     onSuccess: async (article) => {
       message.success('草稿已保存');
@@ -99,9 +90,9 @@ export default function AdminArticleEditorPage() {
   const publishMutation = useMutation({
     mutationFn: async (values: ArticleFormData) => {
       const saved = isEdit && id
-        ? await apiPatch<ArticleRecord>(`/admin/articles/${id}`, toPayload(values))
-        : await apiPost<ArticleRecord>('/admin/articles', toPayload(values));
-      return apiPost<ArticleRecord>(`/admin/articles/${saved.articleId}/publish`);
+        ? await updateAdminArticle(id, toPayload(values))
+        : await createAdminArticle(toPayload(values));
+      return publishAdminArticle(saved.articleId);
     },
     onSuccess: async () => {
       message.success('文章已发布');

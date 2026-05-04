@@ -1,18 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Card, Typography, Tag, Empty, Skeleton, Alert } from 'antd';
 import { useQuery } from '@tanstack/react-query';
-import { apiGet } from '../../api/client';
+import { listPublicArticles } from '../../api/articles';
 
 const { Title, Text } = Typography;
-
-interface Article {
-  articleId: string;
-  title: string;
-  slug: string;
-  summary: string;
-  tags: string[];
-  publishedAt: string | null;
-}
 
 function formatDate(value: string | null) {
   if (!value) return '未发布';
@@ -26,7 +17,7 @@ function formatDate(value: string | null) {
 export default function ArticleListPage() {
   const { data = [], isLoading, error } = useQuery({
     queryKey: ['public-articles'],
-    queryFn: () => apiGet<Article[]>('/articles'),
+    queryFn: listPublicArticles,
   });
 
   return (

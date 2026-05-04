@@ -18,7 +18,7 @@
 ```text
 frontend/
   src/
-    api/                      # API client 与请求封装
+    api/                      # axios client、拦截器和类型化业务 API
     components/               # 通用布局和组件
     features/                 # 按业务域拆分页面与组件
       analytics/
@@ -49,11 +49,19 @@ frontend/
 - `/admin/comments`：评论审核。
 - `/admin/assets`：资源管理。
 
-后台页面使用 `src/components/AdminLayout.tsx` 作为统一壳层。
+后台页面使用 `src/components/AdminLayout.tsx` 作为统一壳层。访问 `/admin` 及其子路由时，如果本地没有登录 token，会跳转到 `/admin/login`；登录成功后回到原目标后台页面。
 
 ## API 配置
 
-API client 位于 `src/api/client.ts`。
+API client 位于 `src/api/client.ts`，使用 axios 实例统一封装请求。页面使用的具体接口按业务域放在 `src/api/` 下：
+
+- `auth.ts`：后台登录。
+- `articles.ts`：公开文章、公开评论和后台文章管理。
+- `analytics.ts`：后台统计看板。
+- `comments.ts`：后台评论审核。
+- `assets.ts`：后台资源列表、预签名上传和下载。
+
+页面和组件不得直接调用 `apiGet`、`apiPost`、`apiPatch`、`apiClient`、`fetch` 或 `axios` 方法，只能调用这些业务 API 文件暴露的类型化函数。
 
 前端读取环境变量：
 
@@ -68,6 +76,12 @@ http://127.0.0.1:8080/api/v1
 ```
 
 所有 API 请求默认携带 `credentials: 'include'`，用于后续 Cookie Session 或安全登录态集成。
+
+HTTP 请求规则：
+
+- axios 请求拦截器会从本地登录 token 自动设置 `Authorization: Bearer <token>`。
+- axios 响应拦截器遇到后台接口 `401` 时会清理本地 token，并跳转到 `/admin/login`。
+- 资源预签名上传使用独立的 axios PUT 请求，不携带后台登录凭据。
 
 ## 本地开发
 

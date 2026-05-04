@@ -6,27 +6,10 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
-import { apiGet } from '../../api/client';
+import { getAdminAnalyticsSummary } from '../../api/analytics';
+import type { AnalyticsSummary, HotArticle } from '../../api/analytics';
 
 const { Title } = Typography;
-
-interface HotArticle {
-  rank: number;
-  title: string;
-  views: number;
-  slug: string;
-}
-
-interface DailyView {
-  date: string;
-  views: number;
-}
-
-interface AnalyticsSummary {
-  todayViews: number;
-  last7Days: DailyView[];
-  hotArticles: HotArticle[];
-}
 
 const hotColumns: ColumnsType<HotArticle> = [
   {
@@ -57,7 +40,7 @@ const hotColumns: ColumnsType<HotArticle> = [
 function AdminDashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['analytics-summary'],
-    queryFn: () => apiGet<AnalyticsSummary>('/admin/analytics/summary'),
+    queryFn: getAdminAnalyticsSummary,
   });
 
   const weeklyData = data?.last7Days ?? [];
