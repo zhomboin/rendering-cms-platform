@@ -1,6 +1,13 @@
 package analytics
 
-import "time"
+import (
+	"strconv"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"rendering-cms-platform/backend/internal/database/dbgen"
+)
 
 type DailyView struct {
 	Date  time.Time
@@ -13,4 +20,46 @@ func TotalViews(days []DailyView) int {
 		total += day.Views
 	}
 	return total
+}
+
+func normalizeArticleAnalyticsDays(raw string) int32 {
+	if raw == "" {
+		return 7
+	}
+	days, err := strconv.Atoi(raw)
+	if err != nil {
+		return 7
+	}
+	if days < 1 {
+		return 1
+	}
+	if days > 90 {
+		return 90
+	}
+	return int32(days)
+}
+
+func mapArticleAnalyticsRows(days int32, rows []dbgen.ListArticleAnalyticsRowsRow) map[string]interface{} {
+	articles := make([]map[string]interface{}, 0, len(rows))
+	for _, row := range rows {
+		articles = append(articles, map[string]interface{}{
+			"slug":        row.Slug,
+			"title":       row.Title,
+			"todayViews":  row.TodayViews,
+			"periodViews": row.PeriodViews,
+			"totalViews":  row.TotalViews,
+			"publishedAt": timestamptzValue(row.PublishedAt),
+		})
+	}
+	return map[string]interface{}{
+		"days":     days,
+		"articles": articles,
+	}
+}
+
+func timestamptzValue(value pgtype.Timestamptz) interface{} {
+	if !value.Valid {
+		return nil
+	}
+	return value.Time
 }

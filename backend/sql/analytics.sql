@@ -63,6 +63,50 @@ where a.status = 'published'
 order by views desc, a.published_at desc nulls last
 limit $1;
 
+-- name: ListArticleAnalyticsRows :many
+with period_views as (
+  select article_id, sum(views)::int as views
+  from (
+    select article_id, views
+    from article_view_history
+    where view_date >= current_date - (($1::int - 1) * interval '1 day')
+      and view_date < current_date
+    union all
+    select article_id, views
+    from article_view_daily
+    where view_date >= current_date - (($1::int - 1) * interval '1 day')
+  ) combined
+  group by article_id
+), today_views as (
+  select article_id, sum(views)::int as views
+  from article_view_daily
+  where view_date = current_date
+  group by article_id
+), total_views as (
+  select article_id, sum(views)::int as views
+  from (
+    select article_id, views
+    from article_view_history
+    union all
+    select article_id, views
+    from article_view_daily
+  ) combined
+  group by article_id
+)
+select
+  a.slug,
+  a.title,
+  coalesce(today_views.views, 0)::int as today_views,
+  coalesce(period_views.views, 0)::int as period_views,
+  coalesce(total_views.views, 0)::int as total_views,
+  a.published_at
+from articles a
+left join today_views on today_views.article_id = a.article_id
+left join period_views on period_views.article_id = a.article_id
+left join total_views on total_views.article_id = a.article_id
+where a.status = 'published'
+order by period_views desc, today_views desc, a.published_at desc nulls last;
+
 -- name: ArchiveArticleViewsForDate :exec
 insert into article_view_history (article_id, view_date, views)
 select d.article_id, d.view_date, d.views

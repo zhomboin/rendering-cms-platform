@@ -3,6 +3,7 @@ package analytics
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 
@@ -23,10 +24,12 @@ func NewHandler(queries *dbgen.Queries) Handler {
 
 func (h Handler) RegisterPublicRoutes(router chi.Router) {
 	router.Post("/api/v1/articles/{slug}/views", h.recordArticleView)
+	router.Post("/api/v1/analytics/site-views", h.recordSiteView)
 }
 
 func (h Handler) RegisterAdminRoutes(router chi.Router) {
 	router.Get("/analytics/summary", h.summary)
+	router.Get("/analytics/articles", h.articleAnalytics)
 }
 
 func (h Handler) recordArticleView(w http.ResponseWriter, r *http.Request) {
@@ -49,6 +52,27 @@ func (h Handler) recordArticleView(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "文章访问统计写入失败")
 		return
 	}
+	if err := h.queries.UpsertSiteViewDaily(r.Context(), dbgen.UpsertSiteViewDailyParams{
+		ViewDate: today,
+		Views:    1,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "站点访问统计写入失败")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h Handler) recordSiteView(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		Path     string `json:"path"`
+		Referrer string `json:"referrer"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil && !errors.Is(err, io.EOF) {
+		// Rendering 静态站上报失败不应影响访问；扩展字段无效时仍记录一次站点 PV。
+	}
+
+	today := pgtype.Date{Time: time.Now(), Valid: true}
 	if err := h.queries.UpsertSiteViewDaily(r.Context(), dbgen.UpsertSiteViewDailyParams{
 		ViewDate: today,
 		Views:    1,
@@ -93,6 +117,17 @@ func (h Handler) summary(w http.ResponseWriter, r *http.Request) {
 			return result
 		}(),
 	})
+}
+
+func (h Handler) articleAnalytics(w http.ResponseWriter, r *http.Request) {
+	days := normalizeArticleAnalyticsDays(r.URL.Query().Get("days"))
+	articles, err := h.queries.ListArticleAnalyticsRows(r.Context(), days)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "文章访问量读取失败")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapArticleAnalyticsRows(days, articles))
 }
 
 func mapDailyViews(days []dbgen.ListSiteViewsLast7DaysRow) []map[string]interface{} {

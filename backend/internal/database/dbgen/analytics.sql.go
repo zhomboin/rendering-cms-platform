@@ -135,6 +135,87 @@ func (q *Queries) ListHotArticles(ctx context.Context, limit int32) ([]ListHotAr
 	return items, nil
 }
 
+const listArticleAnalyticsRows = `-- name: ListArticleAnalyticsRows :many
+with period_views as (
+  select article_id, sum(views)::int as views
+  from (
+    select article_id, views
+    from article_view_history
+    where view_date >= current_date - (($1::int - 1) * interval '1 day')
+      and view_date < current_date
+    union all
+    select article_id, views
+    from article_view_daily
+    where view_date >= current_date - (($1::int - 1) * interval '1 day')
+  ) combined
+  group by article_id
+), today_views as (
+  select article_id, sum(views)::int as views
+  from article_view_daily
+  where view_date = current_date
+  group by article_id
+), total_views as (
+  select article_id, sum(views)::int as views
+  from (
+    select article_id, views
+    from article_view_history
+    union all
+    select article_id, views
+    from article_view_daily
+  ) combined
+  group by article_id
+)
+select
+  a.slug,
+  a.title,
+  coalesce(today_views.views, 0)::int as today_views,
+  coalesce(period_views.views, 0)::int as period_views,
+  coalesce(total_views.views, 0)::int as total_views,
+  a.published_at
+from articles a
+left join today_views on today_views.article_id = a.article_id
+left join period_views on period_views.article_id = a.article_id
+left join total_views on total_views.article_id = a.article_id
+where a.status = 'published'
+order by period_views desc, today_views desc, a.published_at desc nulls last
+`
+
+type ListArticleAnalyticsRowsRow struct {
+	Slug        string
+	Title       string
+	TodayViews  int32
+	PeriodViews int32
+	TotalViews  int32
+	PublishedAt pgtype.Timestamptz
+}
+
+func (q *Queries) ListArticleAnalyticsRows(ctx context.Context, days int32) ([]ListArticleAnalyticsRowsRow, error) {
+	rows, err := q.db.Query(ctx, listArticleAnalyticsRows, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListArticleAnalyticsRowsRow
+	for rows.Next() {
+		var i ListArticleAnalyticsRowsRow
+		if err := rows.Scan(
+			&i.Slug,
+			&i.Title,
+			&i.TodayViews,
+			&i.PeriodViews,
+			&i.TotalViews,
+			&i.PublishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSiteViewsLast7Days = `-- name: ListSiteViewsLast7Days :many
 with days as (
   select generate_series(current_date - interval '6 days', current_date, interval '1 day')::date as view_date

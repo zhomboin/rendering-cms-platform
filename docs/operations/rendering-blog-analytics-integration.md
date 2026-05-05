@@ -46,6 +46,15 @@ Authorization: Bearer <jwt-token>
 - 近 7 天站点访问量。
 - 热门文章列表。
 
+CMS 已补齐以下 Rendering 静态博客对接接口：
+
+```http
+POST /api/v1/analytics/site-views
+GET /api/v1/admin/analytics/articles?days=7
+```
+
+其中站点访问接口用于非文章页面 PV 写入，后台文章统计列表接口用于展示每篇文章的今日访问量、最近 N 天访问量和总访问量。
+
 ## 核心前提
 
 Rendering 静态博客文章 URL 使用：
@@ -363,13 +372,13 @@ referrer_view_daily(referrer_host, view_date, views)
 
 ### 阶段 2：打通站点总访问统计
 
-- CMS 新增 `POST /api/v1/analytics/site-views`。
+- CMS 已新增 `POST /api/v1/analytics/site-views`。
 - Rendering 首页、文章列表页、关于页等非文章页面加入站点访问 Tracker。
 - 验证非文章页面访问只增加 `site_view_daily`，不增加 `article_view_daily`。
 
 ### 阶段 3：展示各文档访问量
 
-- CMS 新增 `GET /api/v1/admin/analytics/articles?days=7`。
+- CMS 已新增 `GET /api/v1/admin/analytics/articles?days=7`。
 - 后台统计页面增加文章访问量列表。
 - 支持展示今日访问量、最近 N 天访问量、总访问量。
 

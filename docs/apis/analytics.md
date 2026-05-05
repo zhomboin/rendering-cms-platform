@@ -29,8 +29,6 @@ POST /api/v1/articles/{slug}/views
 POST /api/v1/analytics/site-views
 ```
 
-状态：待实现。
-
 说明：
 
 - 公开接口。
@@ -38,6 +36,7 @@ POST /api/v1/analytics/site-views
 - 每次调用使 `site_view_daily` 中当日站点访问量加 `1`。
 - 不关联具体文章，不写入 `article_view_daily`。
 - `site_view_daily` 只保存当天实时计数，历史日期统计应在每日归档后进入 `site_view_history`。
+- 请求体扩展字段暂不持久化；字段无效时仍按一次站点访问计数并返回 `204`。
 
 请求体：
 
@@ -96,13 +95,15 @@ GET /api/v1/admin/analytics/articles?days=7
 Authorization: Bearer <jwt-token>
 ```
 
-状态：待实现。
-
 说明：
 
 - 需要 `admin` 或 `editor` 角色。
 - 用于展示各个文档的访问量。
-- `days` 默认 `7`，建议允许范围为 `1` 到 `90`。
+- `days` 默认 `7`，允许范围为 `1` 到 `90`；小于 `1` 时按 `1` 处理，大于 `90` 时按 `90` 处理，非数字时使用默认值 `7`。
+- `todayViews` 读取当天 `article_view_daily`。
+- `periodViews` 合并最近 `days` 天的 `article_view_history` 和 `article_view_daily`。
+- `totalViews` 合并全部 `article_view_history` 和 `article_view_daily`。
+- 默认按 `periodViews desc, todayViews desc, publishedAt desc` 排序。
 
 响应：
 
