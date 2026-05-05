@@ -153,23 +153,37 @@ type Article struct {
 	AuthorID      pgtype.UUID
 	CreatedAt     pgtype.Timestamptz
 	UpdatedAt     pgtype.Timestamptz
+	Version       int32
 }
 
-type ArticleRevision struct {
-	RevisionID pgtype.UUID
-	ArticleID  pgtype.UUID
-	Title      string
-	Summary    string
-	BodyMdx    string
-	Status     ArticleStatus
-	CreatedBy  pgtype.UUID
-	CreatedAt  pgtype.Timestamptz
+type ArticleLog struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
 }
 
 type ArticleViewDaily struct {
 	ArticleID pgtype.UUID
 	ViewDate  pgtype.Date
 	Views     int32
+}
+
+type ArticleViewHistory struct {
+	ArticleID  pgtype.UUID
+	ViewDate   pgtype.Date
+	Views      int32
+	ArchivedAt pgtype.Timestamptz
 }
 
 type Asset struct {
@@ -207,6 +221,12 @@ type DownloadEvent struct {
 type SiteViewDaily struct {
 	ViewDate pgtype.Date
 	Views    int32
+}
+
+type SiteViewHistory struct {
+	ViewDate   pgtype.Date
+	Views      int32
+	ArchivedAt pgtype.Timestamptz
 }
 
 type User struct {

@@ -272,18 +272,26 @@ create table articles (
   published_at timestamptz,
   author_id uuid not null references users(user_id),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  version integer not null default 1
 );
 
-create table article_revisions (
-  revision_id uuid primary key default gen_random_uuid(),
+create table article_logs (
   article_id uuid not null references articles(article_id) on delete cascade,
+  slug text not null,
   title text not null,
   summary text not null,
   body_mdx text not null,
   status article_status not null,
-  created_by uuid not null references users(user_id),
-  created_at timestamptz not null default now()
+  tags text[] not null default '{}',
+  featured boolean not null default false,
+  cover_image_url text,
+  published_at timestamptz,
+  author_id uuid not null references users(user_id),
+  created_at timestamptz not null,
+  updated_at timestamptz not null,
+  version integer not null,
+  primary key (article_id, version)
 );
 
 create table comments (
@@ -306,9 +314,23 @@ create table article_view_daily (
   primary key (article_id, view_date)
 );
 
+create table article_view_history (
+  article_id uuid not null references articles(article_id) on delete cascade,
+  view_date date not null,
+  views integer not null default 0,
+  archived_at timestamptz not null default now(),
+  primary key (article_id, view_date)
+);
+
 create table site_view_daily (
   view_date date primary key,
   views integer not null default 0
+);
+
+create table site_view_history (
+  view_date date primary key,
+  views integer not null default 0,
+  archived_at timestamptz not null default now()
 );
 
 create table assets (
@@ -339,9 +361,11 @@ Create `backend/migrations/000001_init.down.sql`:
 drop table if exists download_events;
 drop table if exists assets;
 drop table if exists site_view_daily;
+drop table if exists site_view_history;
 drop table if exists article_view_daily;
+drop table if exists article_view_history;
 drop table if exists comments;
-drop table if exists article_revisions;
+drop table if exists article_logs;
 drop table if exists articles;
 drop table if exists users;
 drop type if exists comment_status;
@@ -397,10 +421,12 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。
 
 - `users`：后台用户。
 - `articles`：文章主表，正文存储 MDX。
-- `article_revisions`：文章草稿保存和发布历史。
+- `article_logs`：文章版本日志，字段与 `articles` 一致，以 `article_id + version` 作为主键。
 - `comments`：评论及审核状态。
-- `article_view_daily`：文章日访问量。
-- `site_view_daily`：站点日访问量。
+- `article_view_daily`：文章当天访问量。
+- `article_view_history`：文章历史日访问量。
+- `site_view_daily`：站点当天访问量。
+- `site_view_history`：站点历史日访问量。
 - `assets`：上传文件元数据。
 - `download_events`：文件下载审计。
 
@@ -691,11 +717,11 @@ Create `docs/apis/articles.md`:
 
 ## PATCH /api/v1/admin/articles/{id}
 
-保存草稿并写入 `article_revisions`。
+保存草稿，`articles.version` 自动递增，并写入 `article_logs`。
 
 ## POST /api/v1/admin/articles/{id}/publish
 
-发布文章，设置 `published_at`，并写入 `article_revisions`。
+发布文章，设置 `published_at`，`articles.version` 自动递增，并写入 `article_logs`。
 ```
 
 - [x] **Step 4: 创建 MDX 导入工具入口**

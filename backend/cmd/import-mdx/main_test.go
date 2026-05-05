@@ -85,7 +85,7 @@ Body
 	}
 }
 
-func TestImportPostsSkipsDraftsAndWritesRevisions(t *testing.T) {
+func TestImportPostsSkipsDraftsAndUpsertsPublishedArticles(t *testing.T) {
 	publishedAt := time.Date(2026, 3, 19, 0, 0, 0, 0, time.UTC)
 	store := &recordingStore{
 		authorID:  pgtype.UUID{Bytes: [16]byte{1}, Valid: true},
@@ -122,16 +122,12 @@ func TestImportPostsSkipsDraftsAndWritesRevisions(t *testing.T) {
 	if len(store.upserts) != 1 || store.upserts[0].Slug != "published-post" {
 		t.Fatalf("upserts = %#v", store.upserts)
 	}
-	if len(store.revisions) != 1 || store.revisions[0].Title != "Published" {
-		t.Fatalf("revisions = %#v", store.revisions)
-	}
 }
 
 type recordingStore struct {
 	authorID  pgtype.UUID
 	articleID pgtype.UUID
 	upserts   []ImportedPost
-	revisions []ImportedPost
 }
 
 func (s *recordingStore) ResolveImportAuthor(ctx context.Context, email string) (pgtype.UUID, error) {
@@ -141,9 +137,4 @@ func (s *recordingStore) ResolveImportAuthor(ctx context.Context, email string) 
 func (s *recordingStore) UpsertPublishedArticle(ctx context.Context, post ImportedPost, authorID pgtype.UUID) (pgtype.UUID, error) {
 	s.upserts = append(s.upserts, post)
 	return s.articleID, nil
-}
-
-func (s *recordingStore) CreateArticleRevision(ctx context.Context, articleID pgtype.UUID, post ImportedPost, authorID pgtype.UUID) error {
-	s.revisions = append(s.revisions, post)
-	return nil
 }

@@ -12,7 +12,8 @@ select
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 from articles
 where slug = $1 and status = 'published';
 
@@ -30,7 +31,8 @@ select
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 from articles
 where article_id = $1;
 
@@ -48,7 +50,8 @@ select
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 from articles
 where status = 'published'
 order by published_at desc nulls last, created_at desc;
@@ -67,7 +70,8 @@ select
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 from articles
 order by updated_at desc, created_at desc;
 
@@ -97,7 +101,8 @@ returning
   published_at,
   author_id,
   created_at,
-  updated_at;
+  updated_at,
+  version;
 
 -- name: UpdateDraftArticle :one
 update articles
@@ -124,7 +129,8 @@ returning
   published_at,
   author_id,
   created_at,
-  updated_at;
+  updated_at,
+  version;
 
 -- name: PublishArticle :one
 update articles
@@ -146,20 +152,8 @@ returning
   published_at,
   author_id,
   created_at,
-  updated_at;
-
--- name: CreateArticleRevision :one
-insert into article_revisions (
-  article_id,
-  title,
-  summary,
-  body_mdx,
-  status,
-  created_by
-) values (
-  $1, $2, $3, $4, $5, $6
-)
-returning revision_id, article_id, title, summary, body_mdx, status, created_by, created_at;
+  updated_at,
+  version;
 
 -- name: UpsertPublishedArticleFromImport :one
 insert into articles (
@@ -201,4 +195,5 @@ returning
   published_at,
   author_id,
   created_at,
-  updated_at;
+  updated_at,
+  version;

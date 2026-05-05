@@ -95,7 +95,7 @@ func (h Handler) summary(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func mapDailyViews(days []dbgen.SiteViewDaily) []map[string]interface{} {
+func mapDailyViews(days []dbgen.ListSiteViewsLast7DaysRow) []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(days))
 	for _, day := range days {
 		result = append(result, map[string]interface{}{

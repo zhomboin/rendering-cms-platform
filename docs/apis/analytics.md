@@ -14,6 +14,7 @@ POST /api/v1/articles/{slug}/views
 - 仅对已发布文章写入访问统计。
 - 每次调用使 `article_view_daily` 中当日文章访问量加 `1`。
 - 同时使 `site_view_daily` 中当日站点访问量加 `1`。
+- `article_view_daily` 只保存当天实时计数，历史日期统计应在每日归档后进入 `article_view_history`。
 - Rendering 静态博客文章详情页接入时，必须先确保 CMS `articles` 表中存在相同 `slug` 的已发布文章。
 
 成功响应：
@@ -36,6 +37,7 @@ POST /api/v1/analytics/site-views
 - 用于 Rendering 首页、文章列表页、关于页等非文章页面访问统计。
 - 每次调用使 `site_view_daily` 中当日站点访问量加 `1`。
 - 不关联具体文章，不写入 `article_view_daily`。
+- `site_view_daily` 只保存当天实时计数，历史日期统计应在每日归档后进入 `site_view_history`。
 
 请求体：
 
@@ -63,6 +65,7 @@ Authorization: Bearer <jwt-token>
 
 - 需要 `admin` 或 `editor` 角色。
 - 返回今日访问量、近 7 天站点访问量和热门文章列表。
+- 近 7 天站点访问量和热门文章统计应合并历史表与当天 daily 表，避免每日归档后丢失历史数据。
 
 响应：
 
@@ -122,8 +125,11 @@ Authorization: Bearer <jwt-token>
 ## 数据规则
 
 - 统计数据按日聚合。
-- `article_view_daily` 使用 `(article_id, view_date)` 作为主键。
-- `site_view_daily` 使用 `view_date` 作为主键。
+- `article_view_daily` 使用 `(article_id, view_date)` 作为主键，只保存当天访问量。
+- `article_view_history` 使用 `(article_id, view_date)` 作为主键，保存每日归档后的文章历史访问量。
+- `site_view_daily` 使用 `view_date` 作为主键，只保存当天访问量。
+- `site_view_history` 使用 `view_date` 作为主键，保存每日归档后的站点历史访问量。
+- 每日归档任务应先把指定日期的 daily 数据 upsert 到 history 表，再删除对应日期的 daily 数据。
 - MVP 不保存原始 IP 地址。
 
 ## Rendering 博客对接

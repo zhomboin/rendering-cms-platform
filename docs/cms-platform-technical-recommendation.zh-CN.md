@@ -57,10 +57,12 @@
 - 主要表：
   - `users`
   - `articles`
-  - `article_revisions`
+  - `article_logs`
   - `comments`
   - `article_view_daily`
+  - `article_view_history`
   - `site_view_daily`
+  - `site_view_history`
   - `assets`
   - `download_events`
 
@@ -132,14 +134,17 @@ rendering-cms-platform/
   - `draft`
   - `published`
   - `archived`
-- 每次保存草稿或发布时写入 `article_revisions`。
+- `articles.version` 默认值为 `1`，每次更新后版本号自动加 `1`。
+- 每次插入或更新 `articles` 时由数据库触发器写入 `article_logs`。
+- `article_logs` 字段与 `articles` 一致，使用 `article_id + version` 作为联合主键，不再单独生成日志主键。
 - 当前仓库的 `content/posts/*.mdx` 只作为导入来源和备份格式，不作为新项目运行时内容源。
 
 ## 统计模型
 
 - 第一版使用日聚合，不记录每一次明细访问。
-- 文章访问量写入 `article_view_daily`。
-- 站点访问量写入 `site_view_daily`。
+- 文章访问量写入 `article_view_daily`，该表只保存当天实时计数。
+- 站点访问量写入 `site_view_daily`，该表只保存当天实时计数。
+- 每天统计完成后，将文章和站点当日访问量分别归档到 `article_view_history` 与 `site_view_history`。
 - 后台首页展示今日访问量、近 7 天访问量、热门文章。
 - 后端记录 IP 哈希和 User-Agent 只用于基础去重或风控时再扩展；第一版可以只做简单计数。
 

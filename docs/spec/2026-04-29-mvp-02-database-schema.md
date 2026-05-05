@@ -25,10 +25,11 @@
 - [x] 启用 `pgcrypto` 扩展，用于 `gen_random_uuid()`。
 - [x] 创建枚举：`user_role`、`article_status`、`comment_status`。
 - [x] 创建 `users` 表，字段包含 `user_id`、`email`、`name`、`password_hash`、`role`、时间戳。
-- [x] 创建 `articles` 表，字段包含 `article_id`、`slug`、`title`、`summary`、`body_mdx`、`status`、`tags`、`featured`、`cover_image_url`、`published_at`、`author_id`、时间戳。
-- [x] 创建 `article_revisions` 表，保存每次草稿保存和发布记录。
+- [x] 创建 `articles` 表，字段包含 `article_id`、`slug`、`title`、`summary`、`body_mdx`、`status`、`tags`、`featured`、`cover_image_url`、`published_at`、`author_id`、时间戳和 `version`。
+- [x] 创建 `article_logs` 表，字段与 `articles` 一致，使用 `article_id + version` 作为联合主键。
 - [x] 创建 `comments` 表，评论默认状态为 `pending`，只保存 `ip_hash`，不保存原始 IP。
-- [x] 创建 `article_view_daily` 和 `site_view_daily`，采用日聚合统计。
+- [x] 创建 `article_view_daily` 和 `site_view_daily`，采用当天日聚合统计。
+- [x] 创建 `article_view_history` 和 `site_view_history`，保存每日归档后的历史统计。
 - [x] 创建 `assets` 表，保存文件元数据和 `storage_key`。
 - [x] 创建 `download_events` 表，记录下载审计。
 - [x] 创建 `backend/migrations/000001_init.down.sql`，按依赖反向删除表和枚举。
@@ -42,6 +43,7 @@
 
 - 完成时间：2026-04-30。
 - 已创建 MVP 核心 PostgreSQL schema、反向 migration、sqlc 配置和业务查询入口。
+- 已通过后续 migration 将 `article_revisions` 升级为 `article_logs`，并新增文章版本号和访问历史归档表。
 - 已通过 `sqlc generate` 生成 `backend/internal/database/dbgen`。
 - 已补充 `database.Open()` 单元测试。
 - 验证命令已通过：`cd backend && go test ./...`、`cd backend && sqlc generate`。

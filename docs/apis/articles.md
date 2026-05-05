@@ -14,6 +14,7 @@
   "summary": "文章摘要",
   "bodyMdx": "## MDX 正文",
   "status": "draft",
+  "version": 1,
   "tags": ["Go", "React"],
   "featured": false,
   "coverImageUrl": null,
@@ -89,7 +90,8 @@ Content-Type: application/json
 说明：
 
 - 创建后默认状态为 `draft`。
-- 创建草稿时必须写入 `article_revisions`。
+- 创建草稿时 `version` 默认为 `1`。
+- 创建草稿成功后由数据库触发器自动写入 `article_logs`。
 
 ## 更新草稿
 
@@ -103,7 +105,8 @@ Content-Type: application/json
 
 说明：
 
-- 更新后必须写入 `article_revisions`。
+- 更新成功后 `articles.version` 自动加 `1`。
+- 更新成功后由数据库触发器自动写入 `article_logs`。
 
 ## 发布文章
 
@@ -116,7 +119,8 @@ Authorization: Bearer <jwt-token>
 
 - 将文章状态设置为 `published`。
 - 首次发布时设置 `published_at`。
-- 发布时必须写入 `article_revisions`。
+- 发布成功后 `articles.version` 自动加 `1`。
+- 发布成功后由数据库触发器自动写入 `article_logs`。
 
 ## MDX 导入工具
 
@@ -145,4 +149,12 @@ go run ./cmd/import-mdx \
 - `tags` 读取 front matter 的 `tags` 列表。
 - `draft: true` 的文章跳过导入。
 - 非草稿文章写入或更新为 `published` 状态。
-- 每次成功导入或更新文章都会写入 `article_revisions`。
+- 新导入文章的 `version` 默认为 `1`。
+- 每次成功导入新文章或更新已有文章，都会由数据库触发器写入 `article_logs`。
+
+## 版本日志规则
+
+- `article_logs` 字段与 `articles` 一致。
+- `article_logs` 使用 `article_id + version` 作为联合主键。
+- 应用层不直接生成日志主键，也不直接维护文章版本号。
+- 文章创建、后台更新、发布和 MDX 导入更新都必须通过 `articles` 表写入，由数据库触发器统一生成版本日志。

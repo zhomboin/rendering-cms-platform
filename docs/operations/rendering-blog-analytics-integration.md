@@ -72,7 +72,7 @@ go run ./cmd/import-mdx \
 - `status` 设置为 `published`。
 - `published_at` 使用原文章发布时间。
 - `author_id` 指向管理员或系统导入用户。
-- 每次导入或更新文章时写入 `article_revisions`。
+- 每次导入或更新文章时由数据库触发器写入 `article_logs`，并同步维护 `articles.version`。
 
 如需先检查解析结果而不写入数据库，可以使用：
 
@@ -181,7 +181,7 @@ POST /api/v1/analytics/site-views
 实现要求：
 
 - 不要求登录。
-- 第一阶段只更新 `site_view_daily`。
+- 第一阶段只更新当天 `site_view_daily`。
 - 不保存原始 IP 地址。
 - 参数不合法时仍应尽量不影响站点访问；服务端可以返回 `204` 并忽略无效扩展字段。
 
@@ -331,12 +331,16 @@ FRONTEND_ORIGIN=http://127.0.0.1:3000
 
 ## 数据库与迁移
 
-第一阶段可复用现有表：
+第一阶段使用以下统计表：
 
 - `article_view_daily`
+- `article_view_history`
 - `site_view_daily`
+- `site_view_history`
 
-新增文章统计列表接口只需要扩展 SQL 查询，不一定需要新增表。
+`article_view_daily` 和 `site_view_daily` 只保存当天实时访问量。每天统计完成后，应把当日数据归档到对应 history 表，再清理 daily 表中的该日期记录。
+
+新增文章统计列表接口查询历史区间时，应优先读取 history 表，并按需要合并当天 daily 表。
 
 如果后续要做页面级统计或来源分析，再新增聚合表，例如：
 
@@ -354,6 +358,7 @@ referrer_view_daily(referrer_host, view_date, views)
 - 完成 MDX 导入工具，使 Rendering 文章 slug 进入 CMS `articles` 表。
 - 在 Rendering 文章详情页加入文章访问 Tracker。
 - 验证访问 `/blog/<slug>` 后，CMS `article_view_daily` 和 `site_view_daily` 同步增加。
+- 验证每日归档任务可把当天统计写入 `article_view_history` 和 `site_view_history`。
 - 后台看板能展示热门文章和站点访问量。
 
 ### 阶段 2：打通站点总访问统计
@@ -417,6 +422,18 @@ select * from site_view_daily order by view_date desc limit 7;
 docker exec rendering-cms-postgres psql -U rendering -d rendering_cms -c "
 select a.slug, a.title, v.view_date, v.views
 from article_view_daily v
+join articles a on a.article_id = v.article_id
+order by v.view_date desc, v.views desc
+limit 20;
+"
+
+docker exec rendering-cms-postgres psql -U rendering -d rendering_cms -c "
+select * from site_view_history order by view_date desc limit 7;
+"
+
+docker exec rendering-cms-postgres psql -U rendering -d rendering_cms -c "
+select a.slug, a.title, v.view_date, v.views
+from article_view_history v
 join articles a on a.article_id = v.article_id
 order by v.view_date desc, v.views desc
 limit 20;

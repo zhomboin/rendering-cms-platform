@@ -104,10 +104,6 @@ func (h Handler) createDraftArticle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "草稿创建失败")
 		return
 	}
-	if err := h.createRevision(r, article, authorID); err != nil {
-		writeError(w, http.StatusInternalServerError, "修订记录写入失败")
-		return
-	}
 	writeJSON(w, http.StatusCreated, mapArticle(article))
 }
 
@@ -126,8 +122,7 @@ func (h Handler) updateDraftArticle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "文章 ID 无效")
 		return
 	}
-	userID, err := uuidFromString(user.UserID)
-	if err != nil {
+	if _, err := uuidFromString(user.UserID); err != nil {
 		writeError(w, http.StatusUnauthorized, "用户 ID 无效")
 		return
 	}
@@ -146,10 +141,6 @@ func (h Handler) updateDraftArticle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "草稿更新失败")
 		return
 	}
-	if err := h.createRevision(r, article, userID); err != nil {
-		writeError(w, http.StatusInternalServerError, "修订记录写入失败")
-		return
-	}
 	writeJSON(w, http.StatusOK, mapArticle(article))
 }
 
@@ -164,8 +155,7 @@ func (h Handler) publishArticle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "文章 ID 无效")
 		return
 	}
-	userID, err := uuidFromString(user.UserID)
-	if err != nil {
+	if _, err := uuidFromString(user.UserID); err != nil {
 		writeError(w, http.StatusUnauthorized, "用户 ID 无效")
 		return
 	}
@@ -175,23 +165,7 @@ func (h Handler) publishArticle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "文章发布失败")
 		return
 	}
-	if err := h.createRevision(r, article, userID); err != nil {
-		writeError(w, http.StatusInternalServerError, "修订记录写入失败")
-		return
-	}
 	writeJSON(w, http.StatusOK, mapArticle(article))
-}
-
-func (h Handler) createRevision(r *http.Request, article dbgen.Article, userID pgtype.UUID) error {
-	_, err := h.queries.CreateArticleRevision(r.Context(), dbgen.CreateArticleRevisionParams{
-		ArticleID: article.ArticleID,
-		Title:     article.Title,
-		Summary:   article.Summary,
-		BodyMdx:   article.BodyMdx,
-		Status:    article.Status,
-		CreatedBy: userID,
-	})
-	return err
 }
 
 func decodeArticlePayload(w http.ResponseWriter, r *http.Request) (ArticlePayload, bool) {
@@ -239,6 +213,7 @@ func mapArticle(article dbgen.Article) map[string]interface{} {
 		"summary":       article.Summary,
 		"bodyMdx":       article.BodyMdx,
 		"status":        string(article.Status),
+		"version":       article.Version,
 		"tags":          article.Tags,
 		"featured":      article.Featured,
 		"coverImageUrl": textValue(article.CoverImageUrl),

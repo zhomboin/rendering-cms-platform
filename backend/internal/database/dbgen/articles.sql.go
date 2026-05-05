@@ -11,52 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createArticleRevision = `-- name: CreateArticleRevision :one
-insert into article_revisions (
-  article_id,
-  title,
-  summary,
-  body_mdx,
-  status,
-  created_by
-) values (
-  $1, $2, $3, $4, $5, $6
-)
-returning revision_id, article_id, title, summary, body_mdx, status, created_by, created_at
-`
-
-type CreateArticleRevisionParams struct {
-	ArticleID pgtype.UUID
-	Title     string
-	Summary   string
-	BodyMdx   string
-	Status    ArticleStatus
-	CreatedBy pgtype.UUID
-}
-
-func (q *Queries) CreateArticleRevision(ctx context.Context, arg CreateArticleRevisionParams) (ArticleRevision, error) {
-	row := q.db.QueryRow(ctx, createArticleRevision,
-		arg.ArticleID,
-		arg.Title,
-		arg.Summary,
-		arg.BodyMdx,
-		arg.Status,
-		arg.CreatedBy,
-	)
-	var i ArticleRevision
-	err := row.Scan(
-		&i.RevisionID,
-		&i.ArticleID,
-		&i.Title,
-		&i.Summary,
-		&i.BodyMdx,
-		&i.Status,
-		&i.CreatedBy,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const createDraftArticle = `-- name: CreateDraftArticle :one
 insert into articles (
   slug,
@@ -83,7 +37,8 @@ returning
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 `
 
 type CreateDraftArticleParams struct {
@@ -123,6 +78,7 @@ func (q *Queries) CreateDraftArticle(ctx context.Context, arg CreateDraftArticle
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Version,
 	)
 	return i, err
 }
@@ -141,7 +97,8 @@ select
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 from articles
 where article_id = $1
 `
@@ -163,6 +120,7 @@ func (q *Queries) GetArticleByID(ctx context.Context, articleID pgtype.UUID) (Ar
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Version,
 	)
 	return i, err
 }
@@ -181,7 +139,8 @@ select
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 from articles
 where slug = $1 and status = 'published'
 `
@@ -203,6 +162,7 @@ func (q *Queries) GetArticleBySlug(ctx context.Context, slug string) (Article, e
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Version,
 	)
 	return i, err
 }
@@ -221,7 +181,8 @@ select
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 from articles
 order by updated_at desc, created_at desc
 `
@@ -249,6 +210,7 @@ func (q *Queries) ListAdminArticles(ctx context.Context) ([]Article, error) {
 			&i.AuthorID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Version,
 		); err != nil {
 			return nil, err
 		}
@@ -274,7 +236,8 @@ select
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 from articles
 where status = 'published'
 order by published_at desc nulls last, created_at desc
@@ -303,6 +266,7 @@ func (q *Queries) ListPublishedArticles(ctx context.Context) ([]Article, error) 
 			&i.AuthorID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Version,
 		); err != nil {
 			return nil, err
 		}
@@ -334,7 +298,8 @@ returning
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 `
 
 func (q *Queries) PublishArticle(ctx context.Context, articleID pgtype.UUID) (Article, error) {
@@ -354,6 +319,7 @@ func (q *Queries) PublishArticle(ctx context.Context, articleID pgtype.UUID) (Ar
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Version,
 	)
 	return i, err
 }
@@ -383,7 +349,8 @@ returning
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 `
 
 type UpdateDraftArticleParams struct {
@@ -423,6 +390,7 @@ func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticle
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Version,
 	)
 	return i, err
 }
@@ -467,7 +435,8 @@ returning
   published_at,
   author_id,
   created_at,
-  updated_at
+  updated_at,
+  version
 `
 
 type UpsertPublishedArticleFromImportParams struct {
@@ -509,6 +478,7 @@ func (q *Queries) UpsertPublishedArticleFromImport(ctx context.Context, arg Upse
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Version,
 	)
 	return i, err
 }

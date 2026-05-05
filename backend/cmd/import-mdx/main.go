@@ -88,7 +88,6 @@ type ImportResult struct {
 type ImportStore interface {
 	ResolveImportAuthor(ctx context.Context, email string) (pgtype.UUID, error)
 	UpsertPublishedArticle(ctx context.Context, post ImportedPost, authorID pgtype.UUID) (pgtype.UUID, error)
-	CreateArticleRevision(ctx context.Context, articleID pgtype.UUID, post ImportedPost, authorID pgtype.UUID) error
 }
 
 type DatabaseImportStore struct {
@@ -133,18 +132,6 @@ func (s DatabaseImportStore) UpsertPublishedArticle(ctx context.Context, post Im
 	return article.ArticleID, nil
 }
 
-func (s DatabaseImportStore) CreateArticleRevision(ctx context.Context, articleID pgtype.UUID, post ImportedPost, authorID pgtype.UUID) error {
-	_, err := s.queries.CreateArticleRevision(ctx, dbgen.CreateArticleRevisionParams{
-		ArticleID: articleID,
-		Title:     post.Title,
-		Summary:   post.Summary,
-		BodyMdx:   post.BodyMDX,
-		Status:    dbgen.ArticleStatusPublished,
-		CreatedBy: authorID,
-	})
-	return err
-}
-
 func ImportPosts(ctx context.Context, store ImportStore, posts []ImportedPost, authorEmail string) (ImportResult, error) {
 	authorID, err := store.ResolveImportAuthor(ctx, authorEmail)
 	if err != nil {
@@ -158,12 +145,9 @@ func ImportPosts(ctx context.Context, store ImportStore, posts []ImportedPost, a
 			continue
 		}
 
-		articleID, err := store.UpsertPublishedArticle(ctx, post, authorID)
+		_, err := store.UpsertPublishedArticle(ctx, post, authorID)
 		if err != nil {
 			return result, fmt.Errorf("upsert %s: %w", post.Slug, err)
-		}
-		if err := store.CreateArticleRevision(ctx, articleID, post, authorID); err != nil {
-			return result, fmt.Errorf("create revision %s: %w", post.Slug, err)
 		}
 		result.Imported++
 	}

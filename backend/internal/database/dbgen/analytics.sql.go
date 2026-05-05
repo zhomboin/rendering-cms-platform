@@ -11,6 +11,58 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const archiveArticleViewsForDate = `-- name: ArchiveArticleViewsForDate :exec
+insert into article_view_history (article_id, view_date, views)
+select d.article_id, d.view_date, d.views
+from article_view_daily d
+where d.view_date = $1
+on conflict (article_id, view_date)
+do update set
+  views = excluded.views,
+  archived_at = now()
+`
+
+func (q *Queries) ArchiveArticleViewsForDate(ctx context.Context, viewDate pgtype.Date) error {
+	_, err := q.db.Exec(ctx, archiveArticleViewsForDate, viewDate)
+	return err
+}
+
+const archiveSiteViewsForDate = `-- name: ArchiveSiteViewsForDate :exec
+insert into site_view_history (view_date, views)
+select d.view_date, d.views
+from site_view_daily d
+where d.view_date = $1
+on conflict (view_date)
+do update set
+  views = excluded.views,
+  archived_at = now()
+`
+
+func (q *Queries) ArchiveSiteViewsForDate(ctx context.Context, viewDate pgtype.Date) error {
+	_, err := q.db.Exec(ctx, archiveSiteViewsForDate, viewDate)
+	return err
+}
+
+const deleteArticleViewDailyForDate = `-- name: DeleteArticleViewDailyForDate :exec
+delete from article_view_daily
+where view_date = $1
+`
+
+func (q *Queries) DeleteArticleViewDailyForDate(ctx context.Context, viewDate pgtype.Date) error {
+	_, err := q.db.Exec(ctx, deleteArticleViewDailyForDate, viewDate)
+	return err
+}
+
+const deleteSiteViewDailyForDate = `-- name: DeleteSiteViewDailyForDate :exec
+delete from site_view_daily
+where view_date = $1
+`
+
+func (q *Queries) DeleteSiteViewDailyForDate(ctx context.Context, viewDate pgtype.Date) error {
+	_, err := q.db.Exec(ctx, deleteSiteViewDailyForDate, viewDate)
+	return err
+}
+
 const getTodaySiteViews = `-- name: GetTodaySiteViews :one
 select coalesce(views, 0)::int as views
 from site_view_daily
@@ -25,15 +77,28 @@ func (q *Queries) GetTodaySiteViews(ctx context.Context) (int32, error) {
 }
 
 const listHotArticles = `-- name: ListHotArticles :many
+with article_views as (
+  select article_id, sum(views)::int as views
+  from (
+    select article_id, views
+    from article_view_history
+    where view_date >= current_date - interval '6 days'
+      and view_date < current_date
+    union all
+    select article_id, views
+    from article_view_daily
+    where view_date >= current_date - interval '6 days'
+  ) combined
+  group by article_id
+)
 select
   a.article_id,
   a.slug,
   a.title,
-  coalesce(sum(v.views), 0)::int as views
+  coalesce(v.views, 0)::int as views
 from articles a
-left join article_view_daily v on v.article_id = a.article_id
+left join article_views v on v.article_id = a.article_id
 where a.status = 'published'
-group by a.article_id, a.slug, a.title
 order by views desc, a.published_at desc nulls last
 limit $1
 `
@@ -71,21 +136,42 @@ func (q *Queries) ListHotArticles(ctx context.Context, limit int32) ([]ListHotAr
 }
 
 const listSiteViewsLast7Days = `-- name: ListSiteViewsLast7Days :many
-select view_date, views
-from site_view_daily
-where view_date >= current_date - interval '6 days'
-order by view_date asc
+with days as (
+  select generate_series(current_date - interval '6 days', current_date, interval '1 day')::date as view_date
+), views as (
+  select view_date, sum(views)::int as views
+  from (
+    select view_date, views
+    from site_view_history
+    where view_date >= current_date - interval '6 days'
+      and view_date < current_date
+    union all
+    select view_date, views
+    from site_view_daily
+    where view_date >= current_date - interval '6 days'
+  ) combined
+  group by view_date
+)
+select days.view_date, coalesce(views.views, 0)::int as views
+from days
+left join views on views.view_date = days.view_date
+order by days.view_date asc
 `
 
-func (q *Queries) ListSiteViewsLast7Days(ctx context.Context) ([]SiteViewDaily, error) {
+type ListSiteViewsLast7DaysRow struct {
+	ViewDate pgtype.Date
+	Views    int32
+}
+
+func (q *Queries) ListSiteViewsLast7Days(ctx context.Context) ([]ListSiteViewsLast7DaysRow, error) {
 	rows, err := q.db.Query(ctx, listSiteViewsLast7Days)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SiteViewDaily
+	var items []ListSiteViewsLast7DaysRow
 	for rows.Next() {
-		var i SiteViewDaily
+		var i ListSiteViewsLast7DaysRow
 		if err := rows.Scan(&i.ViewDate, &i.Views); err != nil {
 			return nil, err
 		}
