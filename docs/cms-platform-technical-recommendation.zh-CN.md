@@ -144,7 +144,8 @@ rendering-cms-platform/
 - 第一版使用日聚合，不记录每一次明细访问。
 - 文章访问量写入 `article_view_daily`，该表只保存当天实时计数。
 - 站点访问量写入 `site_view_daily`，该表只保存当天实时计数。
-- 每天统计完成后，将文章和站点当日访问量分别归档到 `article_view_history` 与 `site_view_history`。
+- 后端服务启动后先清理过期 daily 数据，之后每天本地时间 `00:05` 将历史日期访问量分别归档到 `article_view_history` 与 `site_view_history`。
+- 归档使用 `DELETE ... RETURNING` 原子搬迁 daily 数据，并在 history 已存在同日记录时累加访问量，避免并发访问和归档任务同时发生时丢失计数。
 - 后台首页展示今日访问量、近 7 天访问量、热门文章。
 - 后端记录 IP 哈希和 User-Agent 只用于基础去重或风控时再扩展；第一版可以只做简单计数。
 

@@ -1,6 +1,7 @@
 package analytics
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -12,6 +13,25 @@ import (
 type DailyView struct {
 	Date  time.Time
 	Views int
+}
+
+type DailyViewArchiver interface {
+	ArchiveArticleViewsBeforeDate(ctx context.Context, cutoffDate pgtype.Date) error
+	ArchiveSiteViewsBeforeDate(ctx context.Context, cutoffDate pgtype.Date) error
+}
+
+func ArchivePastDailyViews(ctx context.Context, archiver DailyViewArchiver, now time.Time) error {
+	cutoff := pgtype.Date{
+		Time:  time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+		Valid: true,
+	}
+	if err := archiver.ArchiveArticleViewsBeforeDate(ctx, cutoff); err != nil {
+		return err
+	}
+	if err := archiver.ArchiveSiteViewsBeforeDate(ctx, cutoff); err != nil {
+		return err
+	}
+	return nil
 }
 
 func TotalViews(days []DailyView) int {

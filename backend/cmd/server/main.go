@@ -41,6 +41,10 @@ func main() {
 	commentHandler := comments.NewHandler(queries)
 	assetHandler := assets.NewHandler(queries, storageClient)
 
+	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
+	defer stopScheduler()
+	analytics.StartDailyViewArchiveScheduler(schedulerCtx, queries, slog.Default())
+
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.NewRouter(

@@ -107,30 +107,30 @@ left join total_views on total_views.article_id = a.article_id
 where a.status = 'published'
 order by period_views desc, today_views desc, a.published_at desc nulls last;
 
--- name: ArchiveArticleViewsForDate :exec
+-- name: ArchiveArticleViewsBeforeDate :exec
+with moved as (
+  delete from article_view_daily
+  where article_view_daily.view_date < $1
+  returning article_view_daily.article_id, article_view_daily.view_date, article_view_daily.views
+)
 insert into article_view_history (article_id, view_date, views)
-select d.article_id, d.view_date, d.views
-from article_view_daily d
-where d.view_date = $1
+select moved.article_id, moved.view_date, moved.views
+from moved
 on conflict (article_id, view_date)
 do update set
-  views = excluded.views,
+  views = article_view_history.views + excluded.views,
   archived_at = now();
 
--- name: DeleteArticleViewDailyForDate :exec
-delete from article_view_daily
-where view_date = $1;
-
--- name: ArchiveSiteViewsForDate :exec
+-- name: ArchiveSiteViewsBeforeDate :exec
+with moved as (
+  delete from site_view_daily
+  where site_view_daily.view_date < $1
+  returning site_view_daily.view_date, site_view_daily.views
+)
 insert into site_view_history (view_date, views)
-select d.view_date, d.views
-from site_view_daily d
-where d.view_date = $1
+select moved.view_date, moved.views
+from moved
 on conflict (view_date)
 do update set
-  views = excluded.views,
+  views = site_view_history.views + excluded.views,
   archived_at = now();
-
--- name: DeleteSiteViewDailyForDate :exec
-delete from site_view_daily
-where view_date = $1;

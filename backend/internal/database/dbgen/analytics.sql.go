@@ -11,55 +11,43 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const archiveArticleViewsForDate = `-- name: ArchiveArticleViewsForDate :exec
+const archiveArticleViewsBeforeDate = `-- name: ArchiveArticleViewsBeforeDate :exec
+with moved as (
+  delete from article_view_daily
+  where article_view_daily.view_date < $1
+  returning article_view_daily.article_id, article_view_daily.view_date, article_view_daily.views
+)
 insert into article_view_history (article_id, view_date, views)
-select d.article_id, d.view_date, d.views
-from article_view_daily d
-where d.view_date = $1
+select moved.article_id, moved.view_date, moved.views
+from moved
 on conflict (article_id, view_date)
 do update set
-  views = excluded.views,
+  views = article_view_history.views + excluded.views,
   archived_at = now()
 `
 
-func (q *Queries) ArchiveArticleViewsForDate(ctx context.Context, viewDate pgtype.Date) error {
-	_, err := q.db.Exec(ctx, archiveArticleViewsForDate, viewDate)
+func (q *Queries) ArchiveArticleViewsBeforeDate(ctx context.Context, viewDate pgtype.Date) error {
+	_, err := q.db.Exec(ctx, archiveArticleViewsBeforeDate, viewDate)
 	return err
 }
 
-const archiveSiteViewsForDate = `-- name: ArchiveSiteViewsForDate :exec
+const archiveSiteViewsBeforeDate = `-- name: ArchiveSiteViewsBeforeDate :exec
+with moved as (
+  delete from site_view_daily
+  where site_view_daily.view_date < $1
+  returning site_view_daily.view_date, site_view_daily.views
+)
 insert into site_view_history (view_date, views)
-select d.view_date, d.views
-from site_view_daily d
-where d.view_date = $1
+select moved.view_date, moved.views
+from moved
 on conflict (view_date)
 do update set
-  views = excluded.views,
+  views = site_view_history.views + excluded.views,
   archived_at = now()
 `
 
-func (q *Queries) ArchiveSiteViewsForDate(ctx context.Context, viewDate pgtype.Date) error {
-	_, err := q.db.Exec(ctx, archiveSiteViewsForDate, viewDate)
-	return err
-}
-
-const deleteArticleViewDailyForDate = `-- name: DeleteArticleViewDailyForDate :exec
-delete from article_view_daily
-where view_date = $1
-`
-
-func (q *Queries) DeleteArticleViewDailyForDate(ctx context.Context, viewDate pgtype.Date) error {
-	_, err := q.db.Exec(ctx, deleteArticleViewDailyForDate, viewDate)
-	return err
-}
-
-const deleteSiteViewDailyForDate = `-- name: DeleteSiteViewDailyForDate :exec
-delete from site_view_daily
-where view_date = $1
-`
-
-func (q *Queries) DeleteSiteViewDailyForDate(ctx context.Context, viewDate pgtype.Date) error {
-	_, err := q.db.Exec(ctx, deleteSiteViewDailyForDate, viewDate)
+func (q *Queries) ArchiveSiteViewsBeforeDate(ctx context.Context, viewDate pgtype.Date) error {
+	_, err := q.db.Exec(ctx, archiveSiteViewsBeforeDate, viewDate)
 	return err
 }
 
@@ -74,65 +62,6 @@ func (q *Queries) GetTodaySiteViews(ctx context.Context) (int32, error) {
 	var views int32
 	err := row.Scan(&views)
 	return views, err
-}
-
-const listHotArticles = `-- name: ListHotArticles :many
-with article_views as (
-  select article_id, sum(views)::int as views
-  from (
-    select article_id, views
-    from article_view_history
-    where view_date >= current_date - interval '6 days'
-      and view_date < current_date
-    union all
-    select article_id, views
-    from article_view_daily
-    where view_date >= current_date - interval '6 days'
-  ) combined
-  group by article_id
-)
-select
-  a.article_id,
-  a.slug,
-  a.title,
-  coalesce(v.views, 0)::int as views
-from articles a
-left join article_views v on v.article_id = a.article_id
-where a.status = 'published'
-order by views desc, a.published_at desc nulls last
-limit $1
-`
-
-type ListHotArticlesRow struct {
-	ArticleID pgtype.UUID
-	Slug      string
-	Title     string
-	Views     int32
-}
-
-func (q *Queries) ListHotArticles(ctx context.Context, limit int32) ([]ListHotArticlesRow, error) {
-	rows, err := q.db.Query(ctx, listHotArticles, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListHotArticlesRow
-	for rows.Next() {
-		var i ListHotArticlesRow
-		if err := rows.Scan(
-			&i.ArticleID,
-			&i.Slug,
-			&i.Title,
-			&i.Views,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const listArticleAnalyticsRows = `-- name: ListArticleAnalyticsRows :many
@@ -189,8 +118,8 @@ type ListArticleAnalyticsRowsRow struct {
 	PublishedAt pgtype.Timestamptz
 }
 
-func (q *Queries) ListArticleAnalyticsRows(ctx context.Context, days int32) ([]ListArticleAnalyticsRowsRow, error) {
-	rows, err := q.db.Query(ctx, listArticleAnalyticsRows, days)
+func (q *Queries) ListArticleAnalyticsRows(ctx context.Context, dollar_1 int32) ([]ListArticleAnalyticsRowsRow, error) {
+	rows, err := q.db.Query(ctx, listArticleAnalyticsRows, dollar_1)
 	if err != nil {
 		return nil, err
 	}
@@ -205,6 +134,65 @@ func (q *Queries) ListArticleAnalyticsRows(ctx context.Context, days int32) ([]L
 			&i.PeriodViews,
 			&i.TotalViews,
 			&i.PublishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listHotArticles = `-- name: ListHotArticles :many
+with article_views as (
+  select article_id, sum(views)::int as views
+  from (
+    select article_id, views
+    from article_view_history
+    where view_date >= current_date - interval '6 days'
+      and view_date < current_date
+    union all
+    select article_id, views
+    from article_view_daily
+    where view_date >= current_date - interval '6 days'
+  ) combined
+  group by article_id
+)
+select
+  a.article_id,
+  a.slug,
+  a.title,
+  coalesce(v.views, 0)::int as views
+from articles a
+left join article_views v on v.article_id = a.article_id
+where a.status = 'published'
+order by views desc, a.published_at desc nulls last
+limit $1
+`
+
+type ListHotArticlesRow struct {
+	ArticleID pgtype.UUID
+	Slug      string
+	Title     string
+	Views     int32
+}
+
+func (q *Queries) ListHotArticles(ctx context.Context, limit int32) ([]ListHotArticlesRow, error) {
+	rows, err := q.db.Query(ctx, listHotArticles, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHotArticlesRow
+	for rows.Next() {
+		var i ListHotArticlesRow
+		if err := rows.Scan(
+			&i.ArticleID,
+			&i.Slug,
+			&i.Title,
+			&i.Views,
 		); err != nil {
 			return nil, err
 		}

@@ -209,12 +209,15 @@ backend/internal/analytics/
 - 记录站点访问量。
 - 输出后台统计汇总。
 - 计算热门文章。
+- 启动后清理过期 daily 统计，并每天本地时间 `00:05` 归档历史日期访问量。
 
 对应接口：
 
 ```text
 POST /api/v1/articles/{slug}/views
+POST /api/v1/analytics/site-views
 GET  /api/v1/admin/analytics/summary
+GET  /api/v1/admin/analytics/articles
 ```
 
 ### comments

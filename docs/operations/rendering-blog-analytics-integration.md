@@ -347,7 +347,11 @@ FRONTEND_ORIGIN=http://127.0.0.1:3000
 - `site_view_daily`
 - `site_view_history`
 
-`article_view_daily` 和 `site_view_daily` 只保存当天实时访问量。每天统计完成后，应把当日数据归档到对应 history 表，再清理 daily 表中的该日期记录。
+`article_view_daily` 和 `site_view_daily` 只保存当天实时访问量。后端服务启动后会先执行一次过期 daily 数据清理，之后每天本地时间 `00:05` 执行归档，把 `view_date < current_date` 的 daily 数据搬迁到对应 history 表。
+
+归档必须使用 `DELETE ... RETURNING` 原子搬迁，不能使用“先写 history 再 delete daily”的两步 SQL。原因是用户访问可能和归档任务并发：如果访问写入夹在两步 SQL 之间，后续 delete 可能误删尚未归档的计数。
+
+归档过程中如果仍有延迟访问写入旧日期 daily 表，该记录会保留到下一次归档继续累加到 history 表，不会覆盖已有 history 记录。
 
 新增文章统计列表接口查询历史区间时，应优先读取 history 表，并按需要合并当天 daily 表。
 
@@ -367,7 +371,7 @@ referrer_view_daily(referrer_host, view_date, views)
 - 完成 MDX 导入工具，使 Rendering 文章 slug 进入 CMS `articles` 表。
 - 在 Rendering 文章详情页加入文章访问 Tracker。
 - 验证访问 `/blog/<slug>` 后，CMS `article_view_daily` 和 `site_view_daily` 同步增加。
-- 验证每日归档任务可把当天统计写入 `article_view_history` 和 `site_view_history`。
+- 验证每日归档任务可把历史日期 daily 数据写入 `article_view_history` 和 `site_view_history`，并清理对应 daily 记录。
 - 后台看板能展示热门文章和站点访问量。
 
 ### 阶段 2：打通站点总访问统计

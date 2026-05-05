@@ -36,7 +36,8 @@
 
 - 完成时间：2026-04-30。
 - 文章访问写入会同步更新当天 `article_view_daily` 和 `site_view_daily`。
-- 每日统计完成后，daily 数据应归档到 `article_view_history` 和 `site_view_history`。
+- 后端服务启动后先清理过期 daily 数据，之后每天本地时间 `00:05` 将历史日期 daily 数据归档到 `article_view_history` 和 `site_view_history`。
+- 归档使用 `DELETE ... RETURNING` 原子搬迁，并发访问写入的旧日期 daily 记录由下一次归档继续累加处理。
 - 后台统计汇总接口挂载在 `/api/v1/admin/analytics/summary`，由后台认证中间件保护。
 - 前端看板已接入 API client，展示今日访问、近 7 天访问和热门文章。
 - 验证命令已通过：`cd backend && go test ./internal/analytics ./...`、`cd frontend && npm run build`。
@@ -46,6 +47,7 @@
 - 文章访问写入当天 `article_view_daily`。
 - 站点访问写入当天 `site_view_daily`。
 - 历史统计应从 `article_view_history` 和 `site_view_history` 读取，必要时合并当天 daily 数据。
+- daily 到 history 的归档不能使用“先 insert history 再 delete daily”的两步 SQL。
 - 后台 summary API 需要认证。
 - 前端看板页面可被路由引用并通过构建。
 

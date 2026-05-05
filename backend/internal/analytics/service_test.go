@@ -1,6 +1,7 @@
 package analytics
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -79,4 +80,46 @@ func TestMapArticleAnalyticsRows(t *testing.T) {
 			t.Fatalf("%s = %#v, want %#v", key, article[key], want)
 		}
 	}
+}
+
+func TestArchivePastDailyViewsUsesTodayAsCutoff(t *testing.T) {
+	now := time.Date(2026, 5, 5, 0, 5, 0, 0, time.Local)
+	archiver := &recordingDailyViewArchiver{}
+
+	if err := ArchivePastDailyViews(context.Background(), archiver, now); err != nil {
+		t.Fatal(err)
+	}
+
+	want := time.Date(2026, 5, 5, 0, 0, 0, 0, time.Local)
+	if !archiver.articleCutoff.Time.Equal(want) || !archiver.articleCutoff.Valid {
+		t.Fatalf("article cutoff = %#v, want %s", archiver.articleCutoff, want)
+	}
+	if !archiver.siteCutoff.Time.Equal(want) || !archiver.siteCutoff.Valid {
+		t.Fatalf("site cutoff = %#v, want %s", archiver.siteCutoff, want)
+	}
+}
+
+func TestNextDailyViewArchiveTimeUsesNextMidnightWindow(t *testing.T) {
+	loc := time.FixedZone("UTC+8", 8*60*60)
+	now := time.Date(2026, 5, 5, 10, 30, 0, 0, loc)
+	want := time.Date(2026, 5, 6, 0, 5, 0, 0, loc)
+
+	if got := nextDailyViewArchiveTime(now); !got.Equal(want) {
+		t.Fatalf("nextDailyViewArchiveTime() = %s, want %s", got, want)
+	}
+}
+
+type recordingDailyViewArchiver struct {
+	articleCutoff pgtype.Date
+	siteCutoff    pgtype.Date
+}
+
+func (a *recordingDailyViewArchiver) ArchiveArticleViewsBeforeDate(ctx context.Context, cutoffDate pgtype.Date) error {
+	a.articleCutoff = cutoffDate
+	return nil
+}
+
+func (a *recordingDailyViewArchiver) ArchiveSiteViewsBeforeDate(ctx context.Context, cutoffDate pgtype.Date) error {
+	a.siteCutoff = cutoffDate
+	return nil
 }

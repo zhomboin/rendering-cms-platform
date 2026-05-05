@@ -130,7 +130,10 @@ Authorization: Bearer <jwt-token>
 - `article_view_history` 使用 `(article_id, view_date)` 作为主键，保存每日归档后的文章历史访问量。
 - `site_view_daily` 使用 `view_date` 作为主键，只保存当天访问量。
 - `site_view_history` 使用 `view_date` 作为主键，保存每日归档后的站点历史访问量。
-- 每日归档任务应先把指定日期的 daily 数据 upsert 到 history 表，再删除对应日期的 daily 数据。
+- 后端服务启动后会先执行一次过期 daily 数据清理，之后每天本地时间 `00:05` 执行归档。
+- 每日归档任务只处理 `view_date < current_date` 的 daily 数据，不处理当天实时计数。
+- 归档 SQL 必须使用 `DELETE ... RETURNING` 把 daily 数据原子搬迁到 history 表，并在冲突时累加到已有 history 记录。
+- 如果归档过程中仍有延迟访问写入旧日期 daily 表，该记录不会被本次删除；下一次归档会继续累加到 history 表，避免计数丢失。
 - MVP 不保存原始 IP 地址。
 
 ## Rendering 博客对接
