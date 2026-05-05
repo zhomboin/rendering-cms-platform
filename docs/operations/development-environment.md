@@ -139,6 +139,7 @@ DATABASE_URL=postgres://rendering:rendering_dev_password@127.0.0.1:5432/renderin
 JWT_SECRET=replace-with-32-plus-character-secret
 FRONTEND_ORIGIN=http://127.0.0.1:5173
 VITE_API_BASE=http://127.0.0.1:8080/api/v1
+LOG_DIR=/var/log/rendering-cms-platform
 
 S3_ENDPOINT=http://127.0.0.1:9000
 S3_REGION=us-east-1
@@ -156,6 +157,13 @@ MINIO_BUCKET=rendering-assets
 ```
 
 不要提交 `.env`。
+
+后端容器内的 `LOG_DIR` 通过 Docker bind mount 写入宿主机目录。本地默认目录为 `logs/backend`，位于项目目录下，已被 `.gitignore` 排除，不会提交到 Git。如需挂载到其他系统盘路径，可在启动脚本前导出 `BACKEND_LOG_HOST_DIR`：
+
+```bash
+export BACKEND_LOG_HOST_DIR=/var/log/rendering-cms-platform
+bash scripts/env/start-backend-docker.sh
+```
 
 ### 同步浏览器访问地址
 

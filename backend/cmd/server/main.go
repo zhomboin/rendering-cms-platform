@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"log/slog"
 	"net/http"
 
 	"rendering-cms-platform/backend/internal/analytics"
@@ -15,6 +14,7 @@ import (
 	"rendering-cms-platform/backend/internal/database"
 	"rendering-cms-platform/backend/internal/database/dbgen"
 	httpapi "rendering-cms-platform/backend/internal/http"
+	"rendering-cms-platform/backend/internal/logging"
 	"rendering-cms-platform/backend/internal/storage"
 )
 
@@ -23,6 +23,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}
+	logger, closeLogger := logging.NewDailyFileLogger(cfg.LogDir)
+	defer closeLogger.Close()
 
 	db, err := database.Open(context.Background(), cfg.DatabaseURL)
 	if err != nil {
@@ -43,14 +45,14 @@ func main() {
 
 	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
 	defer stopScheduler()
-	analytics.StartDailyViewArchiveScheduler(schedulerCtx, queries, slog.Default())
+	analytics.StartDailyViewArchiveScheduler(schedulerCtx, queries, logger)
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.NewRouter(
 			httpapi.WithJWTSecret(cfg.JWTSecret),
 			httpapi.WithFrontendOrigin(cfg.FrontendOrigin),
-			httpapi.WithLogger(slog.Default()),
+			httpapi.WithLogger(logger),
 			httpapi.WithLoginHandler(auth.NewLoginHandler(cfg.JWTSecret, userFinder)),
 			httpapi.WithPublicRoutes(articleHandler.RegisterPublicRoutes),
 			httpapi.WithPublicRoutes(analyticsHandler.RegisterPublicRoutes),

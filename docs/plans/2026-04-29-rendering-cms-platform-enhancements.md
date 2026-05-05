@@ -579,51 +579,47 @@ git commit -m "docs: add backup restore runbooks"
 - Modify: `backend/cmd/server/main.go`
 - Create: `docs/operations/observability.md`
 
-- [ ] **Step 1: 创建结构化日志封装**
+- [x] **Step 1: 创建结构化日志封装**
 
-Create `backend/internal/logging/logger.go`:
+已创建 `backend/internal/logging/logger.go`：
 
 ```go
 package logging
 
 import (
+	"io"
 	"log/slog"
-	"os"
 )
 
-func New() *slog.Logger {
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{}))
+func NewDailyFileLogger(logDir string) (*slog.Logger, io.Closer) {
+	// 日志文件按自然日写入 backend-YYYY-MM-DD.log。
 }
 ```
 
-- [ ] **Step 2: 写可观测性文档**
+- [x] **Step 2: 写可观测性文档**
 
-Create `docs/operations/observability.md`:
+已创建 `docs/operations/observability.md`：
 
 ```markdown
 # 可观测性
 
 ## 日志
 
-后端输出 JSON 结构化日志到 stdout，由 systemd、Docker 或日志平台采集。
+后端输出 JSON 结构化日志到日志文件，默认目录为 `logs`，文件按天切换。
 
 ## 必须记录的事件
 
-- 后台登录成功和失败。
-- 文章发布。
-- 评论审核。
-- 文件上传 URL 生成。
-- 文件下载 URL 生成。
-- migration 执行结果。
+- 每次 HTTP 请求。
 ```
 
-- [ ] **Step 3: 验证日志增强**
+- [x] **Step 3: 验证日志增强**
 
 Run:
 
 ```bash
 cd backend
 go test ./...
+go vet ./...
 ```
 
 Expected: PASS。

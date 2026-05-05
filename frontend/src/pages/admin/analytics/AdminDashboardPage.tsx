@@ -1,4 +1,5 @@
-import { Row, Col, Card, Statistic, Table, Typography } from 'antd';
+import { useState } from 'react';
+import { Row, Col, Card, Statistic, Table, Typography, Segmented } from 'antd';
 import {
   ArrowUpOutlined,
   FileTextOutlined,
@@ -6,8 +7,11 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
-import { getAdminAnalyticsSummary } from '../../../api/analytics';
-import type { AnalyticsSummary, HotArticle } from '../../../api/analytics';
+import {
+  getAdminAnalyticsSummary,
+  getAdminArticleAnalytics,
+} from '../../../api/analytics';
+import type { ArticleAnalytics, HotArticle } from '../../../api/analytics';
 
 const { Title } = Typography;
 
@@ -37,14 +41,68 @@ const hotColumns: ColumnsType<HotArticle> = [
   },
 ];
 
+const articleColumns: ColumnsType<ArticleAnalytics> = [
+  {
+    title: '文章',
+    dataIndex: 'title',
+    key: 'title',
+    ellipsis: true,
+    render: (title: string, article) => (
+      <div>
+        <div style={{ fontWeight: 600, color: '#0F172A' }}>{title}</div>
+        <div style={{ marginTop: 2, fontSize: 12, color: '#64748B' }}>
+          {article.slug}
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: '今日',
+    dataIndex: 'todayViews',
+    key: 'todayViews',
+    width: 96,
+    align: 'right',
+  },
+  {
+    title: '区间访问',
+    dataIndex: 'periodViews',
+    key: 'periodViews',
+    width: 112,
+    align: 'right',
+    sorter: (a, b) => a.periodViews - b.periodViews,
+    defaultSortOrder: 'descend',
+  },
+  {
+    title: '总访问',
+    dataIndex: 'totalViews',
+    key: 'totalViews',
+    width: 112,
+    align: 'right',
+    sorter: (a, b) => a.totalViews - b.totalViews,
+  },
+  {
+    title: '发布时间',
+    dataIndex: 'publishedAt',
+    key: 'publishedAt',
+    width: 132,
+    render: (value: string | null) => formatDate(value),
+  },
+];
+
 function AdminDashboardPage() {
+  const [articleDays, setArticleDays] = useState(7);
   const { data, isLoading } = useQuery({
     queryKey: ['analytics-summary'],
     queryFn: getAdminAnalyticsSummary,
   });
+  const { data: articleData, isLoading: isArticlesLoading } = useQuery({
+    queryKey: ['analytics-articles', articleDays],
+    queryFn: () => getAdminArticleAnalytics(articleDays),
+  });
 
   const weeklyData = data?.last7Days ?? [];
   const hotArticles = data?.hotArticles ?? [];
+  const articleAnalytics = articleData?.articles ?? [];
   const maxVisits = Math.max(...weeklyData.map((d) => d.views), 1);
   const stats = [
     {
@@ -222,8 +280,50 @@ function AdminDashboardPage() {
           style={{ borderRadius: 8 }}
         />
       </Card>
+
+      {/* ---- Article analytics table ---- */}
+      <Card
+        title={
+          <span style={{ fontSize: 18, fontWeight: 700, color: '#0F172A' }}>
+            文章访问量
+          </span>
+        }
+        extra={
+          <Segmented
+            value={articleDays}
+            onChange={(value) => setArticleDays(Number(value))}
+            options={[
+              { label: '7 天', value: 7 },
+              { label: '30 天', value: 30 },
+              { label: '90 天', value: 90 },
+            ]}
+          />
+        }
+        style={{
+          marginTop: 24,
+          borderRadius: 24,
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px 0 rgba(0,0,0,0.06)',
+        }}
+        styles={{ header: { borderBottom: '1px solid #E2E8F0' } }}
+      >
+        <Table
+          columns={articleColumns}
+          dataSource={articleAnalytics}
+          pagination={{ pageSize: 10, showSizeChanger: false }}
+          loading={isArticlesLoading}
+          rowKey="slug"
+          scroll={{ x: 720 }}
+          style={{ borderRadius: 8 }}
+        />
+      </Card>
     </div>
   );
+}
+
+function formatDate(value: string | null) {
+  if (!value) return '-';
+  return value.slice(0, 10);
 }
 
 export default AdminDashboardPage;

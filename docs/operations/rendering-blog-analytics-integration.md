@@ -156,7 +156,7 @@ POST /api/v1/articles/{slug}/views
 - 不保存原始 IP 地址。
 - 第一阶段不做强去重，每次有效上报计为一次访问。
 
-### 待新增站点访问接口
+### 站点访问接口
 
 ```http
 POST /api/v1/analytics/site-views
@@ -194,7 +194,7 @@ POST /api/v1/analytics/site-views
 - 不保存原始 IP 地址。
 - 参数不合法时仍应尽量不影响站点访问；服务端可以返回 `204` 并忽略无效扩展字段。
 
-### 待新增文章统计列表接口
+### 文章统计列表接口
 
 ```http
 GET /api/v1/admin/analytics/articles?days=7
@@ -383,8 +383,8 @@ referrer_view_daily(referrer_host, view_date, views)
 ### 阶段 3：展示各文档访问量
 
 - CMS 已新增 `GET /api/v1/admin/analytics/articles?days=7`。
-- 后台统计页面增加文章访问量列表。
-- 支持展示今日访问量、最近 N 天访问量、总访问量。
+- CMS 后台统计页面已增加文章访问量列表。
+- 已支持展示今日访问量、最近 N 天访问量、总访问量。
 
 ### 阶段 4：质量收敛
 

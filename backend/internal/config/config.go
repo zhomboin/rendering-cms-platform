@@ -10,6 +10,7 @@ type Config struct {
 	DatabaseURL    string
 	JWTSecret      string
 	FrontendOrigin string
+	LogDir         string
 	S3             S3Config
 }
 
@@ -27,6 +28,7 @@ func Load() (Config, error) {
 		DatabaseURL:    os.Getenv("DATABASE_URL"),
 		JWTSecret:      os.Getenv("JWT_SECRET"),
 		FrontendOrigin: envOrDefault("FRONTEND_ORIGIN", "http://127.0.0.1:5173"),
+		LogDir:         envOrDefault("LOG_DIR", "logs"),
 		S3: S3Config{
 			Endpoint:        os.Getenv("S3_ENDPOINT"),
 			Region:          envOrDefault("S3_REGION", "us-east-1"),

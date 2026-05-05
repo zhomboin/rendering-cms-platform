@@ -63,6 +63,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-rendering}:${POSTGRES_PASSWORD:-rendering_dev_password}@postgres:5432/${POSTGRES_DB:-rendering_cms}?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:-replace-with-32-plus-character-secret}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://127.0.0.1:5173}
+      LOG_DIR: ${LOG_DIR:-/var/log/rendering-cms-platform}
       S3_ENDPOINT: ${S3_ENDPOINT:-http://127.0.0.1:9000}
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-rendering-assets}
@@ -77,6 +78,7 @@ services:
         condition: service_started
     volumes:
       - ../..:/workspace
+      - ${BACKEND_LOG_HOST_DIR:-../../logs/backend}:/var/log/rendering-cms-platform
       - rendering_cms_go_pkg_mod:/go/pkg/mod
       - rendering_cms_go_build_cache:/root/.cache/go-build
 
