@@ -49,10 +49,48 @@ func TestNewRouterAddsCORSHeadersForConfiguredFrontendOrigin(t *testing.T) {
 	}
 }
 
+func TestNewRouterAddsCORSHeadersForConfiguredFrontendOrigins(t *testing.T) {
+	router := NewRouter(WithFrontendOrigins([]string{
+		"http://127.0.0.1:3000",
+		"http://127.0.0.1:5173",
+	}))
+
+	for _, origin := range []string{
+		"http://127.0.0.1:3000",
+		"http://127.0.0.1:5173",
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+		req.Header.Set("Origin", origin)
+		rec := httptest.NewRecorder()
+
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status code = %d, want %d", rec.Code, http.StatusOK)
+		}
+		if got := rec.Header().Get("Access-Control-Allow-Origin"); got != origin {
+			t.Fatalf("Access-Control-Allow-Origin = %q, want %q", got, origin)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	req.Header.Set("Origin", "http://127.0.0.1:8081")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want empty for unconfigured origin", got)
+	}
+}
+
 func TestNewRouterHandlesCORSPreflightForConfiguredFrontendOrigin(t *testing.T) {
-	router := NewRouter(WithFrontendOrigin("http://127.0.0.1:5173"))
+	router := NewRouter(WithFrontendOrigins([]string{
+		"http://127.0.0.1:3000",
+		"http://127.0.0.1:5173",
+	}))
 	req := httptest.NewRequest(http.MethodOptions, "/api/v1/articles", nil)
-	req.Header.Set("Origin", "http://127.0.0.1:5173")
+	req.Header.Set("Origin", "http://127.0.0.1:3000")
 	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
 	rec := httptest.NewRecorder()
 
@@ -61,7 +99,7 @@ func TestNewRouterHandlesCORSPreflightForConfiguredFrontendOrigin(t *testing.T) 
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status code = %d, want %d", rec.Code, http.StatusNoContent)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://127.0.0.1:5173" {
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://127.0.0.1:3000" {
 		t.Fatalf("Access-Control-Allow-Origin = %q, want configured origin", got)
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Methods"); got == "" {

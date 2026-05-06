@@ -90,14 +90,25 @@ case "$BROWSER_ACCESS_HOST" in
 esac
 
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
+FRONTEND_EXTRA_PORTS="${FRONTEND_EXTRA_PORTS:-3000}"
 BACKEND_PORT="${BACKEND_PORT:-8080}"
 MINIO_PORT="${MINIO_PORT:-9000}"
 
 upsert_env "FRONTEND_ORIGIN" "http://$BROWSER_ACCESS_HOST:$FRONTEND_PORT"
+frontend_origins="http://$BROWSER_ACCESS_HOST:$FRONTEND_PORT"
+IFS=',' read -r -a extra_ports <<< "$FRONTEND_EXTRA_PORTS"
+for port in "${extra_ports[@]}"; do
+  port="$(printf '%s' "$port" | xargs)"
+  if [ -n "$port" ]; then
+    frontend_origins="http://$BROWSER_ACCESS_HOST:$port,$frontend_origins"
+  fi
+done
+upsert_env "FRONTEND_ORIGINS" "$frontend_origins"
 upsert_env "VITE_API_BASE" "http://$BROWSER_ACCESS_HOST:$BACKEND_PORT/api/v1"
 upsert_env "S3_ENDPOINT" "http://$BROWSER_ACCESS_HOST:$MINIO_PORT"
 
 echo "Updated $ENV_FILE with browser-accessible addresses:"
 echo "FRONTEND_ORIGIN=http://$BROWSER_ACCESS_HOST:$FRONTEND_PORT"
+echo "FRONTEND_ORIGINS=$frontend_origins"
 echo "VITE_API_BASE=http://$BROWSER_ACCESS_HOST:$BACKEND_PORT/api/v1"
 echo "S3_ENDPOINT=http://$BROWSER_ACCESS_HOST:$MINIO_PORT"

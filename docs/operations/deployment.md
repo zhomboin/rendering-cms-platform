@@ -11,6 +11,7 @@ HTTP_ADDR=:8080
 DATABASE_URL=postgres://rendering:password@127.0.0.1:5432/rendering_cms?sslmode=disable
 JWT_SECRET=replace-with-32-plus-character-secret
 FRONTEND_ORIGIN=http://127.0.0.1:5173
+FRONTEND_ORIGINS=http://127.0.0.1:3000,http://127.0.0.1:5173
 LOG_DIR=/var/log/rendering-cms-platform
 BACKEND_LOG_HOST_DIR=/var/log/rendering-cms-platform
 
@@ -25,6 +26,7 @@ S3_SECRET_ACCESS_KEY=replace-me
 
 - `JWT_SECRET` 必须至少 32 字符，并且生产环境不得使用示例值。
 - `DATABASE_URL` 指向 PostgreSQL，生产发布前必须确认连接用户具备 migration 所需权限。
+- `FRONTEND_ORIGINS` 是后端 CORS 白名单，多个地址使用英文逗号分隔；如果设置了该变量，后端优先使用它，否则回退到单值 `FRONTEND_ORIGIN`。
 - `LOG_DIR` 指向容器内后端请求日志目录，Docker 环境默认值为 `/var/log/rendering-cms-platform`。
 - `BACKEND_LOG_HOST_DIR` 指向宿主机系统盘上的日志挂载目录，本地默认使用 `logs/backend`，生产环境建议使用 `/var/log/rendering-cms-platform` 这类系统日志目录；日志文件按天写入 `backend-YYYY-MM-DD.log`。
 - `S3_ENDPOINT` 可指向 MinIO、Cloudflare R2 或其他 S3 兼容对象存储。

@@ -16,6 +16,9 @@ func TestLoadUsesDefaultsForOptionalRuntimeValues(t *testing.T) {
 	if cfg.FrontendOrigin != "http://127.0.0.1:5173" {
 		t.Fatalf("FrontendOrigin = %q, want default frontend origin", cfg.FrontendOrigin)
 	}
+	if len(cfg.FrontendOrigins) != 1 || cfg.FrontendOrigins[0] != "http://127.0.0.1:5173" {
+		t.Fatalf("FrontendOrigins = %#v, want default frontend origin list", cfg.FrontendOrigins)
+	}
 	if cfg.LogDir != "logs" {
 		t.Fatalf("LogDir = %q, want logs", cfg.LogDir)
 	}
@@ -58,5 +61,25 @@ func TestLoadReadsDatabaseAndS3Settings(t *testing.T) {
 	}
 	if cfg.LogDir != "/var/log/rendering-cms-platform" {
 		t.Fatalf("LogDir = %q, want configured log dir", cfg.LogDir)
+	}
+}
+
+func TestLoadReadsMultipleFrontendOrigins(t *testing.T) {
+	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
+	t.Setenv("FRONTEND_ORIGINS", "http://127.0.0.1:3000, http://127.0.0.1:5173")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+
+	want := []string{"http://127.0.0.1:3000", "http://127.0.0.1:5173"}
+	if len(cfg.FrontendOrigins) != len(want) {
+		t.Fatalf("FrontendOrigins = %#v, want %#v", cfg.FrontendOrigins, want)
+	}
+	for i := range want {
+		if cfg.FrontendOrigins[i] != want[i] {
+			t.Fatalf("FrontendOrigins = %#v, want %#v", cfg.FrontendOrigins, want)
+		}
 	}
 }

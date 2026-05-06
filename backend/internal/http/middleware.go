@@ -95,22 +95,30 @@ func AdminAuthMiddleware(secret string) func(http.Handler) http.Handler {
 	}
 }
 
-func CORSMiddleware(frontendOrigin string) func(http.Handler) http.Handler {
+func CORSMiddleware(frontendOrigins []string) func(http.Handler) http.Handler {
 	allowedMethods := "GET, POST, PATCH, DELETE, OPTIONS"
 	allowedHeaders := "Authorization, Content-Type"
+	allowedOrigins := make(map[string]struct{}, len(frontendOrigins))
+	for _, origin := range frontendOrigins {
+		origin = strings.TrimSpace(origin)
+		if origin != "" {
+			allowedOrigins[origin] = struct{}{}
+		}
+	}
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			if origin == frontendOrigin {
-				w.Header().Set("Access-Control-Allow-Origin", frontendOrigin)
+			_, allowed := allowedOrigins[origin]
+			if allowed {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
 				w.Header().Set("Access-Control-Allow-Methods", allowedMethods)
 				w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
 				w.Header().Add("Vary", "Origin")
 			}
 
-			if r.Method == http.MethodOptions && origin == frontendOrigin {
+			if r.Method == http.MethodOptions && allowed {
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}

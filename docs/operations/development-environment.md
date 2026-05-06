@@ -138,6 +138,7 @@ HTTP_ADDR=0.0.0.0:8080
 DATABASE_URL=postgres://rendering:rendering_dev_password@127.0.0.1:5432/rendering_cms?sslmode=disable
 JWT_SECRET=replace-with-32-plus-character-secret
 FRONTEND_ORIGIN=http://127.0.0.1:5173
+FRONTEND_ORIGINS=http://127.0.0.1:3000,http://127.0.0.1:5173
 VITE_API_BASE=http://127.0.0.1:8080/api/v1
 LOG_DIR=/var/log/rendering-cms-platform
 
@@ -179,6 +180,7 @@ bash scripts/env/sync-wsl-network-env.sh
 
 ```env
 FRONTEND_ORIGIN=http://127.0.0.1:5173
+FRONTEND_ORIGINS=http://127.0.0.1:3000,http://127.0.0.1:5173
 VITE_API_BASE=http://127.0.0.1:8080/api/v1
 S3_ENDPOINT=http://127.0.0.1:9000
 ```
@@ -187,6 +189,8 @@ S3_ENDPOINT=http://127.0.0.1:9000
 
 - `HTTP_ADDR`：后端仍应监听 `0.0.0.0:8080`。
 - `DATABASE_URL`：后端在 WSL 内连接 PostgreSQL，仍使用 `127.0.0.1:5432`。
+
+`FRONTEND_ORIGINS` 是后端 CORS 白名单，多个地址使用英文逗号分隔。`FRONTEND_ORIGIN` 保留给旧配置兼容；如果同时设置两者，后端优先读取 `FRONTEND_ORIGINS`。
 
 `start-backend-docker.sh` 和 `start-frontend-docker.sh` 会在启动容器前自动执行该同步脚本。如果确实需要使用 WSL 真实 IP，执行启动脚本前先设置：
 

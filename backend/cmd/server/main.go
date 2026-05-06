@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 
@@ -51,7 +52,7 @@ func main() {
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.NewRouter(
 			httpapi.WithJWTSecret(cfg.JWTSecret),
-			httpapi.WithFrontendOrigin(cfg.FrontendOrigin),
+			httpapi.WithFrontendOrigins(cfg.FrontendOrigins),
 			httpapi.WithLogger(logger),
 			httpapi.WithLoginHandler(auth.NewLoginHandler(cfg.JWTSecret, userFinder)),
 			httpapi.WithPublicRoutes(articleHandler.RegisterPublicRoutes),
@@ -65,7 +66,7 @@ func main() {
 	}
 
 	log.Printf("starting server on %s", cfg.HTTPAddr)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("server stopped: %v", err)
 	}
 }

@@ -59,7 +59,8 @@ cp scripts/env/dev.env.example .env
 - `HTTP_ADDR`：HTTP 监听地址，默认 `:8080`。
 - `DATABASE_URL`：PostgreSQL 连接字符串。
 - `JWT_SECRET`：JWT 密钥，必填。
-- `FRONTEND_ORIGIN`：前端地址，默认 `http://127.0.0.1:5173`。
+- `FRONTEND_ORIGIN`：兼容旧配置的单个前端地址，默认 `http://127.0.0.1:5173`。
+- `FRONTEND_ORIGINS`：CORS 白名单，多个前端地址使用英文逗号分隔，例如 `http://127.0.0.1:3000,http://127.0.0.1:5173`。
 - `S3_ENDPOINT`：S3 兼容服务 endpoint。
 - `S3_REGION`：S3 区域，默认 `us-east-1`。
 - `S3_BUCKET`：对象存储 bucket。

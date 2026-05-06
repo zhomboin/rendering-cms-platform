@@ -3,15 +3,17 @@ package config
 import (
 	"errors"
 	"os"
+	"strings"
 )
 
 type Config struct {
-	HTTPAddr       string
-	DatabaseURL    string
-	JWTSecret      string
-	FrontendOrigin string
-	LogDir         string
-	S3             S3Config
+	HTTPAddr        string
+	DatabaseURL     string
+	JWTSecret       string
+	FrontendOrigin  string
+	FrontendOrigins []string
+	LogDir          string
+	S3              S3Config
 }
 
 type S3Config struct {
@@ -28,7 +30,11 @@ func Load() (Config, error) {
 		DatabaseURL:    os.Getenv("DATABASE_URL"),
 		JWTSecret:      os.Getenv("JWT_SECRET"),
 		FrontendOrigin: envOrDefault("FRONTEND_ORIGIN", "http://127.0.0.1:5173"),
-		LogDir:         envOrDefault("LOG_DIR", "logs"),
+		FrontendOrigins: parseCSVEnvOrFallback(
+			"FRONTEND_ORIGINS",
+			envOrDefault("FRONTEND_ORIGIN", "http://127.0.0.1:5173"),
+		),
+		LogDir: envOrDefault("LOG_DIR", "logs"),
 		S3: S3Config{
 			Endpoint:        os.Getenv("S3_ENDPOINT"),
 			Region:          envOrDefault("S3_REGION", "us-east-1"),
@@ -51,4 +57,21 @@ func envOrDefault(key string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func parseCSVEnvOrFallback(key string, fallback string) []string {
+	raw := os.Getenv(key)
+	if raw == "" {
+		raw = fallback
+	}
+
+	values := strings.Split(raw, ",")
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			result = append(result, value)
+		}
+	}
+	return result
 }
