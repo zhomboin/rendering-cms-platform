@@ -71,13 +71,6 @@ func NewRouter(options ...RouterOption) http.Handler {
 	}
 
 	router := chi.NewRouter()
-	if config.Logger != nil {
-		router.Use(RequestLogMiddleware(config.Logger))
-	}
-	if len(config.FrontendOrigins) > 0 {
-		router.Use(CORSMiddleware(config.FrontendOrigins))
-	}
-
 	router.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -100,5 +93,13 @@ func NewRouter(options ...RouterOption) http.Handler {
 		})
 	}
 
-	return router
+	var handler http.Handler = router
+	if len(config.FrontendOrigins) > 0 {
+		handler = CORSMiddleware(config.FrontendOrigins)(handler)
+	}
+	if config.Logger != nil {
+		handler = RequestLogMiddleware(config.Logger)(handler)
+	}
+
+	return handler
 }

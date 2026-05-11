@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	rscors "github.com/rs/cors"
+
 	"rendering-cms-platform/backend/internal/auth"
 )
 
@@ -96,36 +98,21 @@ func AdminAuthMiddleware(secret string) func(http.Handler) http.Handler {
 }
 
 func CORSMiddleware(frontendOrigins []string) func(http.Handler) http.Handler {
-	allowedMethods := "GET, POST, PATCH, DELETE, OPTIONS"
-	allowedHeaders := "Authorization, Content-Type"
-	allowedOrigins := make(map[string]struct{}, len(frontendOrigins))
+	allowedOrigins := make([]string, 0, len(frontendOrigins))
 	for _, origin := range frontendOrigins {
 		origin = strings.TrimSpace(origin)
 		if origin != "" {
-			allowedOrigins[origin] = struct{}{}
+			allowedOrigins = append(allowedOrigins, origin)
 		}
 	}
 
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			origin := r.Header.Get("Origin")
-			_, allowed := allowedOrigins[origin]
-			if allowed {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Allow-Methods", allowedMethods)
-				w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
-				w.Header().Add("Vary", "Origin")
-			}
-
-			if r.Method == http.MethodOptions && allowed {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
+	return rscors.New(rscors.Options{
+		AllowedOrigins:       allowedOrigins,
+		AllowedMethods:       []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodDelete, http.MethodOptions},
+		AllowedHeaders:       []string{"*"},
+		AllowCredentials:     true,
+		OptionsSuccessStatus: http.StatusNoContent,
+	}).Handler
 }
 
 func UserFromContext(ctx context.Context) (AuthenticatedUser, bool) {

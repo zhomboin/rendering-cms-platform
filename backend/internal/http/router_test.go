@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func TestNewRouterExposesHealthEndpoint(t *testing.T) {
@@ -88,10 +90,15 @@ func TestNewRouterHandlesCORSPreflightForConfiguredFrontendOrigin(t *testing.T) 
 	router := NewRouter(WithFrontendOrigins([]string{
 		"http://127.0.0.1:3000",
 		"http://127.0.0.1:5173",
+	}), WithPublicRoutes(func(router chi.Router) {
+		router.Post("/api/v1/articles/{slug}/views", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		})
 	}))
-	req := httptest.NewRequest(http.MethodOptions, "/api/v1/articles", nil)
+	req := httptest.NewRequest(http.MethodOptions, "/api/v1/articles/test-slug/views", nil)
 	req.Header.Set("Origin", "http://127.0.0.1:3000")
-	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
+	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	req.Header.Set("Access-Control-Request-Headers", "Content-Type")
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
@@ -102,11 +109,11 @@ func TestNewRouterHandlesCORSPreflightForConfiguredFrontendOrigin(t *testing.T) 
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://127.0.0.1:3000" {
 		t.Fatalf("Access-Control-Allow-Origin = %q, want configured origin", got)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Methods"); got == "" {
-		t.Fatal("Access-Control-Allow-Methods is empty")
+	if got := rec.Header().Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPost) {
+		t.Fatalf("Access-Control-Allow-Methods = %q, want to include POST", got)
 	}
-	if got := rec.Header().Get("Access-Control-Allow-Headers"); got == "" {
-		t.Fatal("Access-Control-Allow-Headers is empty")
+	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "Content-Type") {
+		t.Fatalf("Access-Control-Allow-Headers = %q, want to include Content-Type", got)
 	}
 }
 
