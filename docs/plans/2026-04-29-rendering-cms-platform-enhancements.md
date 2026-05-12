@@ -19,9 +19,9 @@
 ## 当前进度
 
 - 复核日期：2026-05-12。
-- 当前增强计划共有 37 个步骤，其中 27 个已完成，10 个未完成。
-- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，Task 3 的评论限流和反滥用，Task 4 的统计明细和趋势增强，Task 5 的文件治理增强，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
-- 未完成内容包括角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
+- 当前增强计划共有 38 个步骤，其中 33 个已完成，5 个未完成。
+- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，Task 3 的评论限流和反滥用，Task 4 的统计明细和趋势增强，Task 5 的文件治理增强，Task 6 的登录安全加固，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
+- 未完成内容包括备份恢复和生产运维，以及 Task 8 的提交步骤。
 
 ## Task 1: 编辑器体验增强
 
@@ -473,75 +473,98 @@ git commit -m "feat: add asset lifecycle states"
 
 - 已提交：`feat: add asset lifecycle states`。
 
-## Task 6: 角色权限增强
+## Task 6: 登录安全加固
 
 **Files:**
 
-- Create: `backend/internal/auth/permissions.go`
-- Create: `backend/internal/auth/permissions_test.go`
+- Create: `backend/migrations/000007_login_security.up.sql`
+- Create: `backend/migrations/000007_login_security.down.sql`
+- Create: `backend/sql/auth_security.sql`
+- Create: `backend/internal/auth/login_security.go`
+- Create: `backend/internal/auth/login_security_test.go`
+- Modify: `backend/internal/auth/handler.go`
 - Modify: `docs/apis/auth.md`
 
-- [ ] **Step 1: 写权限测试**
+- [x] **Step 1: 添加登录尝试表**
 
-Create `backend/internal/auth/permissions_test.go`:
+Create `backend/migrations/000007_login_security.up.sql`:
 
-```go
-package auth
+```sql
+create table login_attempts (
+  attempt_id uuid primary key default gen_random_uuid(),
+  email text not null,
+  ip_hash text not null,
+  success boolean not null,
+  failure_reason text,
+  created_at timestamptz not null default now()
+);
 
-import "testing"
-
-func TestCanPublishArticle(t *testing.T) {
-	if !CanPublishArticle("admin") {
-		t.Fatal("admin should publish")
-	}
-	if CanPublishArticle("editor") {
-		t.Fatal("editor should not publish without review")
-	}
-}
+create index login_attempts_email_created_at_idx on login_attempts (email, created_at desc);
+create index login_attempts_ip_hash_created_at_idx on login_attempts (ip_hash, created_at desc);
 ```
 
-- [ ] **Step 2: 实现权限函数**
+- [x] **Step 2: 实现渐进式登录封禁规则**
 
-Create `backend/internal/auth/permissions.go`:
+规则：
 
-```go
-package auth
+- 同一邮箱或同一 IP 哈希 5 分钟内失败 5 次及以上，锁定 5 分钟。
+- 同一邮箱或同一 IP 哈希 15 分钟内失败 10 次及以上，锁定 15 分钟。
+- 同一邮箱或同一 IP 哈希 1 小时内失败 20 次及以上，锁定 1 天。
+- 多档规则同时命中时使用最长锁定结果。
 
-func CanPublishArticle(role string) bool {
-	return role == "admin"
-}
-```
+- [x] **Step 3: 接入登录 handler 和 PG 审计**
 
-- [ ] **Step 3: 更新认证文档**
+实现要求：
+
+- 登录前从 PostgreSQL 查询最近 1 小时失败记录。
+- 锁定期间返回 `429 Too Many Requests`，不校验密码。
+- 登录成功、凭据错误、角色不允许、令牌生成失败都写入 `login_attempts`。
+- 不保存原始 IP，只保存 IP 哈希。
+
+- [x] **Step 4: 更新认证文档**
 
 Append to `docs/apis/auth.md`:
 
 ```markdown
-## 权限规则
+## 登录安全规则
 
-- `admin`：可管理用户、发布文章、审核评论、管理文件。
-- `editor`：可编辑草稿和提交发布请求，默认不能直接发布文章。
+- 登录尝试记录在 `login_attempts` 表。
+- 5 分钟内失败 5 次及以上锁定 5 分钟。
+- 15 分钟内失败 10 次及以上锁定 15 分钟。
+- 1 小时内失败 20 次及以上锁定 1 天。
 ```
 
-- [ ] **Step 4: 验证权限增强**
+- [x] **Step 5: 验证登录安全加固**
 
 Run:
 
 ```bash
 cd backend
 go test ./internal/auth
+go test ./...
+go vet ./...
 ```
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交权限增强**
+当前验证记录：
+
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin sqlc generate` 通过。
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin go test ./internal/auth` 通过。
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin go test ./...` 通过。
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin go vet ./...` 通过。
+- PostgreSQL 16 临时容器迁移 smoke test 通过，已验证 `login_attempts` 表、索引和回滚。
+
+- [x] **Step 6: 提交登录安全加固**
 
 Run:
 
 ```bash
-git add backend/internal/auth docs/apis/auth.md
-git commit -m "feat: add role permission rules"
+git add backend/migrations backend/sql/auth_security.sql backend/internal/auth docs/apis/auth.md
+git commit -m "feat: harden login security"
 ```
+
+- 已提交：`feat: harden login security`。
 
 ## Task 7: 备份恢复和生产运维
 

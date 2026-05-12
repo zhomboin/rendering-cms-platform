@@ -54,7 +54,7 @@ func main() {
 			httpapi.WithJWTSecret(cfg.JWTSecret),
 			httpapi.WithFrontendOrigins(cfg.FrontendOrigins),
 			httpapi.WithLogger(logger),
-			httpapi.WithLoginHandler(auth.NewLoginHandler(cfg.JWTSecret, userFinder)),
+			httpapi.WithLoginHandler(auth.NewLoginHandler(cfg.JWTSecret, userFinder, queries)),
 			httpapi.WithPublicRoutes(articleHandler.RegisterPublicRoutes),
 			httpapi.WithPublicRoutes(analyticsHandler.RegisterPublicRoutes),
 			httpapi.WithPublicRoutes(commentHandler.RegisterPublicRoutes),

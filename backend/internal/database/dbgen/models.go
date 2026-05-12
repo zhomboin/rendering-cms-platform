@@ -273,6 +273,15 @@ type DownloadEvent struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type LoginAttempt struct {
+	AttemptID     pgtype.UUID
+	Email         string
+	IpHash        string
+	Success       bool
+	FailureReason pgtype.Text
+	CreatedAt     pgtype.Timestamptz
+}
+
 type SiteViewDaily struct {
 	ViewDate pgtype.Date
 	Views    int32
