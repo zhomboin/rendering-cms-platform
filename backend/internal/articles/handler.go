@@ -1,9 +1,11 @@
 package articles
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -14,7 +16,7 @@ import (
 )
 
 type Handler struct {
-	queries *dbgen.Queries
+	queries articleStore
 }
 
 type ArticlePayload struct {
@@ -27,12 +29,23 @@ type ArticlePayload struct {
 	CoverImageURL string   `json:"coverImageUrl"`
 }
 
-func NewHandler(queries *dbgen.Queries) Handler {
+type articleStore interface {
+	ListPublishedArticles(ctx context.Context) ([]dbgen.Article, error)
+	GetArticleBySlug(ctx context.Context, slug string) (dbgen.Article, error)
+	ListAdminArticles(ctx context.Context) ([]dbgen.Article, error)
+	CreateDraftArticle(ctx context.Context, arg dbgen.CreateDraftArticleParams) (dbgen.Article, error)
+	UpdateDraftArticle(ctx context.Context, arg dbgen.UpdateDraftArticleParams) (dbgen.Article, error)
+	PublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.Article, error)
+	SearchPublishedArticles(ctx context.Context, query string) ([]dbgen.SearchPublishedArticlesRow, error)
+}
+
+func NewHandler(queries articleStore) Handler {
 	return Handler{queries: queries}
 }
 
 func (h Handler) RegisterPublicRoutes(router chi.Router) {
 	router.Get("/api/v1/articles", h.listPublishedArticles)
+	router.Get("/api/v1/articles/search", h.searchPublishedArticles)
 	router.Get("/api/v1/articles/{slug}", h.getPublishedArticle)
 }
 
@@ -63,6 +76,20 @@ func (h Handler) getPublishedArticle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, mapArticle(article))
+}
+
+func (h Handler) searchPublishedArticles(w http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" {
+		writeError(w, http.StatusBadRequest, "搜索关键词不能为空")
+		return
+	}
+	articles, err := h.queries.SearchPublishedArticles(r.Context(), query)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "文章搜索失败")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapSearchResults(articles))
 }
 
 func (h Handler) listAdminArticles(w http.ResponseWriter, r *http.Request) {

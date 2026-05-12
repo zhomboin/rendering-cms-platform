@@ -38,7 +38,8 @@ returning
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 `
 
 type CreateDraftArticleParams struct {
@@ -79,6 +80,7 @@ func (q *Queries) CreateDraftArticle(ctx context.Context, arg CreateDraftArticle
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Version,
+		&i.SearchVector,
 	)
 	return i, err
 }
@@ -98,7 +100,8 @@ select
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 from articles
 where article_id = $1
 `
@@ -121,6 +124,7 @@ func (q *Queries) GetArticleByID(ctx context.Context, articleID pgtype.UUID) (Ar
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Version,
+		&i.SearchVector,
 	)
 	return i, err
 }
@@ -140,7 +144,8 @@ select
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 from articles
 where slug = $1 and status = 'published'
 `
@@ -163,6 +168,7 @@ func (q *Queries) GetArticleBySlug(ctx context.Context, slug string) (Article, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Version,
+		&i.SearchVector,
 	)
 	return i, err
 }
@@ -182,7 +188,8 @@ select
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 from articles
 order by updated_at desc, created_at desc
 `
@@ -211,6 +218,7 @@ func (q *Queries) ListAdminArticles(ctx context.Context) ([]Article, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Version,
+			&i.SearchVector,
 		); err != nil {
 			return nil, err
 		}
@@ -237,7 +245,8 @@ select
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 from articles
 where status = 'published'
 order by published_at desc nulls last, created_at desc
@@ -267,6 +276,7 @@ func (q *Queries) ListPublishedArticles(ctx context.Context) ([]Article, error) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Version,
+			&i.SearchVector,
 		); err != nil {
 			return nil, err
 		}
@@ -299,7 +309,8 @@ returning
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 `
 
 func (q *Queries) PublishArticle(ctx context.Context, articleID pgtype.UUID) (Article, error) {
@@ -320,6 +331,7 @@ func (q *Queries) PublishArticle(ctx context.Context, articleID pgtype.UUID) (Ar
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Version,
+		&i.SearchVector,
 	)
 	return i, err
 }
@@ -350,7 +362,8 @@ returning
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 `
 
 type UpdateDraftArticleParams struct {
@@ -391,6 +404,7 @@ func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticle
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Version,
+		&i.SearchVector,
 	)
 	return i, err
 }
@@ -436,7 +450,8 @@ returning
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 `
 
 type UpsertPublishedArticleFromImportParams struct {
@@ -479,6 +494,7 @@ func (q *Queries) UpsertPublishedArticleFromImport(ctx context.Context, arg Upse
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Version,
+		&i.SearchVector,
 	)
 	return i, err
 }

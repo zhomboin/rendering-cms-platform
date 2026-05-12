@@ -154,6 +154,7 @@ type Article struct {
 	CreatedAt     pgtype.Timestamptz
 	UpdatedAt     pgtype.Timestamptz
 	Version       int32
+	SearchVector  interface{}
 }
 
 type ArticleLog struct {

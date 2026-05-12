@@ -13,7 +13,8 @@ select
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 from articles
 where slug = $1 and status = 'published';
 
@@ -32,7 +33,8 @@ select
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 from articles
 where article_id = $1;
 
@@ -51,7 +53,8 @@ select
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 from articles
 where status = 'published'
 order by published_at desc nulls last, created_at desc;
@@ -71,7 +74,8 @@ select
   author_id,
   created_at,
   updated_at,
-  version
+  version,
+  search_vector
 from articles
 order by updated_at desc, created_at desc;
 
@@ -102,7 +106,8 @@ returning
   author_id,
   created_at,
   updated_at,
-  version;
+  version,
+  search_vector;
 
 -- name: UpdateDraftArticle :one
 update articles
@@ -130,7 +135,8 @@ returning
   author_id,
   created_at,
   updated_at,
-  version;
+  version,
+  search_vector;
 
 -- name: PublishArticle :one
 update articles
@@ -153,7 +159,8 @@ returning
   author_id,
   created_at,
   updated_at,
-  version;
+  version,
+  search_vector;
 
 -- name: UpsertPublishedArticleFromImport :one
 insert into articles (
@@ -196,4 +203,5 @@ returning
   author_id,
   created_at,
   updated_at,
-  version;
+  version,
+  search_vector;

@@ -19,9 +19,9 @@
 ## 当前进度
 
 - 复核日期：2026-05-12。
-- 当前增强计划共有 37 个步骤，其中 8 个已完成，29 个未完成。
-- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
-- 未完成内容包括 PostgreSQL 搜索增强、评论限流和反滥用、统计明细和趋势增强、文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
+- 当前增强计划共有 37 个步骤，其中 13 个已完成，24 个未完成。
+- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
+- 未完成内容包括评论限流和反滥用、统计明细和趋势增强、文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
 
 ## Task 1: 编辑器体验增强
 
@@ -129,15 +129,15 @@ git commit -m "feat: improve mdx editor workflow"
 
 **Files:**
 
-- Create: `backend/migrations/000002_article_search.up.sql`
-- Create: `backend/migrations/000002_article_search.down.sql`
+- Create: `backend/migrations/000003_article_search.up.sql`
+- Create: `backend/migrations/000003_article_search.down.sql`
 - Create: `backend/sql/search.sql`
 - Create: `backend/internal/articles/search.go`
 - Modify: `docs/apis/articles.md`
 
-- [ ] **Step 1: 添加搜索 migration**
+- [x] **Step 1: 添加搜索 migration**
 
-Create `backend/migrations/000002_article_search.up.sql`:
+Create `backend/migrations/000003_article_search.up.sql`:
 
 ```sql
 alter table articles
@@ -150,14 +150,14 @@ alter table articles
 create index articles_search_vector_idx on articles using gin (search_vector);
 ```
 
-Create `backend/migrations/000002_article_search.down.sql`:
+Create `backend/migrations/000003_article_search.down.sql`:
 
 ```sql
 drop index if exists articles_search_vector_idx;
 alter table articles drop column if exists search_vector;
 ```
 
-- [ ] **Step 2: 添加搜索 SQL**
+- [x] **Step 2: 添加搜索 SQL**
 
 Create `backend/sql/search.sql`:
 
@@ -170,7 +170,7 @@ where status = 'published'
 order by ts_rank(search_vector, plainto_tsquery('simple', @query)) desc, published_at desc;
 ```
 
-- [ ] **Step 3: 更新接口文档**
+- [x] **Step 3: 更新接口文档**
 
 Append to `docs/apis/articles.md`:
 
@@ -180,7 +180,7 @@ Append to `docs/apis/articles.md`:
 基于 PostgreSQL full text search 搜索已发布文章。搜索范围包含标题、摘要和 MDX 正文。
 ```
 
-- [ ] **Step 4: 验证搜索增强**
+- [x] **Step 4: 验证搜索增强**
 
 Run:
 
@@ -191,7 +191,14 @@ go test ./...
 
 Expected: PASS。
 
-- [ ] **Step 5: 提交搜索增强**
+当前验证记录：
+
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin sqlc generate` 通过。
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin go test ./...` 通过。
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin go vet ./...` 通过。
+- 临时 PostgreSQL 16 容器中执行 `000001`、`000002`、`000003_article_search.up.sql` 通过，全文搜索查询返回目标文章，`000003_article_search.down.sql` 回滚通过。
+
+- [x] **Step 5: 提交搜索增强**
 
 Run:
 
@@ -200,25 +207,29 @@ git add backend/migrations backend/sql/search.sql backend/internal/articles docs
 git commit -m "feat: add postgres article search"
 ```
 
+完成记录：
+
+- 已提交：`feat: add postgres article search`。
+
 ## Task 3: 评论限流和反滥用
 
 **Files:**
 
-- Create: `backend/migrations/000003_comment_rate_limit.up.sql`
-- Create: `backend/migrations/000003_comment_rate_limit.down.sql`
+- Create: `backend/migrations/000004_comment_rate_limit.up.sql`
+- Create: `backend/migrations/000004_comment_rate_limit.down.sql`
 - Create: `backend/internal/comments/rate_limit.go`
 - Create: `backend/internal/comments/rate_limit_test.go`
 - Modify: `docs/apis/comments.md`
 
 - [ ] **Step 1: 添加评论限流索引**
 
-Create `backend/migrations/000003_comment_rate_limit.up.sql`:
+Create `backend/migrations/000004_comment_rate_limit.up.sql`:
 
 ```sql
 create index comments_ip_hash_created_at_idx on comments (ip_hash, created_at desc);
 ```
 
-Create `backend/migrations/000003_comment_rate_limit.down.sql`:
+Create `backend/migrations/000004_comment_rate_limit.down.sql`:
 
 ```sql
 drop index if exists comments_ip_hash_created_at_idx;
@@ -314,15 +325,15 @@ git commit -m "feat: add comment rate limit rules"
 
 **Files:**
 
-- Create: `backend/migrations/000004_analytics_events.up.sql`
-- Create: `backend/migrations/000004_analytics_events.down.sql`
+- Create: `backend/migrations/000005_analytics_events.up.sql`
+- Create: `backend/migrations/000005_analytics_events.down.sql`
 - Create: `backend/sql/analytics_events.sql`
 - Modify: `backend/internal/analytics/service.go`
 - Modify: `docs/apis/analytics.md`
 
 - [ ] **Step 1: 添加可选访问事件表**
 
-Create `backend/migrations/000004_analytics_events.up.sql`:
+Create `backend/migrations/000005_analytics_events.up.sql`:
 
 ```sql
 create table analytics_events (
@@ -338,7 +349,7 @@ create index analytics_events_created_at_idx on analytics_events (created_at des
 create index analytics_events_article_id_created_at_idx on analytics_events (article_id, created_at desc);
 ```
 
-Create `backend/migrations/000004_analytics_events.down.sql`:
+Create `backend/migrations/000005_analytics_events.down.sql`:
 
 ```sql
 drop table if exists analytics_events;
@@ -378,14 +389,14 @@ git commit -m "feat: add analytics trend foundation"
 
 **Files:**
 
-- Create: `backend/migrations/000005_asset_lifecycle.up.sql`
-- Create: `backend/migrations/000005_asset_lifecycle.down.sql`
+- Create: `backend/migrations/000006_asset_lifecycle.up.sql`
+- Create: `backend/migrations/000006_asset_lifecycle.down.sql`
 - Modify: `backend/internal/assets/service.go`
 - Modify: `docs/apis/assets.md`
 
 - [ ] **Step 1: 添加资源状态字段**
 
-Create `backend/migrations/000005_asset_lifecycle.up.sql`:
+Create `backend/migrations/000006_asset_lifecycle.up.sql`:
 
 ```sql
 create type asset_status as enum ('active', 'archived', 'deleted');
@@ -395,7 +406,7 @@ alter table assets
   add column deleted_at timestamptz;
 ```
 
-Create `backend/migrations/000005_asset_lifecycle.down.sql`:
+Create `backend/migrations/000006_asset_lifecycle.down.sql`:
 
 ```sql
 alter table assets drop column if exists deleted_at;
