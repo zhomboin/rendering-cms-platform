@@ -29,7 +29,7 @@ type URLSigner interface {
 }
 
 type Handler struct {
-	queries *dbgen.Queries
+	queries assetStore
 	signer  URLSigner
 }
 
@@ -39,7 +39,19 @@ type UploadURLPayload struct {
 	ByteSize    int    `json:"byteSize"`
 }
 
-func NewHandler(queries *dbgen.Queries, signer URLSigner) Handler {
+type UpdateAssetStatusPayload struct {
+	Status string `json:"status"`
+}
+
+type assetStore interface {
+	ListAssets(ctx context.Context) ([]dbgen.Asset, error)
+	CreateAsset(ctx context.Context, arg dbgen.CreateAssetParams) (dbgen.Asset, error)
+	GetAssetByID(ctx context.Context, assetID pgtype.UUID) (dbgen.Asset, error)
+	CreateDownloadEvent(ctx context.Context, arg dbgen.CreateDownloadEventParams) (dbgen.DownloadEvent, error)
+	UpdateAssetStatus(ctx context.Context, arg dbgen.UpdateAssetStatusParams) (dbgen.Asset, error)
+}
+
+func NewHandler(queries assetStore, signer URLSigner) Handler {
 	return Handler{queries: queries, signer: signer}
 }
 
@@ -47,6 +59,7 @@ func (h Handler) RegisterAdminRoutes(router chi.Router) {
 	router.Get("/assets", h.listAssets)
 	router.Post("/assets/upload-url", h.createUploadURL)
 	router.Get("/assets/{id}/download-url", h.createDownloadURL)
+	router.Patch("/assets/{id}", h.updateAssetStatus)
 }
 
 func (h Handler) listAssets(w http.ResponseWriter, r *http.Request) {
@@ -158,6 +171,43 @@ func (h Handler) createDownloadURL(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h Handler) updateAssetStatus(w http.ResponseWriter, r *http.Request) {
+	assetID, err := uuidFromString(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "资源 ID 无效")
+		return
+	}
+	var payload UpdateAssetStatusPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "请求体格式不正确")
+		return
+	}
+	status := strings.TrimSpace(payload.Status)
+	if !ValidAssetStatus(status) {
+		writeError(w, http.StatusBadRequest, "资源状态只能为 active、archived 或 deleted")
+		return
+	}
+	deletedAt := pgtype.Timestamptz{}
+	if status == StatusDeleted {
+		deletedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
+	}
+
+	asset, err := h.queries.UpdateAssetStatus(r.Context(), dbgen.UpdateAssetStatusParams{
+		AssetID:   assetID,
+		Status:    dbgen.AssetStatus(status),
+		DeletedAt: deletedAt,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "资源不存在")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "资源状态更新失败")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapAsset(asset))
+}
+
 func storageKeyFor(filename string) string {
 	cleanName := path.Base(strings.ReplaceAll(filename, "\\", "/"))
 	return path.Join("assets", uuid.NewString(), cleanName)
@@ -193,6 +243,8 @@ func mapAsset(asset dbgen.Asset) map[string]interface{} {
 		"publicUrl":   textValue(asset.PublicUrl),
 		"createdBy":   asset.CreatedBy.String(),
 		"createdAt":   timestamptzValue(asset.CreatedAt),
+		"status":      string(asset.Status),
+		"deletedAt":   timestamptzValue(asset.DeletedAt),
 	}
 }
 

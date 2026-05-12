@@ -16,3 +16,14 @@ func TestValidateUpload(t *testing.T) {
 		t.Fatal("expected filename error")
 	}
 }
+
+func TestValidAssetStatus(t *testing.T) {
+	for _, status := range []string{StatusActive, StatusArchived, StatusDeleted} {
+		if !ValidAssetStatus(status) {
+			t.Fatalf("ValidAssetStatus(%q) = false, want true", status)
+		}
+	}
+	if ValidAssetStatus("pending") {
+		t.Fatal("pending should not be a valid asset status")
+	}
+}

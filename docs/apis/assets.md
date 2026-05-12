@@ -30,7 +30,9 @@
   "byteSize": 384000,
   "publicUrl": null,
   "createdBy": "uuid",
-  "createdAt": "2026-04-30T00:00:00Z"
+  "createdAt": "2026-04-30T00:00:00Z",
+  "status": "active",
+  "deletedAt": null
 }
 ```
 
@@ -75,7 +77,9 @@ Content-Type: application/json
     "byteSize": 384000,
     "publicUrl": null,
     "createdBy": "uuid",
-    "createdAt": "2026-04-30T00:00:00Z"
+    "createdAt": "2026-04-30T00:00:00Z",
+    "status": "active",
+    "deletedAt": null
   },
   "uploadUrl": "https://object-storage/presigned-url",
   "method": "PUT",
@@ -109,7 +113,9 @@ Authorization: Bearer <jwt-token>
     "byteSize": 384000,
     "publicUrl": null,
     "createdBy": "uuid",
-    "createdAt": "2026-04-30T00:00:00Z"
+    "createdAt": "2026-04-30T00:00:00Z",
+    "status": "active",
+    "deletedAt": null
   },
   "downloadUrl": "https://object-storage/presigned-url",
   "expiresInSeconds": 900
@@ -120,3 +126,25 @@ Authorization: Bearer <jwt-token>
 
 - 每次生成下载 URL 都写入 `download_events`。
 - 下载审计只记录 `asset_id`、`ip_hash`、`user_agent` 和时间。
+
+## 更新资源状态
+
+```http
+PATCH /api/v1/admin/assets/{id}
+Authorization: Bearer <jwt-token>
+Content-Type: application/json
+```
+
+请求体：
+
+```json
+{
+  "status": "deleted"
+}
+```
+
+说明：
+
+- 更新资源状态，允许值为 `active`、`archived`、`deleted`。
+- 资源删除采用软删除，设置 `status=deleted` 和 `deleted_at`，不立即删除对象存储文件。
+- 状态改回 `active` 或 `archived` 时清空 `deleted_at`。

@@ -19,9 +19,9 @@
 ## 当前进度
 
 - 复核日期：2026-05-12。
-- 当前增强计划共有 37 个步骤，其中 23 个已完成，14 个未完成。
-- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，Task 3 的评论限流和反滥用，Task 4 的统计明细和趋势增强，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
-- 未完成内容包括文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
+- 当前增强计划共有 37 个步骤，其中 27 个已完成，10 个未完成。
+- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，Task 3 的评论限流和反滥用，Task 4 的统计明细和趋势增强，Task 5 的文件治理增强，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
+- 未完成内容包括角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
 
 ## Task 1: 编辑器体验增强
 
@@ -412,7 +412,7 @@ git commit -m "feat: add analytics trend foundation"
 - Modify: `backend/internal/assets/service.go`
 - Modify: `docs/apis/assets.md`
 
-- [ ] **Step 1: 添加资源状态字段**
+- [x] **Step 1: 添加资源状态字段**
 
 Create `backend/migrations/000006_asset_lifecycle.up.sql`:
 
@@ -432,7 +432,7 @@ alter table assets drop column if exists status;
 drop type if exists asset_status;
 ```
 
-- [ ] **Step 2: 更新文件文档**
+- [x] **Step 2: 更新文件文档**
 
 Append to `docs/apis/assets.md`:
 
@@ -444,7 +444,7 @@ Append to `docs/apis/assets.md`:
 资源删除采用软删除，设置 `status=deleted` 和 `deleted_at`，不立即删除对象存储文件。
 ```
 
-- [ ] **Step 3: 验证文件治理**
+- [x] **Step 3: 验证文件治理**
 
 Run:
 
@@ -455,7 +455,12 @@ go test ./...
 
 Expected: PASS。
 
-- [ ] **Step 4: 提交文件治理**
+当前验证记录：
+
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin sqlc generate` 通过。
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin go test ./internal/assets` 通过。
+
+- [x] **Step 4: 提交文件治理**
 
 Run:
 
@@ -463,6 +468,10 @@ Run:
 git add backend/migrations backend/internal/assets docs/apis/assets.md
 git commit -m "feat: add asset lifecycle states"
 ```
+
+完成记录：
+
+- 已提交：`feat: add asset lifecycle states`。
 
 ## Task 6: 角色权限增强
 
