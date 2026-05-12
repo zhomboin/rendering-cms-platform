@@ -115,7 +115,7 @@ services:
     container_name: rendering-cms-frontend
     restart: unless-stopped
     ports:
-      - "${PUBLIC_HTTP_BIND:-127.0.0.1:3000}:80"
+      - "${PUBLIC_HTTP_BIND:-127.0.0.1:3001}:80"
     depends_on:
       backend:
         condition: service_healthy

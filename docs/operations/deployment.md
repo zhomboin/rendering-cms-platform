@@ -17,27 +17,28 @@
 
 ```text
 用户浏览器
-  -> https://cms.example.com
+  -> https://cms.rendering.me
   -> 服务器 Nginx/Caddy/负载均衡器
-  -> 127.0.0.1:3000
+  -> 127.0.0.1:3001
   -> frontend 容器
   -> backend 容器
   -> postgres 容器
 
 用户浏览器
-  -> https://minio.example.com
+  -> https://minio.rendering.me
   -> 服务器 Nginx/Caddy/负载均衡器
   -> 127.0.0.1:9000
   -> minio 容器
 ```
 
-当前生产对象存储暂时使用服务器本机 MinIO。因为上传和下载 URL 是后端生成后返回给浏览器使用，`S3_ENDPOINT` 必须配置为浏览器可访问的 MinIO HTTPS 域名，例如 `https://minio.example.com`，不能配置成容器内地址 `http://minio:9000`。
+当前生产对象存储暂时使用服务器本机 MinIO。因为上传和下载 URL 是后端生成后返回给浏览器使用，`S3_ENDPOINT` 必须配置为浏览器可访问的 MinIO HTTPS 域名，即 `https://minio.rendering.me`，不能配置成容器内地址 `http://minio:9000`。
 
 ## 文件入口
 
 - `deploy/docker-compose.prod.yml`：生产 Compose 文件。
 - `deploy/production.env.example`：生产环境变量模板。
 - `deploy/nginx/frontend.conf`：前端 Nginx 容器配置。
+- `deploy/nginx/rendering.me.conf`：服务器宿主机 Nginx 完整反向代理配置。
 - `backend/Dockerfile`：后端生产镜像。
 - `frontend/Dockerfile`：前端生产镜像。
 - `docs/operations/runbook.md`：固定运维 SOP。
@@ -83,7 +84,7 @@ chmod 600 production.env
 
 ```env
 APP_IMAGE_TAG=latest
-PUBLIC_HTTP_BIND=127.0.0.1:3000
+PUBLIC_HTTP_BIND=127.0.0.1:3001
 MINIO_API_BIND=127.0.0.1:9000
 MINIO_CONSOLE_BIND=127.0.0.1:9001
 
@@ -93,17 +94,17 @@ POSTGRES_PASSWORD=replace-with-strong-database-password
 DATABASE_URL=postgres://rendering:replace-with-strong-database-password@postgres:5432/rendering_cms?sslmode=disable
 
 JWT_SECRET=replace-with-32-plus-character-secret
-FRONTEND_ORIGIN=https://cms.example.com
-FRONTEND_ORIGINS=https://cms.example.com
+FRONTEND_ORIGIN=https://cms.rendering.me
+FRONTEND_ORIGINS=https://cms.rendering.me,https://rendering.me,https://www.rendering.me
 VITE_API_BASE=/api/v1
 
 MINIO_ROOT_USER=rendering
 MINIO_ROOT_PASSWORD=replace-with-strong-minio-password
 MINIO_BUCKET=rendering-assets
-MINIO_SERVER_URL=https://minio.example.com
-MINIO_BROWSER_REDIRECT_URL=https://minio-console.example.com
+MINIO_SERVER_URL=https://minio.rendering.me
+MINIO_BROWSER_REDIRECT_URL=https://minio-console.rendering.me
 
-S3_ENDPOINT=https://minio.example.com
+S3_ENDPOINT=https://minio.rendering.me
 S3_REGION=us-east-1
 S3_BUCKET=rendering-assets
 S3_ACCESS_KEY_ID=rendering
@@ -161,7 +162,7 @@ docker compose --env-file production.env -f docker-compose.prod.yml ps
 健康检查：
 
 ```bash
-curl -fsS http://127.0.0.1:3000/api/v1/health
+curl -fsS http://127.0.0.1:3001/api/v1/health
 ```
 
 期望响应：
@@ -176,30 +177,49 @@ curl -fsS http://127.0.0.1:3000/api/v1/health
 
 推荐在宿主机 Nginx 或 Caddy 上终止 HTTPS：
 
-- CMS 前端/API 域名转发到 `127.0.0.1:3000`。
+- 现有 Rendering 博客域名转发到 `127.0.0.1:3000`。
+- CMS 前端/API 域名转发到 `127.0.0.1:3001`。
 - MinIO API 域名转发到 `127.0.0.1:9000`。
 - MinIO Console 域名转发到 `127.0.0.1:9001`。
 
-CMS Nginx 示例：
+完整 Nginx 配置见 `deploy/nginx/rendering.me.conf`。下方保留关键 CMS 片段示例：
+
+部署到服务器：
+
+```bash
+cd /opt/rendering-cms-platform
+sudo cp deploy/nginx/rendering.me.conf /etc/nginx/conf.d/rendering.me.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+配置中的证书路径默认写成：
+
+```text
+/etc/nginx/ssl/rendering.me/fullchain.pem
+/etc/nginx/ssl/rendering.me/privkey.pem
+```
+
+如果服务器上的 Cloudflare SSL 证书路径不同，先修改 `deploy/nginx/rendering.me.conf` 中的 `ssl_certificate` 和 `ssl_certificate_key`，再执行 `nginx -t`。
 
 ```nginx
 server {
   listen 80;
-  server_name cms.example.com;
+  server_name cms.rendering.me;
   return 301 https://$host$request_uri;
 }
 
 server {
   listen 443 ssl http2;
-  server_name cms.example.com;
+  server_name cms.rendering.me;
 
-  ssl_certificate /etc/letsencrypt/live/cms.example.com/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/cms.example.com/privkey.pem;
+  ssl_certificate /etc/nginx/ssl/rendering.me/fullchain.pem;
+  ssl_certificate_key /etc/nginx/ssl/rendering.me/privkey.pem;
 
   client_max_body_size 20m;
 
   location / {
-    proxy_pass http://127.0.0.1:3000;
+    proxy_pass http://127.0.0.1:3001;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -214,10 +234,10 @@ MinIO API Nginx 示例：
 ```nginx
 server {
   listen 443 ssl http2;
-  server_name minio.example.com;
+  server_name minio.rendering.me;
 
-  ssl_certificate /etc/letsencrypt/live/minio.example.com/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/minio.example.com/privkey.pem;
+  ssl_certificate /etc/nginx/ssl/rendering.me/fullchain.pem;
+  ssl_certificate_key /etc/nginx/ssl/rendering.me/privkey.pem;
 
   client_max_body_size 20m;
 
@@ -237,10 +257,10 @@ MinIO Console Nginx 示例：
 ```nginx
 server {
   listen 443 ssl http2;
-  server_name minio-console.example.com;
+  server_name minio-console.rendering.me;
 
-  ssl_certificate /etc/letsencrypt/live/minio-console.example.com/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/minio-console.example.com/privkey.pem;
+  ssl_certificate /etc/nginx/ssl/rendering.me/fullchain.pem;
+  ssl_certificate_key /etc/nginx/ssl/rendering.me/privkey.pem;
 
   location / {
     proxy_pass http://127.0.0.1:9001;
@@ -253,7 +273,7 @@ server {
 }
 ```
 
-如果临时不使用宿主机反向代理，可以把 `PUBLIC_HTTP_BIND` 改为 `0.0.0.0:80` 暴露 CMS HTTP。但 MinIO 预签名 URL 面向浏览器，正式上传下载必须配置 HTTPS 域名。
+如果临时不使用宿主机反向代理，可以把 `PUBLIC_HTTP_BIND` 改为 `0.0.0.0:80` 暴露 CMS HTTP。但当前服务器已有 Rendering 博客使用 `3000`，CMS 默认必须保留在 `3001` 或其他未占用端口。MinIO 预签名 URL 面向浏览器，正式上传下载必须配置 HTTPS 域名。
 
 ## 发布更新
 
@@ -285,7 +305,7 @@ docker compose --env-file production.env -f docker-compose.prod.yml exec -T post
 docker compose --env-file production.env -f docker-compose.prod.yml --profile migrate run --rm migrate
 docker compose --env-file production.env -f docker-compose.prod.yml up -d backend frontend
 docker compose --env-file production.env -f docker-compose.prod.yml ps
-curl -fsS http://127.0.0.1:3000/api/v1/health
+curl -fsS http://127.0.0.1:3001/api/v1/health
 ```
 
 ## 发布后验收
@@ -297,7 +317,7 @@ curl -fsS http://127.0.0.1:3000/api/v1/health
 - 提交评论后默认进入待审核状态。
 - 审核评论后公开接口只返回已通过评论。
 - 上传允许类型文件后，对象进入 S3 兼容存储。
-- 通过 `https://minio.example.com` 可以访问预签名上传和下载 URL。
+- 通过 `https://minio.rendering.me` 可以访问预签名上传和下载 URL。
 - 下载链接可以生成，`download_events` 写入审计记录。
 - 后端日志持续写入，容器健康状态为 `healthy`。
 

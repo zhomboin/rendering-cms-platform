@@ -7,10 +7,11 @@
 - 应用目录：`/opt/rendering-cms-platform`。
 - Compose 目录：`deploy/`。
 - 生产环境变量：`deploy/production.env`，权限必须为 `600`。
-- 生产入口端口：默认由 `frontend` 容器绑定 `127.0.0.1:3000`。
+- 现有 Rendering 博客端口：`127.0.0.1:3000`，由宿主机 Nginx 转发 `rendering.me` 和 `www.rendering.me`。
+- CMS 生产入口端口：默认由 `frontend` 容器绑定 `127.0.0.1:3001`。
 - MinIO API 端口：默认绑定 `127.0.0.1:9000`，由宿主机 HTTPS 反向代理对外提供预签名上传下载访问。
 - MinIO Console 端口：默认绑定 `127.0.0.1:9001`，仅供运维访问。
-- 公网 HTTPS：由宿主机 Nginx、Caddy 或负载均衡器转发到 `127.0.0.1:3000`、`127.0.0.1:9000` 和 `127.0.0.1:9001`。
+- 公网 HTTPS：由宿主机 Nginx、Caddy 或负载均衡器转发到 `127.0.0.1:3000`、`127.0.0.1:3001`、`127.0.0.1:9000` 和 `127.0.0.1:9001`。
 - 备份目录：`backups/`，不得提交到 Git。
 
 ## 日常巡检
@@ -20,7 +21,7 @@
 ```bash
 cd /opt/rendering-cms-platform/deploy
 docker compose --env-file production.env -f docker-compose.prod.yml ps
-curl -fsS http://127.0.0.1:3000/api/v1/health
+curl -fsS http://127.0.0.1:3001/api/v1/health
 curl -fsS http://127.0.0.1:9000/minio/health/ready
 docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=100 backend
 df -h
@@ -90,7 +91,7 @@ docker compose --env-file production.env -f docker-compose.prod.yml ps
 发布后 smoke test：
 
 ```bash
-curl -fsS http://127.0.0.1:3000/api/v1/health
+curl -fsS http://127.0.0.1:3001/api/v1/health
 ```
 
 人工验收：
@@ -230,7 +231,7 @@ gzip -dc ../backups/rendering-cms-latest.sql.gz \
 
 ```bash
 docker compose --env-file production.env -f docker-compose.prod.yml up -d backend frontend
-curl -fsS http://127.0.0.1:3000/api/v1/health
+curl -fsS http://127.0.0.1:3001/api/v1/health
 ```
 
 更多恢复细节见 `docs/operations/restore.md`。
@@ -257,7 +258,7 @@ docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=
 
 排查顺序：
 
-1. 请求 `curl -fsS http://127.0.0.1:3000/api/v1/health`。
+1. 请求 `curl -fsS http://127.0.0.1:3001/api/v1/health`。
 2. 查看 `frontend` Nginx 日志。
 3. 查看 `backend` 日志。
 4. 确认 `deploy/nginx/frontend.conf` 中 `/api/v1/` 代理仍指向 `backend:8080`。
