@@ -1330,4 +1330,4 @@ git commit -m "docs: add cms mvp implementation plan"
 - 当前 WSL 环境中 `go` 不在 `PATH`，后端 `go test ./...` 和 `go vet ./...` 需要在修复 Go 工具链后重新执行。
 - 当前 WSL 环境中 `npm` 解析到 Windows Node 路径，前端 `npm run build` 需要在修复 Linux Node 工具链后重新执行。
 - `bash scripts/env/test-dev-scripts.sh` 已通过，输出 `dev scripts look consistent`。
-- MVP 后增强计划位于 `docs/plans/2026-04-29-rendering-cms-platform-enhancements.md`，当前仍有 34 个未完成步骤。
+- MVP 后增强计划位于 `docs/plans/2026-04-29-rendering-cms-platform-enhancements.md`，当前 38 个步骤已全部完成。
