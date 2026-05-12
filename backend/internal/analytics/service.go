@@ -59,6 +59,19 @@ func normalizeArticleAnalyticsDays(raw string) int32 {
 	return int32(days)
 }
 
+func normalizeAnalyticsTrendDays(raw string) int32 {
+	switch raw {
+	case "7":
+		return 7
+	case "", "30":
+		return 30
+	case "90":
+		return 90
+	default:
+		return 30
+	}
+}
+
 func mapArticleAnalyticsRows(days int32, rows []dbgen.ListArticleAnalyticsRowsRow) map[string]interface{} {
 	articles := make([]map[string]interface{}, 0, len(rows))
 	for _, row := range rows {
@@ -73,6 +86,30 @@ func mapArticleAnalyticsRows(days int32, rows []dbgen.ListArticleAnalyticsRowsRo
 	}
 	return map[string]interface{}{
 		"days":     days,
+		"articles": articles,
+	}
+}
+
+func mapAnalyticsTrend(days int32, siteRows []dbgen.ListSiteViewTrendRow, articleRows []dbgen.ListArticleViewTrendRow) map[string]interface{} {
+	site := make([]map[string]interface{}, 0, len(siteRows))
+	for _, row := range siteRows {
+		site = append(site, map[string]interface{}{
+			"date":  row.ViewDate.Time.Format("2006-01-02"),
+			"views": row.Views,
+		})
+	}
+	articles := make([]map[string]interface{}, 0, len(articleRows))
+	for _, row := range articleRows {
+		articles = append(articles, map[string]interface{}{
+			"date":  row.ViewDate.Time.Format("2006-01-02"),
+			"slug":  row.Slug,
+			"title": row.Title,
+			"views": row.Views,
+		})
+	}
+	return map[string]interface{}{
+		"days":     days,
+		"site":     site,
 		"articles": articles,
 	}
 }

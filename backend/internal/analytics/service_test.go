@@ -44,6 +44,29 @@ func TestNormalizeArticleAnalyticsDays(t *testing.T) {
 	}
 }
 
+func TestNormalizeAnalyticsTrendDays(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want int32
+	}{
+		{name: "defaults to thirty days", raw: "", want: 30},
+		{name: "accepts seven days", raw: "7", want: 7},
+		{name: "accepts thirty days", raw: "30", want: 30},
+		{name: "accepts ninety days", raw: "90", want: 90},
+		{name: "defaults unsupported value", raw: "14", want: 30},
+		{name: "defaults invalid value", raw: "bad", want: 30},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeAnalyticsTrendDays(tt.raw); got != tt.want {
+				t.Fatalf("normalizeAnalyticsTrendDays(%q) = %d, want %d", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMapArticleAnalyticsRows(t *testing.T) {
 	publishedAt := time.Date(2026, 3, 18, 0, 0, 0, 0, time.UTC)
 	body := mapArticleAnalyticsRows(7, []dbgen.ListArticleAnalyticsRowsRow{

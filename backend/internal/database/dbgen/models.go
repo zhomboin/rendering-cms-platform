@@ -139,6 +139,15 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 	return string(ns.UserRole), nil
 }
 
+type AnalyticsEvent struct {
+	EventID   pgtype.UUID
+	ArticleID pgtype.UUID
+	EventType string
+	IpHash    string
+	UserAgent pgtype.Text
+	CreatedAt pgtype.Timestamptz
+}
+
 type Article struct {
 	ArticleID     pgtype.UUID
 	Slug          string

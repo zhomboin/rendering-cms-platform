@@ -1,6 +1,7 @@
 package analytics
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -15,10 +16,22 @@ import (
 )
 
 type Handler struct {
-	queries *dbgen.Queries
+	queries analyticsStore
 }
 
-func NewHandler(queries *dbgen.Queries) Handler {
+type analyticsStore interface {
+	GetArticleBySlug(ctx context.Context, slug string) (dbgen.Article, error)
+	UpsertArticleViewDaily(ctx context.Context, arg dbgen.UpsertArticleViewDailyParams) error
+	UpsertSiteViewDaily(ctx context.Context, arg dbgen.UpsertSiteViewDailyParams) error
+	GetTodaySiteViews(ctx context.Context) (int32, error)
+	ListSiteViewsLast7Days(ctx context.Context) ([]dbgen.ListSiteViewsLast7DaysRow, error)
+	ListHotArticles(ctx context.Context, limit int32) ([]dbgen.ListHotArticlesRow, error)
+	ListArticleAnalyticsRows(ctx context.Context, days int32) ([]dbgen.ListArticleAnalyticsRowsRow, error)
+	ListSiteViewTrend(ctx context.Context, days int32) ([]dbgen.ListSiteViewTrendRow, error)
+	ListArticleViewTrend(ctx context.Context, days int32) ([]dbgen.ListArticleViewTrendRow, error)
+}
+
+func NewHandler(queries analyticsStore) Handler {
 	return Handler{queries: queries}
 }
 
@@ -30,6 +43,7 @@ func (h Handler) RegisterPublicRoutes(router chi.Router) {
 func (h Handler) RegisterAdminRoutes(router chi.Router) {
 	router.Get("/analytics/summary", h.summary)
 	router.Get("/analytics/articles", h.articleAnalytics)
+	router.Get("/analytics/trend", h.trend)
 }
 
 func (h Handler) recordArticleView(w http.ResponseWriter, r *http.Request) {
@@ -128,6 +142,22 @@ func (h Handler) articleAnalytics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, mapArticleAnalyticsRows(days, articles))
+}
+
+func (h Handler) trend(w http.ResponseWriter, r *http.Request) {
+	days := normalizeAnalyticsTrendDays(r.URL.Query().Get("days"))
+	site, err := h.queries.ListSiteViewTrend(r.Context(), days)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "站点访问趋势读取失败")
+		return
+	}
+	articles, err := h.queries.ListArticleViewTrend(r.Context(), days)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "文章访问趋势读取失败")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapAnalyticsTrend(days, site, articles))
 }
 
 func mapDailyViews(days []dbgen.ListSiteViewsLast7DaysRow) []map[string]interface{} {

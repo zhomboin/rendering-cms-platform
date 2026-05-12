@@ -19,9 +19,9 @@
 ## 当前进度
 
 - 复核日期：2026-05-12。
-- 当前增强计划共有 37 个步骤，其中 19 个已完成，18 个未完成。
-- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，Task 3 的评论限流和反滥用，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
-- 未完成内容包括统计明细和趋势增强、文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
+- 当前增强计划共有 37 个步骤，其中 23 个已完成，14 个未完成。
+- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，Task 3 的评论限流和反滥用，Task 4 的统计明细和趋势增强，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
+- 未完成内容包括文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
 
 ## Task 1: 编辑器体验增强
 
@@ -340,7 +340,7 @@ git commit -m "feat: add comment rate limit rules"
 - Modify: `backend/internal/analytics/service.go`
 - Modify: `docs/apis/analytics.md`
 
-- [ ] **Step 1: 添加可选访问事件表**
+- [x] **Step 1: 添加可选访问事件表**
 
 Create `backend/migrations/000005_analytics_events.up.sql`:
 
@@ -364,7 +364,7 @@ Create `backend/migrations/000005_analytics_events.down.sql`:
 drop table if exists analytics_events;
 ```
 
-- [ ] **Step 2: 添加趋势 API 文档**
+- [x] **Step 2: 添加趋势 API 文档**
 
 Append to `docs/apis/analytics.md`:
 
@@ -374,7 +374,7 @@ Append to `docs/apis/analytics.md`:
 返回最近 N 天站点访问趋势和文章访问趋势。`days` 允许值为 `7`、`30`、`90`。
 ```
 
-- [ ] **Step 3: 验证统计增强**
+- [x] **Step 3: 验证统计增强**
 
 Run:
 
@@ -385,7 +385,12 @@ go test ./...
 
 Expected: PASS。
 
-- [ ] **Step 4: 提交统计增强**
+当前验证记录：
+
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin sqlc generate` 通过。
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin go test ./internal/analytics` 通过。
+
+- [x] **Step 4: 提交统计增强**
 
 Run:
 
@@ -393,6 +398,10 @@ Run:
 git add backend/migrations backend/sql/analytics_events.sql backend/internal/analytics docs/apis/analytics.md
 git commit -m "feat: add analytics trend foundation"
 ```
+
+完成记录：
+
+- 已提交：`feat: add analytics trend foundation`。
 
 ## Task 5: 文件治理增强
 
