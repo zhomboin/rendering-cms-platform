@@ -34,7 +34,7 @@
 
 - S3 兼容对象存储
 - 本地开发使用 MinIO
-- 生产环境可使用 Cloudflare R2、AWS S3 或同类服务
+- 当前生产 Docker 方案暂时使用服务器本机 MinIO，后续可迁移到 Cloudflare R2、AWS S3 或同类服务
 
 ## 本地开发环境
 

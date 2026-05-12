@@ -10,7 +10,7 @@
 2. 备份当前数据库现场。
 3. 停止会写入数据库的后端服务或切到维护模式。
 4. 确认备份文件来源、时间和完整性。
-5. 确认对象存储 bucket 未被误清理。
+5. 确认 MinIO 数据 volume `rendering_cms_minio_data` 未被误清理。
 
 ## 恢复命令
 
@@ -47,11 +47,29 @@ gzip -dc backups/rendering-cms-latest.sql.gz | psql "$DATABASE_URL"
 
 ## 对象存储一致性检查
 
-数据库恢复后应抽样检查文件元数据与对象存储是否一致：
+数据库恢复后应抽样检查文件元数据与 MinIO 对象是否一致：
 
 - `assets.storage_key` 对应对象能下载。
 - 已软删除资源不会出现在公开下载入口。
 - 下载审计能继续写入 `download_events`。
+
+如果需要从 `mc mirror` 备份恢复 MinIO bucket，先确认 `minio` 容器已启动，再执行：
+
+```bash
+cd /opt/rendering-cms-platform/deploy
+set -a
+. ./production.env
+set +a
+docker run --rm --network rendering_cms \
+  -e MINIO_ROOT_USER \
+  -e MINIO_ROOT_PASSWORD \
+  -e MINIO_BUCKET \
+  -v "$(cd ../backups && pwd):/backups:ro" \
+  minio/mc:latest \
+  sh -c 'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc mirror --overwrite "/backups/minio-latest/$MINIO_BUCKET" "local/$MINIO_BUCKET"'
+```
+
+恢复 MinIO 前应先保留当前 bucket 现场，避免覆盖后无法回退。
 
 ## 回滚处理
 
@@ -61,4 +79,3 @@ gzip -dc backups/rendering-cms-latest.sql.gz | psql "$DATABASE_URL"
 2. 停止继续写入。
 3. 判断是否重新恢复到更早备份。
 4. 如果是 migration 引起的问题，先在临时库复现，再决定是否执行 down migration 或补丁 migration。
-

@@ -56,9 +56,30 @@ gzip -t "$(ls -t backups/rendering-cms-*.sql.gz | head -n 1)"
 
 ## 对象存储备份
 
-PostgreSQL 只保存上传文件元数据和 object key，不保存文件本体。对象存储文件需要单独保护：
+PostgreSQL 只保存上传文件元数据和 object key，不保存文件本体。当前生产对象存储暂时使用服务器本机 MinIO，因此 PostgreSQL 备份不能替代 MinIO 数据备份。
 
-- Cloudflare R2、AWS S3 或 MinIO 应开启 bucket 版本、复制或生命周期策略。
-- 迁移对象存储前应先导出 bucket 清单。
+- MinIO 数据保存在 Docker volume `rendering_cms_minio_data`。
+- 生产服务器应对该 volume 所在磁盘做快照或文件级备份。
+- 如后续迁移到 Cloudflare R2、AWS S3 或其他托管对象存储，迁移前应先导出 bucket 清单。
 - 恢复数据库后必须确认 `assets.storage_key` 对应对象仍存在。
 
+使用 `mc mirror` 导出当前 bucket：
+
+```bash
+cd /opt/rendering-cms-platform/deploy
+set -a
+. ./production.env
+set +a
+MINIO_BACKUP_DIR="minio-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "../backups/$MINIO_BACKUP_DIR"
+docker run --rm --network rendering_cms \
+  -e MINIO_ROOT_USER \
+  -e MINIO_ROOT_PASSWORD \
+  -e MINIO_BUCKET \
+  -e MINIO_BACKUP_DIR \
+  -v "$(cd ../backups && pwd):/backups" \
+  minio/mc:latest \
+  sh -c 'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc mirror "local/$MINIO_BUCKET" "/backups/$MINIO_BACKUP_DIR/$MINIO_BUCKET"'
+```
+
+如果使用服务器磁盘快照，应同时覆盖 Docker volume `rendering_cms_postgres_data` 和 `rendering_cms_minio_data`，并记录快照时间点。

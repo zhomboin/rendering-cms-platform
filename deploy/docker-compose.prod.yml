@@ -17,6 +17,44 @@ services:
     networks:
       - rendering_cms
 
+  minio:
+    image: minio/minio:latest
+    container_name: rendering-cms-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_SERVER_URL: ${MINIO_SERVER_URL:?MINIO_SERVER_URL is required}
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:?MINIO_BROWSER_REDIRECT_URL is required}
+    ports:
+      - "${MINIO_API_BIND:-127.0.0.1:9000}:9000"
+      - "${MINIO_CONSOLE_BIND:-127.0.0.1:9001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - rendering_cms
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: rendering-cms-minio-init
+    restart: "no"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_BUCKET: ${MINIO_BUCKET:?MINIO_BUCKET is required}
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 \"$${MINIO_ROOT_USER}\" \"$${MINIO_ROOT_PASSWORD}\"; do sleep 2; done;
+      mc mb --ignore-existing \"local/$${MINIO_BUCKET}\";
+      mc anonymous set none \"local/$${MINIO_BUCKET}\";
+      "
+    depends_on:
+      minio:
+        condition: service_started
+    networks:
+      - rendering_cms
+
   migrate:
     image: migrate/migrate:v4.18.3
     profiles:
@@ -54,6 +92,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/v1/health >/dev/null || exit 1"]
       interval: 20s
@@ -83,6 +125,8 @@ services:
 volumes:
   postgres_data:
     name: rendering_cms_postgres_data
+  minio_data:
+    name: rendering_cms_minio_data
   backend_logs:
     name: rendering_cms_backend_logs
 

@@ -1275,11 +1275,16 @@ HTTP_ADDR=:8080
 DATABASE_URL=postgres://rendering:password@127.0.0.1:5432/rendering_cms
 JWT_SECRET=replace-with-32-plus-character-secret
 FRONTEND_ORIGIN=http://127.0.0.1:5173
-S3_ENDPOINT=https://example.r2.cloudflarestorage.com
-S3_REGION=auto
+MINIO_ROOT_USER=rendering
+MINIO_ROOT_PASSWORD=replace-with-strong-minio-password
+MINIO_BUCKET=rendering-assets
+MINIO_SERVER_URL=https://minio.example.com
+MINIO_BROWSER_REDIRECT_URL=https://minio-console.example.com
+S3_ENDPOINT=https://minio.example.com
+S3_REGION=us-east-1
 S3_BUCKET=rendering-assets
-S3_ACCESS_KEY_ID=replace-me
-S3_SECRET_ACCESS_KEY=replace-me
+S3_ACCESS_KEY_ID=rendering
+S3_SECRET_ACCESS_KEY=replace-with-strong-minio-password
 ```
 
 ## 发布顺序

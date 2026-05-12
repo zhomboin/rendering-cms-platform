@@ -329,5 +329,5 @@ bash scripts/env/stop-dev-services.sh
 - 不维护 PowerShell 环境脚本。
 - 不要把 `.env` 提交到 Git。
 - 不要把上传文件写入 Git 或 `frontend/public/`。
-- 本地 MinIO 只用于开发，不等同于生产 R2/S3 权限模型。
+- 开发环境 MinIO 只用于本地联调，不等同于生产 MinIO 的 HTTPS 域名、凭据和备份模型。
 - 生产 migration 前必须先备份 PostgreSQL。
