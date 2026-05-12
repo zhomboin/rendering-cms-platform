@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { Tabs, Card, Button, Tag, Typography, Space, Badge, Empty, message } from 'antd';
 import { CheckOutlined, CloseOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { listAdminComments, reviewAdminComment } from '../../../api/comments';
-import type { AdminComment, CommentStatus } from '../../../api/comments';
+import { listAdminComments, reviewAdminComment } from '../../api/comments';
+import type { AdminComment, CommentStatus } from '../../api/comments';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -135,7 +135,7 @@ function CommentCard({
   );
 }
 
-function AdminCommentsPage() {
+function CommentsPage() {
   const [activeTab, setActiveTab] = useState<CommentStatus>('pending');
   const queryClient = useQueryClient();
   const { data = [], isLoading, refetch } = useQuery({
@@ -242,4 +242,4 @@ function AdminCommentsPage() {
   );
 }
 
-export default AdminCommentsPage;
+export default CommentsPage;

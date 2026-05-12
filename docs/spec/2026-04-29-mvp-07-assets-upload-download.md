@@ -13,7 +13,7 @@
 - Create: `backend/internal/assets/handler.go`
 - Create: `backend/internal/storage/s3.go`
 - Modify: `backend/sql/assets.sql`
-- Create: `frontend/src/features/assets/AdminAssetsPage.tsx`
+- Create: `frontend/src/pages/assets/AssetsPage.tsx`
 - Create: `docs/apis/assets.md`
 
 ## 子任务
@@ -30,7 +30,7 @@
 - [x] 在 `backend/sql/assets.sql` 增加创建 `download_events` 记录 SQL。
 - [x] 在 `handler.go` 实现 `POST /api/v1/admin/assets/upload-url`。
 - [x] 在 `handler.go` 实现 `GET /api/v1/admin/assets/{id}/download-url`。
-- [x] 创建 `AdminAssetsPage.tsx`，包含上传表单、资源列表、下载按钮区域。
+- [x] 创建 `AssetsPage.tsx`，包含上传表单、资源列表、下载按钮区域。
 - [x] 创建 `docs/apis/assets.md`。
 - [x] 运行 `cd backend && go test ./internal/assets`。
 - [x] 运行 `cd frontend && npm run build`。
@@ -45,7 +45,7 @@
 ## 建议提交
 
 ```bash
-git add backend/internal/assets backend/internal/storage backend/sql/assets.sql frontend/src/features/assets docs/apis/assets.md
+git add backend/internal/assets backend/internal/storage backend/sql/assets.sql frontend/src/pages/assets docs/apis/assets.md
 git commit -m "feat: add asset upload download audit"
 ```
 

@@ -7,8 +7,8 @@ import {
   listAdminArticles,
   publishAdminArticle,
   updateAdminArticle,
-} from '../../../api/articles';
-import type { AdminArticlePayload, AdminArticleRecord, ArticleFormData } from '../../../api/articles';
+} from '../../api/articles';
+import type { AdminArticlePayload, AdminArticleRecord, ArticleFormData } from '../../api/articles';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -34,7 +34,7 @@ function toPayload(values: ArticleFormData): AdminArticlePayload {
   };
 }
 
-export default function AdminArticleEditorPage() {
+export default function ArticleEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

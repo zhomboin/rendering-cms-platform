@@ -12,7 +12,7 @@
 - Create: `backend/internal/comments/service_test.go`
 - Create: `backend/internal/comments/handler.go`
 - Modify: `backend/sql/comments.sql`
-- Create: `frontend/src/features/comments/AdminCommentsPage.tsx`
+- Create: `frontend/src/pages/comments/CommentsPage.tsx`
 - Create: `docs/apis/comments.md`
 
 ## 子任务
@@ -29,7 +29,7 @@
 - [x] 提交评论时从请求上下文派生 `ip_hash`，不得保存原始 IP。
 - [x] 在 `handler.go` 实现 `GET /api/v1/admin/comments`。
 - [x] 在 `handler.go` 实现 `PATCH /api/v1/admin/comments/{id}`。
-- [x] 创建 `AdminCommentsPage.tsx`，包含待审核、已通过、已拒绝状态区域。
+- [x] 创建 `CommentsPage.tsx`，包含待审核、已通过、已拒绝状态区域。
 - [x] 创建 `docs/apis/comments.md`。
 - [x] 运行 `cd backend && go test ./internal/comments`。
 - [x] 运行 `cd frontend && npm run build`。
@@ -44,7 +44,7 @@
 ## 建议提交
 
 ```bash
-git add backend/internal/comments backend/sql/comments.sql frontend/src/features/comments docs/apis/comments.md
+git add backend/internal/comments backend/sql/comments.sql frontend/src/pages/comments docs/apis/comments.md
 git commit -m "feat: add comment moderation foundation"
 ```
 

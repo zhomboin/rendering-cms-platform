@@ -10,8 +10,8 @@ import { useQuery } from '@tanstack/react-query';
 import {
   getAdminAnalyticsSummary,
   getAdminArticleAnalytics,
-} from '../../../api/analytics';
-import type { ArticleAnalytics, HotArticle } from '../../../api/analytics';
+} from '../../api/analytics';
+import type { ArticleAnalytics, HotArticle } from '../../api/analytics';
 
 const { Title } = Typography;
 
@@ -89,7 +89,7 @@ const articleColumns: ColumnsType<ArticleAnalytics> = [
   },
 ];
 
-function AdminDashboardPage() {
+function DashboardPage() {
   const [articleDays, setArticleDays] = useState(7);
   const { data, isLoading } = useQuery({
     queryKey: ['analytics-summary'],
@@ -326,4 +326,4 @@ function formatDate(value: string | null) {
   return value.slice(0, 10);
 }
 
-export default AdminDashboardPage;
+export default DashboardPage;

@@ -16,18 +16,25 @@
 - P2：中期增强，提升运营效率、搜索质量和数据可观测性。
 - P3：生产强化，补齐备份恢复、权限细分、安全审计和性能边界。
 
+## 当前进度
+
+- 复核日期：2026-05-12。
+- 当前增强计划共有 37 个步骤，其中 3 个已完成，34 个未完成。
+- 已完成内容集中在 Task 8：结构化日志封装、可观测性文档和日志增强验证。
+- 未完成内容包括编辑器体验增强、PostgreSQL 搜索增强、评论限流和反滥用、统计明细和趋势增强、文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
+
 ## Task 1: 编辑器体验增强
 
 **Files:**
 
-- Modify: `frontend/src/features/articles/AdminArticleEditorPage.tsx`
-- Create: `frontend/src/features/articles/MdxPreview.tsx`
-- Create: `frontend/src/features/articles/editor-shortcuts.ts`
+- Modify: `frontend/src/pages/articles/ArticleEditorPage.tsx`
+- Create: `frontend/src/pages/articles/MdxPreview.tsx`
+- Create: `frontend/src/pages/articles/editor-shortcuts.ts`
 - Modify: `docs/apis/articles.md`
 
 - [ ] **Step 1: 增加 MDX 预览组件**
 
-Create `frontend/src/features/articles/MdxPreview.tsx`:
+Create `frontend/src/pages/articles/MdxPreview.tsx`:
 
 ```tsx
 type MdxPreviewProps = {
@@ -46,7 +53,7 @@ export function MdxPreview({ source }: MdxPreviewProps) {
 
 - [ ] **Step 2: 增加编辑快捷键定义**
 
-Create `frontend/src/features/articles/editor-shortcuts.ts`:
+Create `frontend/src/pages/articles/editor-shortcuts.ts`:
 
 ```ts
 export const editorShortcuts = [
@@ -57,13 +64,13 @@ export const editorShortcuts = [
 
 - [ ] **Step 3: 更新编辑页为双栏编辑和预览**
 
-Modify `frontend/src/features/articles/AdminArticleEditorPage.tsx` so it renders:
+Modify `frontend/src/pages/articles/ArticleEditorPage.tsx` so it renders:
 
 ```tsx
 import { useState } from "react";
 import { MdxPreview } from "./MdxPreview";
 
-export function AdminArticleEditorPage() {
+export function ArticleEditorPage() {
   const [body, setBody] = useState("");
 
   return (
@@ -104,7 +111,7 @@ Expected: build success。
 Run:
 
 ```bash
-git add frontend/src/features/articles docs/apis/articles.md
+git add frontend/src/pages/articles docs/apis/articles.md
 git commit -m "feat: improve mdx editor workflow"
 ```
 

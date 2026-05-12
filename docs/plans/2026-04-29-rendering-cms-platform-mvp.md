@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 交付一个可运行的 CMS MVP，支持管理员登录、文章导入与发布、公开阅读、基础访问统计、评论审核、文件上传下载和后台展示。
+**Goal:** 交付一个可运行的 CMS 管理平台 MVP，支持管理员登录、文章导入与发布、基础访问统计、评论审核、文件上传下载和后台展示；公开文章展示由独立的 Rendering 博客项目读取 CMS 已发布内容后完成。
 
 **Architecture:** MVP 采用前后端分离：`backend/` 是 Go API 服务，`frontend/` 是 React + TypeScript 应用，PostgreSQL 是唯一运行时数据源，S3 兼容对象存储保存上传文件。原静态博客仅作为 MDX 内容导入来源，不在运行时被后端写入。
 
@@ -14,8 +14,8 @@
 
 - 管理员可以登录后台。
 - 管理员可以从 MDX 导入文章，并在后台新增、编辑、发布文章。
-- 公开页面可以列出已发布文章并打开详情页。
-- 文章详情页会记录文章访问量和站点访问量。
+- Rendering 博客可以读取 CMS 中已发布文章并展示文章列表和详情。
+- Rendering 博客文章详情页会向 CMS 上报文章访问量和站点访问量。
 - 后台首页可以看到今日访问量、近 7 天访问量和热门文章。
 - 访客可以提交评论，评论默认待审核；管理员审核通过后才公开显示。
 - 管理员可以上传允许类型的文件，并生成下载链接；下载行为写入审计表。
@@ -54,14 +54,12 @@
 - Create: `frontend/src/api/client.ts`
 - Create: `frontend/src/main.tsx`
 - Create: `frontend/src/routes/index.tsx`
-- Create: `frontend/src/features/auth/LoginPage.tsx`
-- Create: `frontend/src/features/articles/ArticleListPage.tsx`
-- Create: `frontend/src/features/articles/ArticleDetailPage.tsx`
-- Create: `frontend/src/features/articles/AdminArticleListPage.tsx`
-- Create: `frontend/src/features/articles/AdminArticleEditorPage.tsx`
-- Create: `frontend/src/features/analytics/AdminDashboardPage.tsx`
-- Create: `frontend/src/features/comments/AdminCommentsPage.tsx`
-- Create: `frontend/src/features/assets/AdminAssetsPage.tsx`
+- Create: `frontend/src/pages/auth/LoginPage.tsx`
+- Create: `frontend/src/pages/articles/ArticleListPage.tsx`
+- Create: `frontend/src/pages/articles/ArticleEditorPage.tsx`
+- Create: `frontend/src/pages/dashboard/DashboardPage.tsx`
+- Create: `frontend/src/pages/comments/CommentsPage.tsx`
+- Create: `frontend/src/pages/assets/AssetsPage.tsx`
 - Create: `docs/apis/README.md`
 - Create: `docs/apis/auth.md`
 - Create: `docs/apis/articles.md`
@@ -780,7 +778,7 @@ git commit -m "feat: add article publishing foundation"
 - Create: `backend/internal/analytics/service.go`
 - Create: `backend/internal/analytics/service_test.go`
 - Create: `backend/internal/analytics/handler.go`
-- Create: `frontend/src/features/analytics/AdminDashboardPage.tsx`
+- Create: `frontend/src/pages/dashboard/DashboardPage.tsx`
 - Create: `docs/apis/analytics.md`
 
 - [x] **Step 1: 写统计聚合测试**
@@ -864,10 +862,10 @@ Create `docs/apis/analytics.md`:
 
 - [x] **Step 4: 创建后台看板页面**
 
-Create `frontend/src/features/analytics/AdminDashboardPage.tsx`:
+Create `frontend/src/pages/dashboard/DashboardPage.tsx`:
 
 ```tsx
-export function AdminDashboardPage() {
+export function DashboardPage() {
   return (
     <main>
       <h1>后台看板</h1>
@@ -898,7 +896,7 @@ Expected: PASS，前端构建成功。
 Run:
 
 ```bash
-git add backend/internal/analytics frontend/src/features/analytics docs/apis/analytics.md
+git add backend/internal/analytics frontend/src/pages/dashboard docs/apis/analytics.md
 git commit -m "feat: add analytics dashboard foundation"
 ```
 
@@ -909,7 +907,7 @@ git commit -m "feat: add analytics dashboard foundation"
 - Create: `backend/internal/comments/service.go`
 - Create: `backend/internal/comments/service_test.go`
 - Create: `backend/internal/comments/handler.go`
-- Create: `frontend/src/features/comments/AdminCommentsPage.tsx`
+- Create: `frontend/src/pages/comments/CommentsPage.tsx`
 - Create: `docs/apis/comments.md`
 
 - [x] **Step 1: 写评论状态测试**
@@ -973,10 +971,10 @@ Create `docs/apis/comments.md`:
 
 - [x] **Step 4: 创建评论审核页面**
 
-Create `frontend/src/features/comments/AdminCommentsPage.tsx`:
+Create `frontend/src/pages/comments/CommentsPage.tsx`:
 
 ```tsx
-export function AdminCommentsPage() {
+export function CommentsPage() {
   return (
     <main>
       <h1>评论审核</h1>
@@ -1004,7 +1002,7 @@ Expected: PASS，前端构建成功。
 Run:
 
 ```bash
-git add backend/internal/comments frontend/src/features/comments docs/apis/comments.md
+git add backend/internal/comments frontend/src/pages/comments docs/apis/comments.md
 git commit -m "feat: add comment moderation foundation"
 ```
 
@@ -1016,7 +1014,7 @@ git commit -m "feat: add comment moderation foundation"
 - Create: `backend/internal/assets/service_test.go`
 - Create: `backend/internal/assets/handler.go`
 - Create: `backend/internal/storage/s3.go`
-- Create: `frontend/src/features/assets/AdminAssetsPage.tsx`
+- Create: `frontend/src/pages/assets/AssetsPage.tsx`
 - Create: `docs/apis/assets.md`
 
 - [x] **Step 1: 写文件校验测试**
@@ -1104,10 +1102,10 @@ Create `docs/apis/assets.md`:
 
 - [x] **Step 4: 创建资源管理页面**
 
-Create `frontend/src/features/assets/AdminAssetsPage.tsx`:
+Create `frontend/src/pages/assets/AssetsPage.tsx`:
 
 ```tsx
-export function AdminAssetsPage() {
+export function AssetsPage() {
   return (
     <main>
       <h1>资源管理</h1>
@@ -1135,20 +1133,18 @@ Expected: PASS，前端构建成功。
 Run:
 
 ```bash
-git add backend/internal/assets backend/internal/storage frontend/src/features/assets docs/apis/assets.md
+git add backend/internal/assets backend/internal/storage frontend/src/pages/assets docs/apis/assets.md
 git commit -m "feat: add asset upload validation"
 ```
 
-## Task 8: 前端后台壳层和公开页面
+## Task 8: 管理端前端壳层
 
 **Files:**
 
 - Create: `frontend/src/api/client.ts`
-- Create: `frontend/src/features/auth/LoginPage.tsx`
-- Create: `frontend/src/features/articles/ArticleListPage.tsx`
-- Create: `frontend/src/features/articles/ArticleDetailPage.tsx`
-- Create: `frontend/src/features/articles/AdminArticleListPage.tsx`
-- Create: `frontend/src/features/articles/AdminArticleEditorPage.tsx`
+- Create: `frontend/src/pages/auth/LoginPage.tsx`
+- Create: `frontend/src/pages/articles/ArticleListPage.tsx`
+- Create: `frontend/src/pages/articles/ArticleEditorPage.tsx`
 - Modify: `frontend/src/routes/index.tsx`
 - Modify: `frontend/src/main.tsx`
 
@@ -1170,7 +1166,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 
 - [x] **Step 2: 创建登录页**
 
-Create `frontend/src/features/auth/LoginPage.tsx`:
+Create `frontend/src/pages/auth/LoginPage.tsx`:
 
 ```tsx
 export function LoginPage() {
@@ -1193,27 +1189,12 @@ export function LoginPage() {
 }
 ```
 
-- [x] **Step 3: 创建公开文章列表页**
+- [x] **Step 3: 创建后台文章页面**
 
-Create `frontend/src/features/articles/ArticleListPage.tsx`:
+Create `frontend/src/pages/articles/ArticleListPage.tsx`:
 
 ```tsx
 export function ArticleListPage() {
-  return (
-    <main>
-      <h1>文章</h1>
-      <p>已发布文章列表将在这里展示。</p>
-    </main>
-  );
-}
-```
-
-- [x] **Step 4: 创建后台文章页面**
-
-Create `frontend/src/features/articles/AdminArticleListPage.tsx`:
-
-```tsx
-export function AdminArticleListPage() {
   return (
     <main>
       <h1>文章管理</h1>
@@ -1223,10 +1204,10 @@ export function AdminArticleListPage() {
 }
 ```
 
-Create `frontend/src/features/articles/AdminArticleEditorPage.tsx`:
+Create `frontend/src/pages/articles/ArticleEditorPage.tsx`:
 
 ```tsx
-export function AdminArticleEditorPage() {
+export function ArticleEditorPage() {
   return (
     <main>
       <h1>文章编辑</h1>
@@ -1238,7 +1219,7 @@ export function AdminArticleEditorPage() {
 }
 ```
 
-- [x] **Step 5: 验证前端构建**
+- [x] **Step 4: 验证前端构建**
 
 Run:
 
@@ -1249,7 +1230,7 @@ npm run build
 
 Expected: build success。
 
-- [x] **Step 6: 提交前端壳层**
+- [x] **Step 5: 提交前端壳层**
 
 Run:
 
@@ -1336,7 +1317,17 @@ git commit -m "docs: add cms mvp implementation plan"
 
 ## MVP 自检
 
-- Spec coverage: MVP 覆盖登录、文章导入、文章发布、公开阅读、访问统计、后台看板、评论审核、文件上传下载和基础运维。
+- Spec coverage: MVP 覆盖登录、文章导入、文章发布、Rendering 博客内容读取接口、访问统计、后台看板、评论审核、文件上传下载和基础运维。
 - Placeholder scan: 本计划不包含 TBD、TODO 或“后续补充”式占位任务。
 - Type consistency: `Article`、`Comment`、`DailyView`、`ValidateUpload`、`ValidSlug` 等命名在测试和实现中保持一致。
 - Boundary consistency: 原静态博客仅作为导入来源；运行时数据全部进入 PostgreSQL 和对象存储。
+
+## 当前复核记录
+
+- 复核日期：2026-05-12。
+- MVP 总计划中的 55 个步骤均已标记完成，`docs/spec/` 下 9 个 MVP 阶段文档共 139 个步骤均已标记完成。
+- 当前前端实现采用 `frontend/src/pages/` 目录组织管理端页面，已移除 CMS 自身公开阅读页面，`/` 默认跳转到后台仪表盘 `/admin`。
+- 当前 WSL 环境中 `go` 不在 `PATH`，后端 `go test ./...` 和 `go vet ./...` 需要在修复 Go 工具链后重新执行。
+- 当前 WSL 环境中 `npm` 解析到 Windows Node 路径，前端 `npm run build` 需要在修复 Linux Node 工具链后重新执行。
+- `bash scripts/env/test-dev-scripts.sh` 已通过，输出 `dev scripts look consistent`。
+- MVP 后增强计划位于 `docs/plans/2026-04-29-rendering-cms-platform-enhancements.md`，当前仍有 34 个未完成步骤。

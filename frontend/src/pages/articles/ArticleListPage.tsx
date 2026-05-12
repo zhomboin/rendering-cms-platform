@@ -4,8 +4,8 @@ import { Table, Button, Tag, Input, Select, Space, Typography, Alert } from 'ant
 import { PlusOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
-import { listAdminArticles } from '../../../api/articles';
-import type { AdminArticleRecord } from '../../../api/articles';
+import { listAdminArticles } from '../../api/articles';
+import type { AdminArticleRecord } from '../../api/articles';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -34,7 +34,7 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-export default function AdminArticleListPage() {
+export default function ArticleListPage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');

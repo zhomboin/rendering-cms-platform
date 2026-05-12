@@ -1,14 +1,14 @@
 # 评论 API
 
-本文档记录 MVP 阶段评论提交、公开展示和后台审核接口。所有接口前缀为 `/api/v1`。
+本文档记录 MVP 阶段 Rendering 博客评论提交、已审核评论读取和 CMS 后台审核接口。所有接口前缀为 `/api/v1`。
 
 ## 隐私规则
 
 - 评论提交时后端只保存 `ip_hash`，不得保存原始 IP。
-- 公开评论列表不返回邮箱、IP 哈希、User-Agent 等管理字段。
+- Rendering 博客评论列表不返回邮箱、IP 哈希、User-Agent 等管理字段。
 - 后台评论审核接口必须通过后台认证。
 
-## 公开评论模型
+## Rendering 博客评论模型
 
 ```json
 {
@@ -40,10 +40,10 @@
 `status` 取值：
 
 - `pending`：待审核。
-- `approved`：已通过，允许公开展示。
-- `rejected`：已拒绝，不公开展示。
+- `approved`：已通过，允许被 Rendering 博客展示。
+- `rejected`：已拒绝，不在 Rendering 博客展示。
 
-## 公开评论列表
+## Rendering 博客评论列表
 
 ```http
 GET /api/v1/articles/{slug}/comments

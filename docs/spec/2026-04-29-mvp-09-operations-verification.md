@@ -51,5 +51,14 @@ git commit -m "docs: add mvp operations and verification specs"
 ## 完成记录
 
 - API 索引和部署文档已补齐。
-- 总体验证覆盖后端测试、vet、前端构建和健康检查。
-- 主流程验收以代码路径、接口文档和本地服务健康检查为依据；需使用真实管理员账号执行完整业务数据验收。
+- 历史完成记录显示总体验证覆盖后端测试、vet、前端构建和健康检查。
+- 主流程验收以代码路径、接口文档和本地服务健康检查为依据；仍需使用真实管理员账号执行完整业务数据验收。
+
+## 当前复核记录
+
+- 复核日期：2026-05-12。
+- `docs/spec/` 下 9 个 MVP 阶段文档均已标记完成，未发现未勾选的 MVP 子任务。
+- `docs/plans/2026-04-29-rendering-cms-platform-mvp.md` 中 MVP 任务均已标记完成。
+- 当前 WSL 环境中 `go` 不在 `PATH`，因此 `cd backend && go test ./...` 和 `cd backend && go vet ./...` 未能执行。
+- 当前 WSL 环境中 `npm` 解析到 Windows Node 路径，`cd frontend && npm run build` 未能在 WSL Linux 工具链下执行。
+- `bash scripts/env/test-dev-scripts.sh` 已通过，输出 `dev scripts look consistent`。

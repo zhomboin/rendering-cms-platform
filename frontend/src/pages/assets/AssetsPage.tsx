@@ -8,8 +8,8 @@ import {
   getAdminAssetDownloadUrl,
   listAdminAssets,
   uploadAdminAsset,
-} from '../../../api/assets';
-import type { AssetFile } from '../../../api/assets';
+} from '../../api/assets';
+import type { AssetFile } from '../../api/assets';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
@@ -48,7 +48,7 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function AdminAssetsPage() {
+function AssetsPage() {
   const queryClient = useQueryClient();
   const { data = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-assets'],
@@ -207,4 +207,4 @@ function AdminAssetsPage() {
   );
 }
 
-export default AdminAssetsPage;
+export default AssetsPage;

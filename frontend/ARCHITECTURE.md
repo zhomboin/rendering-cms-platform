@@ -41,15 +41,12 @@ frontend/
     layouts/
       AdminLayout.tsx
     pages/
-      admin/
-        analytics/AdminDashboardPage.tsx
-        articles/AdminArticleEditorPage.tsx
-        articles/AdminArticleListPage.tsx
-        assets/AdminAssetsPage.tsx
-        comments/AdminCommentsPage.tsx
+      articles/ArticleEditorPage.tsx
+      articles/ArticleListPage.tsx
+      assets/AssetsPage.tsx
       auth/LoginPage.tsx
-      public/articles/ArticleDetailPage.tsx
-      public/articles/ArticleListPage.tsx
+      comments/CommentsPage.tsx
+      dashboard/DashboardPage.tsx
     routes/
       index.tsx
     main.tsx

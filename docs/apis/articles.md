@@ -1,6 +1,6 @@
 # 文章 API
 
-本文档记录 MVP 阶段文章公开读取与后台管理接口。所有接口前缀为 `/api/v1`。
+本文档记录 MVP 阶段文章管理接口，以及供 Rendering 博客读取已发布文章的内容接口。所有接口前缀为 `/api/v1`。
 
 ## 数据模型
 
@@ -31,7 +31,7 @@
 ^[a-z0-9]+(?:-[a-z0-9]+)*$
 ```
 
-## 公开文章列表
+## Rendering 博客文章列表
 
 ```http
 GET /api/v1/articles
@@ -41,8 +41,9 @@ GET /api/v1/articles
 
 - 只返回 `published` 状态文章。
 - 按发布时间倒序排列。
+- 该接口由 Rendering 博客服务端或前台读取，CMS 前端自身不提供公开文章列表页面。
 
-## 公开文章详情
+## Rendering 博客文章详情
 
 ```http
 GET /api/v1/articles/{slug}
@@ -52,6 +53,7 @@ GET /api/v1/articles/{slug}
 
 - 只返回 `published` 状态文章。
 - 未发布或不存在时返回 `404`。
+- 该接口用于 Rendering 博客的 `/blog/<slug>` 页面渲染。
 
 ## 后台文章列表
 

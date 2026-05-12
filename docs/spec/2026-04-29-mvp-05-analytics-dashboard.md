@@ -12,7 +12,7 @@
 - Create: `backend/internal/analytics/service_test.go`
 - Create: `backend/internal/analytics/handler.go`
 - Modify: `backend/sql/analytics.sql`
-- Create: `frontend/src/features/analytics/AdminDashboardPage.tsx`
+- Create: `frontend/src/pages/dashboard/DashboardPage.tsx`
 - Create: `docs/apis/analytics.md`
 
 ## 子任务
@@ -26,7 +26,7 @@
 - [x] 在 `backend/sql/analytics.sql` 增加热门文章查询 SQL。
 - [x] 在 `handler.go` 实现 `POST /api/v1/articles/{slug}/views`。
 - [x] 在 `handler.go` 实现 `GET /api/v1/admin/analytics/summary`。
-- [x] 在前端创建 `AdminDashboardPage.tsx`。
+- [x] 在前端创建 `DashboardPage.tsx`。
 - [x] 看板展示今日访问量、近 7 天访问量、热门文章列表三个区域。
 - [x] 创建 `docs/apis/analytics.md`，记录统计写入和后台汇总 API。
 - [x] 运行 `cd backend && go test ./internal/analytics`。
@@ -54,6 +54,6 @@
 ## 建议提交
 
 ```bash
-git add backend/internal/analytics backend/sql/analytics.sql frontend/src/features/analytics docs/apis/analytics.md
+git add backend/internal/analytics backend/sql/analytics.sql frontend/src/pages/dashboard docs/apis/analytics.md
 git commit -m "feat: add analytics dashboard foundation"
 ```

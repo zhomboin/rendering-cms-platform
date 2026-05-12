@@ -16,10 +16,10 @@
 - 新建 `rendering-cms-platform` 项目。
 - 新项目采用前后端分离：
   - `backend/`：Go API 服务。
-  - `frontend/`：React + TypeScript 管理端与公开站点。
+  - `frontend/`：React + TypeScript 管理端。
   - `docs/`：接口、数据模型、部署、运维文档。
 - 初期通过 MDX 导入工具把当前 `content/posts` 迁移到新项目数据库。
-- 新项目稳定后，再决定是否由新项目接管公开站点域名。
+- 新项目稳定后，由原 `Rendering` 博客项目读取 CMS 已发布内容并继续承载公开站点。
 
 ## 推荐技术栈
 
@@ -94,11 +94,12 @@ rendering-cms-platform/
     src/api/
     src/routes/
     src/pages/
+    src/pages/articles/
+    src/pages/comments/
+    src/pages/dashboard/
+    src/pages/assets/
+    src/pages/auth/
     src/components/
-    src/features/articles/
-    src/features/comments/
-    src/features/analytics/
-    src/features/assets/
   docs/
     apis/
     sql/
@@ -124,7 +125,7 @@ rendering-cms-platform/
 - `POST /api/v1/admin/assets/upload-url`
 - `GET /api/v1/admin/assets/{id}/download-url`
 
-公开接口只暴露已发布文章、已审核评论和访问统计写入。后台接口全部要求管理员登录态。
+内容读取接口只提供给 Rendering 博客消费，用于读取已发布文章、已审核评论和写入访问统计。CMS 前端自身不承载公开内容页面，后台接口全部要求管理员登录态。
 
 ## 内容模型
 
@@ -225,7 +226,7 @@ rendering-cms-platform/
 4. 搭建 React + TypeScript 前端骨架和后台壳层。
 5. 实现登录、鉴权和管理员初始化。
 6. 编写 MDX 导入工具，迁移现有文章。
-7. 实现公开文章读取和后台文章编辑发布。
+7. 实现 Rendering 博客文章读取接口和后台文章编辑发布。
 8. 实现文章统计和后台看板。
 9. 实现评论提交与审核。
 10. 实现文件上传、下载和审计。

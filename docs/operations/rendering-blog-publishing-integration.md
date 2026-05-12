@@ -9,7 +9,8 @@
 - 将 `articles.status` 更新为 `published`。
 - 首次发布时写入 `published_at`。
 - `articles.version` 自动加 `1`，并由数据库触发器写入 `article_logs`。
-- CMS 自身公开前端可通过 `/articles` 和 `/articles/{slug}` 访问已发布文章。
+- CMS 前端只作为管理平台，不提供 `/articles` 或 `/articles/{slug}` 公开阅读页面。
+- Rendering 博客通过 CMS 内容读取接口获取已发布文章并负责公开展示。
 
 当前发布功能不会：
 

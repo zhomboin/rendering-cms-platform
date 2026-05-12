@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Button, Typography, App } from 'antd';
+import { Form, Input, Button, Typography, App } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import { loginAdmin, setAuthToken, setAuthUser } from '../../api/auth';
 import type { LoginRequest } from '../../api/auth';
+import './LoginPage.css';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 interface LoginLocationState {
   from?: {
@@ -43,99 +44,76 @@ function LoginForm() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        background: '#F8FAFC',
-        padding: 24,
-      }}
-    >
-      <Card
-        style={{
-          width: '100%',
-          maxWidth: 400,
-          borderRadius: 24,
-          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
-        }}
-        styles={{ body: { padding: 48 } }}
-      >
-        <Title
-          level={3}
-          style={{
-            textAlign: 'center',
-            fontSize: 24,
-            fontWeight: 700,
-            marginBottom: 32,
-            color: '#0F172A',
-          }}
-        >
-          后台登录
-        </Title>
+    <main className="login-page">
+      <section className="login-card" aria-label="Rendering CMS 登录">
+        <div className="login-visual" aria-hidden="true">
+          <div className="login-visual__overlay" />
+          <div className="login-visual__caption">
+            <span>Rendering CMS</span>
+            <strong>内容管理平台</strong>
+          </div>
+        </div>
 
-        <Form<LoginRequest>
-          layout="vertical"
-          onFinish={handleSubmit}
-          autoComplete="off"
-          size="large"
-        >
-          <Form.Item
-            name="email"
-            rules={[
-              { required: true, message: '请输入邮箱' },
-              { type: 'email', message: '请输入有效的邮箱地址' },
-            ]}
-          >
-            <Input
-              prefix={<MailOutlined />}
-              placeholder="管理员邮箱"
-              style={{ height: 44, borderRadius: 8 }}
-            />
-          </Form.Item>
+        <div className="login-panel">
+          <div className="login-panel__inner">
+            <div className="login-heading">
+              <Title level={2}>Welcome</Title>
+              <Text>登录账号后继续管理文章、评论与资源</Text>
+            </div>
 
-          <Form.Item
-            name="password"
-            rules={[{ required: true, message: '请输入密码' }]}
-          >
-            <Input.Password
-              prefix={<LockOutlined />}
-              placeholder="密码"
-              style={{ height: 44, borderRadius: 8 }}
-            />
-          </Form.Item>
-
-          <Form.Item style={{ marginBottom: 16 }}>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              block
-              style={{
-                height: 44,
-                borderRadius: 8,
-                fontSize: 16,
-                fontWeight: 600,
-              }}
+            <Form<LoginRequest>
+              className="login-form"
+              layout="vertical"
+              onFinish={handleSubmit}
+              autoComplete="off"
+              size="large"
             >
-              登录
-            </Button>
-          </Form.Item>
-        </Form>
+              <Form.Item
+                name="email"
+                rules={[
+                  { required: true, message: '请输入邮箱' },
+                  { type: 'email', message: '请输入有效的邮箱地址' },
+                ]}
+              >
+                <Input
+                  prefix={<MailOutlined />}
+                  placeholder="admin@rendering.local"
+                  className="login-input"
+                />
+              </Form.Item>
 
-        <p
-          style={{
-            textAlign: 'center',
-            fontSize: 12,
-            color: '#64748B',
-            margin: 0,
-          }}
-        >
-          仅限管理员登录
-        </p>
-      </Card>
-    </div>
+              <Form.Item
+                name="password"
+                rules={[{ required: true, message: '请输入密码' }]}
+              >
+                <Input.Password
+                  prefix={<LockOutlined />}
+                  placeholder="请输入密码"
+                  className="login-input"
+                />
+              </Form.Item>
+
+              <a className="login-help" href="mailto:admin@rendering.local">
+                忘记密码请联系管理员
+              </a>
+
+              <Form.Item className="login-action">
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  className="login-button"
+                >
+                  登录
+                </Button>
+              </Form.Item>
+            </Form>
+
+            <p className="login-footnote">仅限授权管理员登录</p>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
 
