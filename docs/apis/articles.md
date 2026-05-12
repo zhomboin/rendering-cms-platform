@@ -55,6 +55,20 @@ GET /api/v1/articles/{slug}
 - 未发布或不存在时返回 `404`。
 - 该接口用于 Rendering 博客的 `/blog/<slug>` 页面渲染。
 
+## Rendering 博客文章搜索
+
+```http
+GET /api/v1/articles/search?q=keyword
+```
+
+说明：
+
+- 基于 PostgreSQL full text search 搜索已发布文章。
+- 搜索范围包含标题、摘要和 MDX 正文。
+- 搜索关键词为空时返回 `400`。
+- 返回字段包含 `articleId`、`slug`、`title`、`summary` 和 `publishedAt`，不返回完整 `bodyMdx`。
+- 搜索排序优先使用 `ts_rank` 相关度，其次按发布时间倒序排列。
+
 ## 后台文章列表
 
 ```http

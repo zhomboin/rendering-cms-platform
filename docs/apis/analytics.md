@@ -123,6 +123,42 @@ Authorization: Bearer <jwt-token>
 }
 ```
 
+## 后台访问趋势
+
+```http
+GET /api/v1/admin/analytics/trend?days=30
+Authorization: Bearer <jwt-token>
+```
+
+说明：
+
+- 返回最近 N 天站点访问趋势和文章访问趋势。
+- `days` 允许值为 `7`、`30`、`90`，未传或传入其它值时使用 `30`。
+- `site` 返回连续日期序列，无访问量日期返回 `0`。
+- `articles` 返回最近 N 天内存在访问量的已发布文章按日趋势。
+
+响应：
+
+```json
+{
+  "days": 30,
+  "site": [
+    {
+      "date": "2026-05-12",
+      "views": 42
+    }
+  ],
+  "articles": [
+    {
+      "date": "2026-05-12",
+      "slug": "hello-world",
+      "title": "Hello World",
+      "views": 12
+    }
+  ]
+}
+```
+
 ## 数据规则
 
 - 统计数据按日聚合。
@@ -135,6 +171,7 @@ Authorization: Bearer <jwt-token>
 - 归档 SQL 必须使用 `DELETE ... RETURNING` 把 daily 数据原子搬迁到 history 表，并在冲突时累加到已有 history 记录。
 - 如果归档过程中仍有延迟访问写入旧日期 daily 表，该记录不会被本次删除；下一次归档会继续累加到 history 表，避免计数丢失。
 - MVP 不保存原始 IP 地址。
+- 增强阶段新增 `analytics_events` 作为可选访问事件明细表，当前趋势接口仍优先读取 daily/history 聚合表。
 
 ## Rendering 博客对接
 

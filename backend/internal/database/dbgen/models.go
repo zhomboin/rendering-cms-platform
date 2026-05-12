@@ -54,6 +54,49 @@ func (ns NullArticleStatus) Value() (driver.Value, error) {
 	return string(ns.ArticleStatus), nil
 }
 
+type AssetStatus string
+
+const (
+	AssetStatusActive   AssetStatus = "active"
+	AssetStatusArchived AssetStatus = "archived"
+	AssetStatusDeleted  AssetStatus = "deleted"
+)
+
+func (e *AssetStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AssetStatus(s)
+	case string:
+		*e = AssetStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AssetStatus: %T", src)
+	}
+	return nil
+}
+
+type NullAssetStatus struct {
+	AssetStatus AssetStatus
+	Valid       bool // Valid is true if AssetStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAssetStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.AssetStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AssetStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAssetStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AssetStatus), nil
+}
+
 type CommentStatus string
 
 const (
@@ -139,6 +182,15 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 	return string(ns.UserRole), nil
 }
 
+type AnalyticsEvent struct {
+	EventID   pgtype.UUID
+	ArticleID pgtype.UUID
+	EventType string
+	IpHash    string
+	UserAgent pgtype.Text
+	CreatedAt pgtype.Timestamptz
+}
+
 type Article struct {
 	ArticleID     pgtype.UUID
 	Slug          string
@@ -154,6 +206,7 @@ type Article struct {
 	CreatedAt     pgtype.Timestamptz
 	UpdatedAt     pgtype.Timestamptz
 	Version       int32
+	SearchVector  interface{}
 }
 
 type ArticleLog struct {
@@ -195,6 +248,8 @@ type Asset struct {
 	PublicUrl   pgtype.Text
 	CreatedBy   pgtype.UUID
 	CreatedAt   pgtype.Timestamptz
+	Status      AssetStatus
+	DeletedAt   pgtype.Timestamptz
 }
 
 type Comment struct {

@@ -73,6 +73,13 @@ where a.slug = $1
   and c.status = 'approved'
 order by c.created_at asc;
 
+-- name: ListRecentCommentTimesByIPHash :many
+select created_at
+from comments
+where ip_hash = $1
+  and created_at >= $2
+order by created_at desc;
+
 -- name: ListAdminComments :many
 select
   c.comment_id,
