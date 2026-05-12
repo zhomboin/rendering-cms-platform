@@ -19,9 +19,9 @@
 ## 当前进度
 
 - 复核日期：2026-05-12。
-- 当前增强计划共有 38 个步骤，其中 37 个已完成，1 个未完成。
-- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，Task 3 的评论限流和反滥用，Task 4 的统计明细和趋势增强，Task 5 的文件治理增强，Task 6 的登录安全加固，Task 7 的备份恢复和生产运维，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
-- 未完成内容包括 Task 8 的提交步骤。
+- 当前增强计划共有 38 个步骤，已全部完成。
+- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，Task 3 的评论限流和反滥用，Task 4 的统计明细和趋势增强，Task 5 的文件治理增强，Task 6 的登录安全加固，Task 7 的备份恢复和生产运维，以及 Task 8 的结构化日志封装、可观测性文档、日志增强验证和提交收口。
+- 未完成内容：无。
 
 ## Task 1: 编辑器体验增强
 
@@ -704,7 +704,7 @@ go vet ./...
 
 Expected: PASS。
 
-- [ ] **Step 4: 提交日志增强**
+- [x] **Step 4: 提交日志增强**
 
 Run:
 
@@ -713,9 +713,12 @@ git add backend/internal/logging backend/cmd/server/main.go docs/operations/obse
 git commit -m "feat: add structured logging foundation"
 ```
 
+- 实现已在历史提交 `d791a67 feat: add backend log persistence` 中完成。
+- 本轮收口提交同步增强计划状态。
+
 ## 增强阶段自检
 
-- Spec coverage: 增强计划覆盖编辑体验、搜索、评论限流、统计趋势、文件生命周期、角色权限、备份恢复和日志。
+- Spec coverage: 增强计划覆盖编辑体验、搜索、评论限流、统计趋势、文件生命周期、登录安全加固、备份恢复和日志。
 - Placeholder scan: 本计划不包含 TBD、TODO 或“类似上一任务”式占位任务。
-- Type consistency: `AllowComment`、`CanPublishArticle`、`ValidateUpload` 和 API 路径命名与 MVP 计划保持一致。
+- Type consistency: `AllowComment`、`EvaluateLoginLockout`、`ValidateUpload` 和 API 路径命名与 MVP 计划保持一致。
 - Boundary consistency: 增强功能仍以 PostgreSQL 和对象存储为运行时数据源，不回写原静态博客仓库。
