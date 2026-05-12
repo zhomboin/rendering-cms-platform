@@ -282,6 +282,39 @@ func (q *Queries) ListPendingComments(ctx context.Context) ([]Comment, error) {
 	return items, nil
 }
 
+const listRecentCommentTimesByIPHash = `-- name: ListRecentCommentTimesByIPHash :many
+select created_at
+from comments
+where ip_hash = $1
+  and created_at >= $2
+order by created_at desc
+`
+
+type ListRecentCommentTimesByIPHashParams struct {
+	IpHash    string
+	CreatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) ListRecentCommentTimesByIPHash(ctx context.Context, arg ListRecentCommentTimesByIPHashParams) ([]pgtype.Timestamptz, error) {
+	rows, err := q.db.Query(ctx, listRecentCommentTimesByIPHash, arg.IpHash, arg.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.Timestamptz
+	for rows.Next() {
+		var created_at pgtype.Timestamptz
+		if err := rows.Scan(&created_at); err != nil {
+			return nil, err
+		}
+		items = append(items, created_at)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const reviewComment = `-- name: ReviewComment :one
 update comments
 set

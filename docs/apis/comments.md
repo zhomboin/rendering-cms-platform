@@ -77,6 +77,11 @@ Content-Type: application/json
 - 新评论默认进入 `pending` 状态。
 - 后端从请求上下文派生 IP 哈希，只保存哈希值。
 - 未发布或不存在的文章返回 `404`。
+- 同一 IP 哈希 1 分钟内最多提交 3 条评论，超限时返回 `429 Too Many Requests`。
+
+## 限流规则
+
+同一 IP 哈希 1 分钟内最多提交 3 条评论。超限时返回 `429 Too Many Requests`。
 
 ## 后台评论列表
 

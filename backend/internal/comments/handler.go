@@ -1,6 +1,7 @@
 package comments
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -17,7 +19,7 @@ import (
 )
 
 type Handler struct {
-	queries *dbgen.Queries
+	queries commentStore
 }
 
 type CreateCommentPayload struct {
@@ -30,7 +32,15 @@ type ReviewCommentPayload struct {
 	Status string `json:"status"`
 }
 
-func NewHandler(queries *dbgen.Queries) Handler {
+type commentStore interface {
+	ListApprovedCommentsByArticleSlug(ctx context.Context, slug string) ([]dbgen.ListApprovedCommentsByArticleSlugRow, error)
+	ListRecentCommentTimesByIPHash(ctx context.Context, arg dbgen.ListRecentCommentTimesByIPHashParams) ([]pgtype.Timestamptz, error)
+	CreateComment(ctx context.Context, arg dbgen.CreateCommentParams) (dbgen.Comment, error)
+	ListAdminComments(ctx context.Context) ([]dbgen.ListAdminCommentsRow, error)
+	ReviewComment(ctx context.Context, arg dbgen.ReviewCommentParams) (dbgen.Comment, error)
+}
+
+func NewHandler(queries commentStore) Handler {
 	return Handler{queries: queries}
 }
 
@@ -69,12 +79,26 @@ func (h Handler) createComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ipHash := ipHashFromRequest(r)
+	recent, err := h.queries.ListRecentCommentTimesByIPHash(r.Context(), dbgen.ListRecentCommentTimesByIPHashParams{
+		IpHash:    ipHash,
+		CreatedAt: pgtype.Timestamptz{Time: time.Now().Add(-time.Minute), Valid: true},
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "评论限流检查失败")
+		return
+	}
+	if !AllowComment(time.Now(), commentTimes(recent)) {
+		writeError(w, http.StatusTooManyRequests, "评论提交过于频繁")
+		return
+	}
+
 	created, err := h.queries.CreateComment(r.Context(), dbgen.CreateCommentParams{
 		Slug:        chi.URLParam(r, "slug"),
-		AuthorName: comment.AuthorName,
+		AuthorName:  comment.AuthorName,
 		AuthorEmail: nullableText(strings.TrimSpace(payload.AuthorEmail)),
 		Body:        comment.Body,
-		IpHash:      ipHashFromRequest(r),
+		IpHash:      ipHash,
 		UserAgent:   nullableText(r.UserAgent()),
 	})
 	if err != nil {
@@ -86,6 +110,16 @@ func (h Handler) createComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, mapComment(created))
+}
+
+func commentTimes(values []pgtype.Timestamptz) []time.Time {
+	result := make([]time.Time, 0, len(values))
+	for _, value := range values {
+		if value.Valid {
+			result = append(result, value.Time)
+		}
+	}
+	return result
 }
 
 func (h Handler) listAdminComments(w http.ResponseWriter, r *http.Request) {

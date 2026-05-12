@@ -19,9 +19,9 @@
 ## 当前进度
 
 - 复核日期：2026-05-12。
-- 当前增强计划共有 37 个步骤，其中 13 个已完成，24 个未完成。
-- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
-- 未完成内容包括评论限流和反滥用、统计明细和趋势增强、文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
+- 当前增强计划共有 37 个步骤，其中 19 个已完成，18 个未完成。
+- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，Task 3 的评论限流和反滥用，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
+- 未完成内容包括统计明细和趋势增强、文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
 
 ## Task 1: 编辑器体验增强
 
@@ -221,7 +221,7 @@ git commit -m "feat: add postgres article search"
 - Create: `backend/internal/comments/rate_limit_test.go`
 - Modify: `docs/apis/comments.md`
 
-- [ ] **Step 1: 添加评论限流索引**
+- [x] **Step 1: 添加评论限流索引**
 
 Create `backend/migrations/000004_comment_rate_limit.up.sql`:
 
@@ -235,7 +235,7 @@ Create `backend/migrations/000004_comment_rate_limit.down.sql`:
 drop index if exists comments_ip_hash_created_at_idx;
 ```
 
-- [ ] **Step 2: 写限流纯函数测试**
+- [x] **Step 2: 写限流纯函数测试**
 
 Create `backend/internal/comments/rate_limit_test.go`:
 
@@ -271,7 +271,7 @@ func TestRejectCommentOverLimit(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: 实现限流纯函数**
+- [x] **Step 3: 实现限流纯函数**
 
 Create `backend/internal/comments/rate_limit.go`:
 
@@ -291,7 +291,7 @@ func AllowComment(now time.Time, recent []time.Time) bool {
 }
 ```
 
-- [ ] **Step 4: 更新评论文档**
+- [x] **Step 4: 更新评论文档**
 
 Append to `docs/apis/comments.md`:
 
@@ -301,7 +301,7 @@ Append to `docs/apis/comments.md`:
 同一 IP 哈希 1 分钟内最多提交 3 条评论。超限时返回 `429 Too Many Requests`。
 ```
 
-- [ ] **Step 5: 验证评论限流**
+- [x] **Step 5: 验证评论限流**
 
 Run:
 
@@ -312,7 +312,12 @@ go test ./internal/comments
 
 Expected: PASS。
 
-- [ ] **Step 6: 提交评论限流**
+当前验证记录：
+
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin sqlc generate` 通过。
+- `cd backend && PATH=/usr/local/go/bin:/home/ubuntu/go/bin:/usr/bin:/bin go test ./internal/comments` 通过。
+
+- [x] **Step 6: 提交评论限流**
 
 Run:
 
@@ -320,6 +325,10 @@ Run:
 git add backend/migrations backend/internal/comments docs/apis/comments.md
 git commit -m "feat: add comment rate limit rules"
 ```
+
+完成记录：
+
+- 已提交：`feat: add comment rate limit rules`。
 
 ## Task 4: 统计明细和趋势增强
 
