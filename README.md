@@ -94,6 +94,8 @@ bash scripts/env/stop-dev-services.sh
 - `docs/plans/2026-04-29-rendering-cms-platform-mvp.md`：MVP 版本迭代计划。
 - `docs/plans/2026-04-29-rendering-cms-platform-enhancements.md`：后续增强功能计划。
 - `docs/operations/development-environment.md`：WSL2 Ubuntu 24.04 开发环境配置指南。
+- `docs/operations/deployment.md`：生产 Docker 部署方案。
+- `docs/operations/runbook.md`：生产运维 SOP。
 - `docs/spec/`：MVP 各阶段子任务文档。
 
 ## MVP 子任务

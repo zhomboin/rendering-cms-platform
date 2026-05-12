@@ -62,6 +62,7 @@ frontend/public/uploads/
 # Docker / Compose 本地覆盖文件
 docker-compose.override.yml
 scripts/env/docker-compose.override.yml
+deploy/production.env
 
 # 构建缓存
 .cache/
