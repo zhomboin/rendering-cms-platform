@@ -1,0 +1,200 @@
+import { Empty, Typography } from 'antd';
+import type { ReactNode } from 'react';
+
+const { Text } = Typography;
+
+type MdxPreviewProps = {
+  source: string;
+};
+
+type PreviewBlock =
+  | { type: 'heading'; level: 1 | 2 | 3; text: string }
+  | { type: 'paragraph'; text: string }
+  | { type: 'quote'; text: string }
+  | { type: 'list'; items: string[] }
+  | { type: 'code'; code: string };
+
+export function MdxPreview({ source }: MdxPreviewProps) {
+  const blocks = parsePreviewBlocks(source);
+
+  return (
+    <section aria-label="MDX 预览">
+      <div style={{ marginBottom: 16 }}>
+        <Text strong style={{ display: 'block', color: '#0F172A', marginBottom: 4 }}>
+          MDX 预览
+        </Text>
+        <Text style={{ fontSize: 12, color: '#64748B' }}>
+          用于快速检查正文结构，复杂组件以源码形式展示。
+        </Text>
+      </div>
+
+      <div
+        style={{
+          minHeight: 420,
+          maxHeight: 720,
+          overflow: 'auto',
+          padding: 24,
+          border: '1px solid #E2E8F0',
+          borderRadius: 8,
+          background: '#FFFFFF',
+        }}
+      >
+        {blocks.length === 0 ? (
+          <Empty description="输入 MDX 正文后在这里预览" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        ) : (
+          blocks.map((block, index) => renderBlock(block, index))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function parsePreviewBlocks(source: string): PreviewBlock[] {
+  const lines = source.replace(/\r\n/g, '\n').split('\n');
+  const blocks: PreviewBlock[] = [];
+  let paragraph: string[] = [];
+  let listItems: string[] = [];
+  let codeLines: string[] = [];
+  let inCode = false;
+
+  const flushParagraph = () => {
+    if (paragraph.length === 0) return;
+    blocks.push({ type: 'paragraph', text: paragraph.join(' ') });
+    paragraph = [];
+  };
+
+  const flushList = () => {
+    if (listItems.length === 0) return;
+    blocks.push({ type: 'list', items: listItems });
+    listItems = [];
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('```')) {
+      if (inCode) {
+        blocks.push({ type: 'code', code: codeLines.join('\n') });
+        codeLines = [];
+        inCode = false;
+      } else {
+        flushParagraph();
+        flushList();
+        inCode = true;
+      }
+      continue;
+    }
+
+    if (inCode) {
+      codeLines.push(line);
+      continue;
+    }
+
+    if (!trimmed) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    const heading = /^(#{1,3})\s+(.+)$/.exec(trimmed);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      blocks.push({
+        type: 'heading',
+        level: heading[1].length as 1 | 2 | 3,
+        text: heading[2],
+      });
+      continue;
+    }
+
+    const listItem = /^[-*]\s+(.+)$/.exec(trimmed);
+    if (listItem) {
+      flushParagraph();
+      listItems.push(listItem[1]);
+      continue;
+    }
+
+    if (trimmed.startsWith('>')) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: 'quote', text: trimmed.replace(/^>\s?/, '') });
+      continue;
+    }
+
+    paragraph.push(trimmed);
+  }
+
+  flushParagraph();
+  flushList();
+  if (codeLines.length > 0) {
+    blocks.push({ type: 'code', code: codeLines.join('\n') });
+  }
+
+  return blocks;
+}
+
+function renderBlock(block: PreviewBlock, index: number): ReactNode {
+  if (block.type === 'heading') {
+    const fontSize = block.level === 1 ? 24 : block.level === 2 ? 20 : 17;
+    return (
+      <h2 key={index} style={{ margin: '20px 0 10px', fontSize, color: '#0F172A', lineHeight: 1.35 }}>
+        {block.text}
+      </h2>
+    );
+  }
+
+  if (block.type === 'list') {
+    return (
+      <ul key={index} style={{ margin: '10px 0 16px', paddingLeft: 22, color: '#334155', lineHeight: 1.8 }}>
+        {block.items.map((item, itemIndex) => (
+          <li key={`${index}-${itemIndex}`}>{item}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (block.type === 'quote') {
+    return (
+      <blockquote
+        key={index}
+        style={{
+          margin: '12px 0 16px',
+          padding: '10px 14px',
+          borderLeft: '3px solid #4F46E5',
+          background: '#F8FAFC',
+          color: '#475569',
+        }}
+      >
+        {block.text}
+      </blockquote>
+    );
+  }
+
+  if (block.type === 'code') {
+    return (
+      <pre
+        key={index}
+        style={{
+          margin: '12px 0 16px',
+          padding: 16,
+          overflow: 'auto',
+          borderRadius: 8,
+          background: '#0F172A',
+          color: '#E2E8F0',
+          fontSize: 13,
+          lineHeight: 1.7,
+        }}
+      >
+        <code>{block.code}</code>
+      </pre>
+    );
+  }
+
+  return (
+    <p key={index} style={{ margin: '0 0 14px', color: '#334155', fontSize: 14, lineHeight: 1.8 }}>
+      {block.text}
+    </p>
+  );
+}

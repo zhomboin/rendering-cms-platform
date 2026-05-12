@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton } from 'antd';
+import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tag } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createAdminArticle,
@@ -9,8 +10,10 @@ import {
   updateAdminArticle,
 } from '../../api/articles';
 import type { AdminArticlePayload, AdminArticleRecord, ArticleFormData } from '../../api/articles';
+import { editorShortcuts } from './editor-shortcuts';
+import { MdxPreview } from './MdxPreview';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { TextArea } = Input;
 
 const initialFormData: ArticleFormData = {
@@ -39,6 +42,7 @@ export default function ArticleEditorPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form] = Form.useForm<ArticleFormData>();
+  const bodyMdx = Form.useWatch('bodyMdx', form) ?? '';
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const isEdit = Boolean(id);
 
@@ -116,6 +120,18 @@ export default function ArticleEditorPage() {
     publishMutation.mutate(values);
   };
 
+  const handleEditorShortcut = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    if (event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      void handleSaveDraft();
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      setPublishModalOpen(true);
+    }
+  };
+
   if (isEdit && articlesQuery.isLoading) {
     return (
       <div style={{ padding: 24 }}>
@@ -135,38 +151,76 @@ export default function ArticleEditorPage() {
       )}
 
       <Card style={{ borderRadius: 8, border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }} styles={{ body: { padding: 32 } }}>
-        <Form form={form} layout="vertical" initialValues={initialFormData} style={{ maxWidth: 800 }}>
-          <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入文章标题' }]}>
-            <Input placeholder="输入文章标题" size="large" />
-          </Form.Item>
+        <div
+          onKeyDown={handleEditorShortcut}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
+            gap: 28,
+            alignItems: 'start',
+          }}
+        >
+          <Form form={form} layout="vertical" initialValues={initialFormData}>
+            <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入文章标题' }]}>
+              <Input placeholder="输入文章标题" size="large" />
+            </Form.Item>
 
-          <Form.Item
-            name="slug"
-            label="Slug"
-            rules={[
-              { required: true, message: '请输入 URL Slug' },
-              { pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/, message: 'Slug 只能使用小写字母、数字和中划线' },
-            ]}
-          >
-            <Input addonBefore="/articles/" placeholder="my-article-slug" size="large" />
-          </Form.Item>
+            <Form.Item
+              name="slug"
+              label="Slug"
+              rules={[
+                { required: true, message: '请输入 URL Slug' },
+                { pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/, message: 'Slug 只能使用小写字母、数字和中划线' },
+              ]}
+            >
+              <Input addonBefore="/articles/" placeholder="my-article-slug" size="large" />
+            </Form.Item>
 
-          <Form.Item name="summary" label="摘要">
-            <TextArea rows={3} placeholder="文章摘要" showCount maxLength={300} />
-          </Form.Item>
+            <Form.Item name="summary" label="摘要">
+              <TextArea rows={3} placeholder="文章摘要" showCount maxLength={300} />
+            </Form.Item>
 
-          <Form.Item name="tags" label="标签">
-            <Select mode="tags" placeholder="输入标签后按回车添加" style={{ width: '100%' }} tokenSeparators={[',', '，']} />
-          </Form.Item>
+            <Form.Item name="tags" label="标签">
+              <Select mode="tags" placeholder="输入标签后按回车添加" style={{ width: '100%' }} tokenSeparators={[',', '，']} />
+            </Form.Item>
 
-          <Form.Item name="bodyMdx" label="MDX 正文" rules={[{ required: true, message: '请输入文章正文' }]}>
-            <TextArea rows={14} placeholder="使用 Markdown/MDX 格式编写文章正文" style={{ fontFamily: "'Fira Code', 'JetBrains Mono', 'SF Mono', Consolas, monospace" }} />
-          </Form.Item>
+            <Form.Item
+              name="bodyMdx"
+              label={
+                <Space size={8} wrap>
+                  <span>MDX 正文</span>
+                  {editorShortcuts.map((shortcut) => (
+                    <Tag key={shortcut.key} color="blue" style={{ marginInlineEnd: 0 }}>
+                      {shortcut.key} {shortcut.action}
+                    </Tag>
+                  ))}
+                </Space>
+              }
+              rules={[{ required: true, message: '请输入文章正文' }]}
+            >
+              <TextArea
+                rows={22}
+                placeholder="使用 Markdown/MDX 格式编写文章正文"
+                style={{
+                  fontFamily: "'Fira Code', 'JetBrains Mono', 'SF Mono', Consolas, monospace",
+                  lineHeight: 1.7,
+                }}
+              />
+            </Form.Item>
 
-          <Form.Item name="coverImageUrl" label="封面图片 URL">
-            <Input placeholder="https://example.com/image.jpg" />
-          </Form.Item>
-        </Form>
+            <Text style={{ display: 'block', color: '#64748B', fontSize: 12, marginTop: -12, marginBottom: 20 }}>
+              预览会实时更新；复杂 MDX 组件会按源码展示，最终渲染以 Rendering 博客为准。
+            </Text>
+
+            <Form.Item name="coverImageUrl" label="封面图片 URL">
+              <Input placeholder="https://example.com/image.jpg" />
+            </Form.Item>
+          </Form>
+
+          <div style={{ position: 'sticky', top: 24 }}>
+            <MdxPreview source={bodyMdx} />
+          </div>
+        </div>
       </Card>
 
       <div

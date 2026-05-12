@@ -19,9 +19,9 @@
 ## 当前进度
 
 - 复核日期：2026-05-12。
-- 当前增强计划共有 37 个步骤，其中 3 个已完成，34 个未完成。
-- 已完成内容集中在 Task 8：结构化日志封装、可观测性文档和日志增强验证。
-- 未完成内容包括编辑器体验增强、PostgreSQL 搜索增强、评论限流和反滥用、统计明细和趋势增强、文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
+- 当前增强计划共有 37 个步骤，其中 7 个已完成，30 个未完成。
+- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局和验证，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
+- 未完成内容包括 Task 1 提交步骤、PostgreSQL 搜索增强、评论限流和反滥用、统计明细和趋势增强、文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
 
 ## Task 1: 编辑器体验增强
 
@@ -30,9 +30,8 @@
 - Modify: `frontend/src/pages/articles/ArticleEditorPage.tsx`
 - Create: `frontend/src/pages/articles/MdxPreview.tsx`
 - Create: `frontend/src/pages/articles/editor-shortcuts.ts`
-- Modify: `docs/apis/articles.md`
 
-- [ ] **Step 1: 增加 MDX 预览组件**
+- [x] **Step 1: 增加 MDX 预览组件**
 
 Create `frontend/src/pages/articles/MdxPreview.tsx`:
 
@@ -51,7 +50,7 @@ export function MdxPreview({ source }: MdxPreviewProps) {
 }
 ```
 
-- [ ] **Step 2: 增加编辑快捷键定义**
+- [x] **Step 2: 增加编辑快捷键定义**
 
 Create `frontend/src/pages/articles/editor-shortcuts.ts`:
 
@@ -62,7 +61,7 @@ export const editorShortcuts = [
 ] as const;
 ```
 
-- [ ] **Step 3: 更新编辑页为双栏编辑和预览**
+- [x] **Step 3: 更新编辑页为双栏编辑和预览**
 
 Modify `frontend/src/pages/articles/ArticleEditorPage.tsx` so it renders:
 
@@ -95,7 +94,7 @@ export function ArticleEditorPage() {
 }
 ```
 
-- [ ] **Step 4: 验证编辑器增强**
+- [x] **Step 4: 验证编辑器增强**
 
 Run:
 
@@ -105,6 +104,13 @@ npm run build
 ```
 
 Expected: build success。
+
+当前验证记录：
+
+- `test -f frontend/src/pages/articles/MdxPreview.tsx` 通过。
+- `tsc -p tsconfig.app.json --noEmit --incremental false` 通过。
+- `bash scripts/env/test-dev-scripts.sh` 通过。
+- 当前 WSL 环境中 `npm` 仍解析到 Windows Node 路径，完整 `npm run build` 需在修复 WSL Node 工具链后重新执行。
 
 - [ ] **Step 5: 提交编辑器增强**
 
