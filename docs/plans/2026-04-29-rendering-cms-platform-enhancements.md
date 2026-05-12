@@ -19,9 +19,9 @@
 ## 当前进度
 
 - 复核日期：2026-05-12。
-- 当前增强计划共有 38 个步骤，其中 33 个已完成，5 个未完成。
-- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，Task 3 的评论限流和反滥用，Task 4 的统计明细和趋势增强，Task 5 的文件治理增强，Task 6 的登录安全加固，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
-- 未完成内容包括备份恢复和生产运维，以及 Task 8 的提交步骤。
+- 当前增强计划共有 38 个步骤，其中 37 个已完成，1 个未完成。
+- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，Task 2 的 PostgreSQL 搜索增强，Task 3 的评论限流和反滥用，Task 4 的统计明细和趋势增强，Task 5 的文件治理增强，Task 6 的登录安全加固，Task 7 的备份恢复和生产运维，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
+- 未完成内容包括 Task 8 的提交步骤。
 
 ## Task 1: 编辑器体验增强
 
@@ -574,7 +574,7 @@ git commit -m "feat: harden login security"
 - Create: `docs/operations/restore.md`
 - Create: `docs/operations/runbook.md`
 
-- [ ] **Step 1: 写备份文档**
+- [x] **Step 1: 写备份文档**
 
 Create `docs/operations/backup.md`:
 
@@ -594,7 +594,7 @@ pg_dump "$DATABASE_URL" > backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql
 - 对象存储文件需要单独开启 bucket 版本或生命周期策略。
 ```
 
-- [ ] **Step 2: 写恢复文档**
+- [x] **Step 2: 写恢复文档**
 
 Create `docs/operations/restore.md`:
 
@@ -616,7 +616,7 @@ psql "$DATABASE_URL" < backups/rendering-cms-latest.sql
 5. 检查评论和文件列表。
 ```
 
-- [ ] **Step 3: 写运行手册**
+- [x] **Step 3: 写运行手册**
 
 Create `docs/operations/runbook.md`:
 
@@ -640,7 +640,7 @@ Create `docs/operations/runbook.md`:
 5. 上传一个小文件并生成下载链接。
 ```
 
-- [ ] **Step 4: 提交运维增强**
+- [x] **Step 4: 提交运维增强**
 
 Run:
 
@@ -648,6 +648,8 @@ Run:
 git add docs/operations
 git commit -m "docs: add backup restore runbooks"
 ```
+
+- 已提交：`docs: add backup restore runbooks`。
 
 ## Task 8: 生产可观测性和日志
 
