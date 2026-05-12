@@ -19,9 +19,9 @@
 ## 当前进度
 
 - 复核日期：2026-05-12。
-- 当前增强计划共有 37 个步骤，其中 7 个已完成，30 个未完成。
-- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局和验证，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
-- 未完成内容包括 Task 1 提交步骤、PostgreSQL 搜索增强、评论限流和反滥用、统计明细和趋势增强、文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
+- 当前增强计划共有 37 个步骤，其中 8 个已完成，29 个未完成。
+- 已完成内容包括 Task 1 的 MDX 预览、编辑快捷键、双栏编辑布局、验证和提交，以及 Task 8 的结构化日志封装、可观测性文档和日志增强验证。
+- 未完成内容包括 PostgreSQL 搜索增强、评论限流和反滥用、统计明细和趋势增强、文件治理增强、角色权限增强、备份恢复和生产运维，以及 Task 8 的提交步骤。
 
 ## Task 1: 编辑器体验增强
 
@@ -112,7 +112,7 @@ Expected: build success。
 - `bash scripts/env/test-dev-scripts.sh` 通过。
 - 当前 WSL 环境中 `npm` 仍解析到 Windows Node 路径，完整 `npm run build` 需在修复 WSL Node 工具链后重新执行。
 
-- [ ] **Step 5: 提交编辑器增强**
+- [x] **Step 5: 提交编辑器增强**
 
 Run:
 
@@ -120,6 +120,10 @@ Run:
 git add frontend/src/pages/articles docs/apis/articles.md
 git commit -m "feat: improve mdx editor workflow"
 ```
+
+完成记录：
+
+- 实际提交：`d4c9c8b feat: add mdx editor preview`。
 
 ## Task 2: PostgreSQL 搜索增强
 
