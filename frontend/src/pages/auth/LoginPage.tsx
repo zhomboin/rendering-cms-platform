@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Form, Input, Button, Typography, App } from 'antd';
-import { MailOutlined, LockOutlined } from '@ant-design/icons';
+import { App, Button, Checkbox, Form, Input, Typography } from 'antd';
+import { AppstoreOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { loginAdmin, setAuthToken, setAuthUser } from '../../api/auth';
 import type { LoginRequest } from '../../api/auth';
 import './LoginPage.css';
@@ -45,73 +45,74 @@ function LoginForm() {
 
   return (
     <main className="login-page">
-      <section className="login-card" aria-label="Rendering CMS 登录">
-        <div className="login-visual" aria-hidden="true">
-          <div className="login-visual__overlay" />
-          <div className="login-visual__caption">
-            <span>Rendering CMS</span>
-            <strong>内容管理平台</strong>
+      <section className="login-shell" aria-label="Rendering CMS 登录">
+        <div className="login-heading">
+          <div className="login-logo" aria-hidden="true">
+            <AppstoreOutlined />
           </div>
+          <Title level={1}>Rendering CMS</Title>
+          <Text>欢迎回来，请使用管理员账号登录。</Text>
         </div>
 
-        <div className="login-panel">
-          <div className="login-panel__inner">
-            <div className="login-heading">
-              <Title level={2}>Welcome</Title>
-              <Text>登录账号后继续管理文章、评论与资源</Text>
+        <div className="login-card">
+          <Form<LoginRequest>
+            className="login-form"
+            layout="vertical"
+            onFinish={handleSubmit}
+            autoComplete="off"
+            size="large"
+          >
+            <Form.Item
+              label="工作邮箱"
+              name="email"
+              rules={[
+                { required: true, message: '请输入邮箱' },
+                { type: 'email', message: '请输入有效的邮箱地址' },
+              ]}
+            >
+              <Input
+                prefix={<MailOutlined />}
+                className="login-input"
+                autoComplete="email"
+              />
+            </Form.Item>
+
+            <Form.Item
+              label="密码"
+              name="password"
+              rules={[{ required: true, message: '请输入密码' }]}
+            >
+              <Input.Password
+                prefix={<LockOutlined />}
+                className="login-input"
+                autoComplete="current-password"
+              />
+            </Form.Item>
+
+            <div className="login-options">
+              <Checkbox className="login-remember">保持登录状态</Checkbox>
+              <a className="login-help" href="mailto:admin@rendering.local">
+                忘记密码?
+              </a>
             </div>
 
-            <Form<LoginRequest>
-              className="login-form"
-              layout="vertical"
-              onFinish={handleSubmit}
-              autoComplete="off"
-              size="large"
-            >
-              <Form.Item
-                name="email"
-                rules={[
-                  { required: true, message: '请输入邮箱' },
-                  { type: 'email', message: '请输入有效的邮箱地址' },
-                ]}
+            <Form.Item className="login-action">
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                className="login-button"
+                block
               >
-                <Input
-                  prefix={<MailOutlined />}
-                  placeholder="admin@rendering.local"
-                  className="login-input"
-                />
-              </Form.Item>
-
-              <Form.Item
-                name="password"
-                rules={[{ required: true, message: '请输入密码' }]}
-              >
-                <Input.Password
-                  prefix={<LockOutlined />}
-                  placeholder="请输入密码"
-                  className="login-input"
-                />
-              </Form.Item>
-
-              <a className="login-help" href="mailto:admin@rendering.local">
-                忘记密码请联系管理员
-              </a>
-
-              <Form.Item className="login-action">
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={loading}
-                  className="login-button"
-                >
-                  登录
-                </Button>
-              </Form.Item>
-            </Form>
-
-            <p className="login-footnote">仅限授权管理员登录</p>
-          </div>
+                登录
+              </Button>
+            </Form.Item>
+          </Form>
         </div>
+
+        <p className="login-footnote">
+          &copy; 2026 Rendering CMS. 仅限授权管理员访问。
+        </p>
       </section>
     </main>
   );
