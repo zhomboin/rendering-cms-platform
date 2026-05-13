@@ -42,6 +42,7 @@
 - `backend/Dockerfile`：后端生产镜像。
 - `frontend/Dockerfile`：前端生产镜像。
 - `docs/operations/runbook.md`：固定运维 SOP。
+- `docs/operations/production-access.md`：生产访问、登录和后台用户初始化 SOP。
 - `docs/operations/backup.md`：备份要求。
 - `docs/operations/restore.md`：恢复流程。
 

@@ -14,6 +14,10 @@
 - 公网 HTTPS：由宿主机 Nginx、Caddy 或负载均衡器转发到 `127.0.0.1:3000`、`127.0.0.1:3001`、`127.0.0.1:9000` 和 `127.0.0.1:9001`。
 - 备份目录：`backups/`，不得提交到 Git。
 
+## 生产访问入口
+
+生产环境中需要登录或进入的系统包括 CMS 后台、PostgreSQL、MinIO Console 和宿主机 Nginx。详细入口、登录方式和用户初始化步骤见 `docs/operations/production-access.md`。
+
 ## 日常巡检
 
 每日巡检：
@@ -298,6 +302,7 @@ docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=
 ## 关联文档
 
 - `docs/operations/deployment.md`
+- `docs/operations/production-access.md`
 - `docs/operations/backup.md`
 - `docs/operations/restore.md`
 - `docs/operations/observability.md`
