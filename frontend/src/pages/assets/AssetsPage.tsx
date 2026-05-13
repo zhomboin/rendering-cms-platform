@@ -58,7 +58,13 @@ function AssetsPage() {
   const handleDownload = async (asset: AssetFile) => {
     try {
       const downloadUrl = await getAdminAssetDownloadUrl(asset.assetId);
-      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = asset.filename;
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '下载链接生成失败');
     }

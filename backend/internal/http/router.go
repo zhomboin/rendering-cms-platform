@@ -9,13 +9,14 @@ import (
 )
 
 type RouterConfig struct {
-	LoginHandler    http.HandlerFunc
-	JWTSecret       string
-	FrontendOrigin  string
-	FrontendOrigins []string
-	Logger          *slog.Logger
-	PublicRoutes    []RouteRegistrar
-	AdminRoutes     []RouteRegistrar
+	LoginHandler     http.HandlerFunc
+	JWTSecret        string
+	FrontendOrigin   string
+	FrontendOrigins  []string
+	Logger           *slog.Logger
+	RequestBodyLimit int64
+	PublicRoutes     []RouteRegistrar
+	AdminRoutes      []RouteRegistrar
 }
 
 type RouterOption func(*RouterConfig)
@@ -52,6 +53,12 @@ func WithLogger(logger *slog.Logger) RouterOption {
 	}
 }
 
+func WithRequestBodyLimit(limit int64) RouterOption {
+	return func(config *RouterConfig) {
+		config.RequestBodyLimit = limit
+	}
+}
+
 func WithPublicRoutes(registrar RouteRegistrar) RouterOption {
 	return func(config *RouterConfig) {
 		config.PublicRoutes = append(config.PublicRoutes, registrar)
@@ -69,8 +76,12 @@ func NewRouter(options ...RouterOption) http.Handler {
 	for _, option := range options {
 		option(&config)
 	}
+	if config.RequestBodyLimit == 0 {
+		config.RequestBodyLimit = 25 << 20
+	}
 
 	router := chi.NewRouter()
+	router.Use(RequestSizeLimitMiddleware(config.RequestBodyLimit))
 	router.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

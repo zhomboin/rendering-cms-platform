@@ -2,11 +2,8 @@ package comments
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -16,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"rendering-cms-platform/backend/internal/database/dbgen"
+	httpapi "rendering-cms-platform/backend/internal/http"
 )
 
 type Handler struct {
@@ -180,12 +178,7 @@ func nullableText(value string) pgtype.Text {
 }
 
 func ipHashFromRequest(r *http.Request) string {
-	host := r.RemoteAddr
-	if parsedHost, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		host = parsedHost
-	}
-	sum := sha256.Sum256([]byte(host))
-	return hex.EncodeToString(sum[:])
+	return httpapi.ClientIPHash(r)
 }
 
 func mapPublicComment(comment dbgen.ListApprovedCommentsByArticleSlugRow) map[string]interface{} {

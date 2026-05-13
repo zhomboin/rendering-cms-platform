@@ -2,14 +2,15 @@ package httpapi
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net"
 	"net/http"
 	"strings"
 	"time"
-
-	rscors "github.com/rs/cors"
 
 	"rendering-cms-platform/backend/internal/auth"
 )
@@ -62,7 +63,7 @@ func RequestLogMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 				"status", status,
 				"bytes", rec.bytes,
 				"duration_ms", time.Since(startedAt).Milliseconds(),
-				"remote_addr", clientIP(r),
+				"remote_ip_hash", ClientIPHash(r),
 				"user_agent", r.UserAgent(),
 			)
 		})
@@ -98,21 +99,84 @@ func AdminAuthMiddleware(secret string) func(http.Handler) http.Handler {
 }
 
 func CORSMiddleware(frontendOrigins []string) func(http.Handler) http.Handler {
-	allowedOrigins := make([]string, 0, len(frontendOrigins))
+	allowedOrigins := make(map[string]struct{}, len(frontendOrigins))
 	for _, origin := range frontendOrigins {
 		origin = strings.TrimSpace(origin)
 		if origin != "" {
-			allowedOrigins = append(allowedOrigins, origin)
+			allowedOrigins[origin] = struct{}{}
 		}
 	}
 
-	return rscors.New(rscors.Options{
-		AllowedOrigins:       allowedOrigins,
-		AllowedMethods:       []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodDelete, http.MethodOptions},
-		AllowedHeaders:       []string{"*"},
-		AllowCredentials:     true,
-		OptionsSuccessStatus: http.StatusNoContent,
-	}).Handler
+	allowedMethods := []string{http.MethodGet, http.MethodPost, http.MethodPatch, http.MethodDelete, http.MethodOptions}
+	allowedHeaders := []string{"Content-Type", "Authorization", "X-Requested-With"}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := strings.TrimSpace(r.Header.Get("Origin"))
+			if _, ok := allowedOrigins[origin]; ok {
+				w.Header().Add("Vary", "Origin")
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
+
+			if r.Method != http.MethodOptions || r.Header.Get("Access-Control-Request-Method") == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			if _, ok := allowedOrigins[origin]; !ok {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			requestMethod := strings.TrimSpace(r.Header.Get("Access-Control-Request-Method"))
+			if !containsToken(allowedMethods, requestMethod) {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
+			w.Header().Set("Access-Control-Allow-Methods", strings.Join(allowedMethods, ", "))
+			if requestedHeaders := allowedRequestedHeaders(r.Header.Get("Access-Control-Request-Headers"), allowedHeaders); requestedHeaders != "" {
+				w.Header().Set("Access-Control-Allow-Headers", requestedHeaders)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		})
+	}
+}
+
+func allowedRequestedHeaders(value string, allowedHeaders []string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+	var result []string
+	for _, header := range strings.Split(value, ",") {
+		header = strings.TrimSpace(header)
+		if containsToken(allowedHeaders, header) {
+			result = append(result, header)
+		}
+	}
+	return strings.Join(result, ", ")
+}
+
+func containsToken(values []string, target string) bool {
+	for _, value := range values {
+		if strings.EqualFold(value, target) {
+			return true
+		}
+	}
+	return false
+}
+
+func RequestSizeLimitMiddleware(limit int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if limit > 0 && r.ContentLength > limit {
+				writeHTTPError(w, http.StatusRequestEntityTooLarge, "请求体过大")
+				return
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func UserFromContext(ctx context.Context) (AuthenticatedUser, bool) {
@@ -135,8 +199,15 @@ func clientIP(r *http.Request) string {
 	return r.RemoteAddr
 }
 
+func ClientIPHash(r *http.Request) string {
+	sum := sha256.Sum256([]byte(clientIP(r)))
+	return hex.EncodeToString(sum[:])
+}
+
 func writeHTTPError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": message}); err != nil && !errors.Is(err, http.ErrHandlerTimeout) {
+		slog.Error("failed to encode JSON error response", "error", err, "status", status)
+	}
 }

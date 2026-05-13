@@ -2,11 +2,14 @@ package assets
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -45,7 +48,8 @@ func TestUpdateAssetStatusSoftDeletesAsset(t *testing.T) {
 }
 
 type assetStoreStub struct {
-	updateStatusArg dbgen.UpdateAssetStatusParams
+	updateStatusArg     dbgen.UpdateAssetStatusParams
+	downloadEventIPHash string
 }
 
 func (s *assetStoreStub) ListAssets(ctx context.Context) ([]dbgen.Asset, error) {
@@ -57,10 +61,16 @@ func (s *assetStoreStub) CreateAsset(ctx context.Context, arg dbgen.CreateAssetP
 }
 
 func (s *assetStoreStub) GetAssetByID(ctx context.Context, assetID pgtype.UUID) (dbgen.Asset, error) {
-	return dbgen.Asset{}, nil
+	return dbgen.Asset{
+		AssetID:    assetID,
+		Filename:   "diagram.webp",
+		StorageKey: "assets/example/diagram.webp",
+		Status:     dbgen.AssetStatusActive,
+	}, nil
 }
 
 func (s *assetStoreStub) CreateDownloadEvent(ctx context.Context, arg dbgen.CreateDownloadEventParams) (dbgen.DownloadEvent, error) {
+	s.downloadEventIPHash = arg.IpHash
 	return dbgen.DownloadEvent{}, nil
 }
 
@@ -75,4 +85,35 @@ func (s *assetStoreStub) UpdateAssetStatus(ctx context.Context, arg dbgen.Update
 		Status:      arg.Status,
 		DeletedAt:   arg.DeletedAt,
 	}, nil
+}
+
+type urlSignerStub struct{}
+
+func (s urlSignerStub) PresignUploadURL(ctx context.Context, key string, contentType string, expires time.Duration) (string, error) {
+	return "https://example.com/upload", nil
+}
+
+func (s urlSignerStub) PresignDownloadURL(ctx context.Context, key string, expires time.Duration) (string, error) {
+	return "https://example.com/download", nil
+}
+
+func TestCreateDownloadURLUsesForwardedClientIPHash(t *testing.T) {
+	store := &assetStoreStub{}
+	handler := NewHandler(store, urlSignerStub{})
+	router := chi.NewRouter()
+	handler.RegisterAdminRoutes(router)
+	req := httptest.NewRequest(http.MethodGet, "/assets/11111111-1111-1111-1111-111111111111/download-url", nil)
+	req.RemoteAddr = "10.0.0.10:12345"
+	req.Header.Set("X-Forwarded-For", "203.0.113.10, 10.0.0.10")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	want := sha256.Sum256([]byte("203.0.113.10"))
+	if store.downloadEventIPHash != hex.EncodeToString(want[:]) {
+		t.Fatalf("ip hash = %q, want forwarded client hash", store.downloadEventIPHash)
+	}
 }

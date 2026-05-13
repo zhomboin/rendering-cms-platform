@@ -137,6 +137,7 @@ function CommentCard({
 
 function CommentsPage() {
   const [activeTab, setActiveTab] = useState<CommentStatus>('pending');
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-comments'],
@@ -149,6 +150,9 @@ function CommentsPage() {
     onSuccess: async (_, variables) => {
       message.success(variables.status === 'approved' ? '评论已通过' : '评论已拒绝');
       await queryClient.invalidateQueries({ queryKey: ['admin-comments'] });
+    },
+    onSettled: () => {
+      setReviewingId(null);
     },
   });
 
@@ -171,9 +175,15 @@ function CommentsPage() {
           <CommentCard
             key={comment.commentId}
             comment={comment}
-            reviewing={reviewMutation.isPending}
-            onApprove={(id) => reviewMutation.mutate({ id, status: 'approved' })}
-            onReject={(id) => reviewMutation.mutate({ id, status: 'rejected' })}
+            reviewing={reviewingId === comment.commentId}
+            onApprove={(id) => {
+              setReviewingId(id);
+              reviewMutation.mutate({ id, status: 'approved' });
+            }}
+            onReject={(id) => {
+              setReviewingId(id);
+              reviewMutation.mutate({ id, status: 'rejected' });
+            }}
           />
         ))
       )}

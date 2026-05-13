@@ -2,6 +2,8 @@ package comments
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -45,10 +47,12 @@ func TestCreateCommentReturnsTooManyRequestsWhenIPHashIsOverLimit(t *testing.T) 
 
 type commentStoreStub struct {
 	recentCommentTimes []pgtype.Timestamptz
+	recentIPHashArg    string
 	createCalled       bool
 }
 
 func (s *commentStoreStub) ListRecentCommentTimesByIPHash(ctx context.Context, arg dbgen.ListRecentCommentTimesByIPHashParams) ([]pgtype.Timestamptz, error) {
+	s.recentIPHashArg = arg.IpHash
 	return s.recentCommentTimes, nil
 }
 
@@ -67,4 +71,25 @@ func (s *commentStoreStub) ListAdminComments(ctx context.Context) ([]dbgen.ListA
 
 func (s *commentStoreStub) ReviewComment(ctx context.Context, arg dbgen.ReviewCommentParams) (dbgen.Comment, error) {
 	return dbgen.Comment{}, nil
+}
+
+func TestCreateCommentRateLimitUsesForwardedClientIPHash(t *testing.T) {
+	store := &commentStoreStub{}
+	handler := NewHandler(store)
+	router := chi.NewRouter()
+	handler.RegisterPublicRoutes(router)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/articles/example/comments", strings.NewReader(`{
+		"authorName": "Alice",
+		"body": "hello"
+	}`))
+	req.RemoteAddr = "10.0.0.10:12345"
+	req.Header.Set("X-Forwarded-For", "203.0.113.10, 10.0.0.10")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	want := sha256.Sum256([]byte("203.0.113.10"))
+	if store.recentIPHashArg != hex.EncodeToString(want[:]) {
+		t.Fatalf("ip hash = %q, want forwarded client hash", store.recentIPHashArg)
+	}
 }

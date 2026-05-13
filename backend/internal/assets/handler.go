@@ -2,11 +2,8 @@ package assets
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"path"
 	"strings"
@@ -226,12 +223,7 @@ func nullableText(value string) pgtype.Text {
 }
 
 func ipHashFromRequest(r *http.Request) string {
-	host := r.RemoteAddr
-	if parsedHost, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		host = parsedHost
-	}
-	sum := sha256.Sum256([]byte(host))
-	return hex.EncodeToString(sum[:])
+	return httpapi.ClientIPHash(r)
 }
 
 func mapAsset(asset dbgen.Asset) map[string]interface{} {

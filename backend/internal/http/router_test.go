@@ -134,7 +134,7 @@ func TestNewRouterLogsRequestSummary(t *testing.T) {
 		`"method":"GET"`,
 		`"path":"/api/v1/health"`,
 		`"status":200`,
-		`"remote_addr":"192.0.2.10"`,
+		`"remote_ip_hash":`,
 		`"user_agent":"router-test"`,
 	} {
 		if !strings.Contains(line, want) {

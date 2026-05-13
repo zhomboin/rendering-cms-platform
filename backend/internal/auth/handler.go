@@ -109,7 +109,13 @@ func NewLoginHandlerWithClock(secret string, finder UserFinder, store LoginAttem
 		}
 
 		user, err := finder.FindUserByEmail(r.Context(), request.Email)
-		if err != nil || !VerifyPassword(user.PasswordHash, request.Password) {
+		if err != nil {
+			_ = VerifyPassword(dummyPasswordHash, request.Password)
+			recordLoginAttempt(r.Context(), store, request.Email, ipHash, false, "invalid_credentials")
+			writeAuthError(w, http.StatusUnauthorized, "邮箱或密码错误")
+			return
+		}
+		if !VerifyPassword(user.PasswordHash, request.Password) {
 			recordLoginAttempt(r.Context(), store, request.Email, ipHash, false, "invalid_credentials")
 			writeAuthError(w, http.StatusUnauthorized, "邮箱或密码错误")
 			return
@@ -214,3 +220,5 @@ func writeJSON(w http.ResponseWriter, status int, body interface{}) {
 }
 
 var ErrUserNotFound = errors.New("user not found")
+
+const dummyPasswordHash = "$2a$10$CwTycUXWue0Thq9StjUM0uJ8cEzXM0FUqrkLwZT72b1Q9n8TaQd8u"

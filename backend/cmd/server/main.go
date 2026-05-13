@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"rendering-cms-platform/backend/internal/analytics"
 	"rendering-cms-platform/backend/internal/articles"
@@ -63,6 +64,10 @@ func main() {
 			httpapi.WithAdminRoutes(commentHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(assetHandler.RegisterAdminRoutes),
 		),
+		ReadTimeout:    15 * time.Second,
+		WriteTimeout:   30 * time.Second,
+		IdleTimeout:    60 * time.Second,
+		MaxHeaderBytes: 1 << 20,
 	}
 
 	log.Printf("starting server on %s", cfg.HTTPAddr)
