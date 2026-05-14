@@ -109,6 +109,42 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 - 打开统计页面并确认数据可读取。
 - 查看后端日志，确认有新的 `http_request` 记录。
 
+## MDX 文章导入 SOP
+
+生产数据库和后端使用 Docker 部署，`deploy/production.env` 中的 `DATABASE_URL` 默认指向 `postgres:5432`。该主机名只在 Docker 网络内可解析，因此不要在宿主机直接执行 `go run ./cmd/import-mdx -database-url "$DATABASE_URL"`。
+
+先 dry-run 检查 Rendering 博客文章能否解析：
+
+```bash
+cd /opt/rendering-cms-platform
+bash scripts/ops/import-mdx.sh \
+  --source /srv/rendering/content/posts \
+  --dry-run
+```
+
+确认输出无异常后执行正式导入：
+
+```bash
+cd /opt/rendering-cms-platform
+bash scripts/ops/import-mdx.sh \
+  --source /srv/rendering/content/posts
+```
+
+如果需要指定导入作者：
+
+```bash
+cd /opt/rendering-cms-platform
+bash scripts/ops/import-mdx.sh \
+  --source /srv/rendering/content/posts \
+  --author-email admin@rendering.me
+```
+
+导入完成后验证文章接口：
+
+```bash
+curl -fsS https://cms.rendering.me/api/v1/articles
+```
+
 ## 停止和启动
 
 停止应用容器，保留数据库和 MinIO：

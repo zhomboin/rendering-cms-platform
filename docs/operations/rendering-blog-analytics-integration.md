@@ -74,6 +74,14 @@ go run ./cmd/import-mdx \
   -database-url "$DATABASE_URL"
 ```
 
+生产 Docker 环境不要在宿主机直接执行 `go run` 连接 `postgres`，因为 `postgres` 只在 Docker 网络内可解析。服务器上应执行：
+
+```bash
+cd /opt/rendering-cms-platform
+bash scripts/ops/import-mdx.sh \
+  --source /srv/rendering/content/posts
+```
+
 导入工具需要把 Rendering 静态博客中的 `content/posts/*.mdx` 导入 CMS `articles` 表，并保证：
 
 - `slug` 与 MDX 文件名一致。
@@ -88,6 +96,15 @@ go run ./cmd/import-mdx \
 ```bash
 cd /home/ubuntu/workspace/rendering-cms-platform/backend
 go run ./cmd/import-mdx -source /path/to/Rendering/content/posts -dry-run
+```
+
+生产 Docker 环境 dry-run：
+
+```bash
+cd /opt/rendering-cms-platform
+bash scripts/ops/import-mdx.sh \
+  --source /srv/rendering/content/posts \
+  --dry-run
 ```
 
 ## 数据流

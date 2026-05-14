@@ -149,6 +149,23 @@ go run ./cmd/import-mdx \
   -database-url "$DATABASE_URL"
 ```
 
+生产 Docker 环境中，`DATABASE_URL` 里的 `postgres` 主机名只在 Docker 网络内可解析，不要直接在宿主机执行上面的 `go run`。生产导入应使用：
+
+```bash
+cd /opt/rendering-cms-platform
+bash scripts/ops/import-mdx.sh \
+  --source /srv/rendering/content/posts
+```
+
+先检查解析结果但不写入数据库：
+
+```bash
+cd /opt/rendering-cms-platform
+bash scripts/ops/import-mdx.sh \
+  --source /srv/rendering/content/posts \
+  --dry-run
+```
+
 参数说明：
 
 - `-source`：必填，Rendering 静态博客 `content/posts` 目录。

@@ -215,7 +215,7 @@ docs/operations/rendering-blog-analytics-integration.md
 ### 阶段 1：准备 CMS 数据源
 
 - 确认 CMS `GET /api/v1/articles` 和 `GET /api/v1/articles/{slug}` 返回字段满足 Rendering 前台渲染。
-- 使用 `cmd/import-mdx` 将 Rendering 现有 MDX 导入 CMS。
+- 使用 `scripts/ops/import-mdx.sh --source /srv/rendering/content/posts` 将 Rendering 现有 MDX 导入 CMS。
 - 验证 CMS 中目标文章状态为 `published`。
 
 ### 阶段 2：Rendering 增加 CMS API 客户端
