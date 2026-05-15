@@ -103,6 +103,15 @@ for port in "${extra_ports[@]}"; do
     frontend_origins="http://$BROWSER_ACCESS_HOST:$port,$frontend_origins"
   fi
 done
+if [ "$BROWSER_ACCESS_HOST" = "127.0.0.1" ]; then
+  for port in "${extra_ports[@]}"; do
+    port="$(printf '%s' "$port" | xargs)"
+    if [ -n "$port" ]; then
+      frontend_origins="$frontend_origins,http://localhost:$port"
+    fi
+  done
+  frontend_origins="$frontend_origins,http://localhost:$FRONTEND_PORT"
+fi
 upsert_env "FRONTEND_ORIGINS" "$frontend_origins"
 upsert_env "VITE_API_BASE" "http://$BROWSER_ACCESS_HOST:$BACKEND_PORT/api/v1"
 upsert_env "S3_ENDPOINT" "http://$BROWSER_ACCESS_HOST:$MINIO_PORT"
