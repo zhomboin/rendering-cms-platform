@@ -93,7 +93,7 @@ rendering-cms-platform/
 
 ## 实施顺序
 
-1. 先维护并细化 `docs/cms-platform-technical-recommendation.zh-CN.md` 和 `docs/plans/2026-04-29-rendering-cms-platform-phase.md`。
+1. 先维护并细化 `docs/cms-platform-technical-recommendation.zh-CN.md`；当前执行中的新阶段计划应放在 `docs/plans/`，已完成计划归档到 `docs/archive/plans/`。
 2. 搭建 Go 后端骨架、配置、健康检查和数据库连接。
 3. 建立 SQL migration、`sqlc` 查询和核心数据表。
 4. 搭建 React + TypeScript 前端骨架和后台壳层。

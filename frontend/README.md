@@ -1,6 +1,6 @@
 # Rendering CMS Platform Frontend
 
-`frontend/` 是 Rendering CMS Platform 的 React + TypeScript 前端应用，承担公开文章阅读页面和后台管理界面。
+`frontend/` 是 Rendering CMS Platform 的 React + TypeScript 前端应用，承担 CMS 后台管理界面。
 
 当前前端以 Vite 构建，使用 React Router 管理路由，使用 TanStack Query 作为服务端状态入口，使用 Ant Design 构建后台管理界面。
 
@@ -22,14 +22,14 @@ frontend/
     app/                      # 应用级 Provider 和主题配置
     layouts/                  # 跨路由布局
     pages/                    # 路由页面
-      admin/
+      articles/
+      assets/
       auth/
-      public/
+      comments/
+      dashboard/
     routes/                   # 路由集中声明
     types/                    # 全局类型声明
     main.tsx                  # 应用入口
-  ARCHITECTURE.md             # 前端目录结构与代码开发规范
-  DESIGN.md                   # 后台管理界面设计规范
   index.html
   package.json
   vite.config.ts
@@ -40,8 +40,6 @@ frontend/
 当前路由集中在 `src/routes/index.tsx`：
 
 - `/`：默认跳转到后台仪表盘 `/admin`。
-- `/articles`：公开文章列表。
-- `/articles/:slug`：公开文章详情。
 - `/admin/login`：后台登录。
 - `/admin`：后台仪表盘。
 - `/admin/articles`：后台文章管理。
@@ -57,7 +55,7 @@ frontend/
 API client 位于 `src/api/client.ts`，使用 axios 实例统一封装请求。页面使用的具体接口按业务域放在 `src/api/` 下：
 
 - `auth.ts`：后台登录。
-- `articles.ts`：公开文章、公开评论和后台文章管理。
+- `articles.ts`：后台文章管理。
 - `analytics.ts`：后台统计看板。
 - `comments.ts`：后台评论审核。
 - `assets.ts`：后台资源列表、预签名上传和下载。
@@ -75,8 +73,6 @@ VITE_API_BASE=http://127.0.0.1:8080/api/v1
 ```text
 http://127.0.0.1:8080/api/v1
 ```
-
-所有 API 请求默认携带 `credentials: 'include'`，用于后续 Cookie Session 或安全登录态集成。
 
 HTTP 请求规则：
 
@@ -108,11 +104,7 @@ npm run dev
 http://127.0.0.1:5173
 ```
 
-该地址会进入后台仪表盘；公开文章列表入口为：
-
-```text
-http://127.0.0.1:5173/articles
-```
+该地址会跳转到后台仪表盘。
 
 构建：
 
@@ -130,11 +122,11 @@ npm run preview
 
 ## 设计规范
 
-后台管理界面设计规范见 `frontend/DESIGN.md`。
+后台管理界面设计规范见 `docs/guides/frontend-design.md`，前端目录结构与代码规则见 `docs/guides/frontend-architecture.md`。
 
 实现时应优先保持：
 
-- 左侧 `240px` 侧边栏 + 顶部 `80px` 导航 + 主内容区。
+- 左侧可折叠侧边栏 + 顶部 `80px` 导航 + 主内容区。
 - 主色 `#4F46E5`。
 - 页面背景 `#F8FAFC`、卡片背景 `#FFFFFF`、边框 `#E2E8F0`。
 - 管理页面使用清晰、稳定、适合重复操作的信息布局。
@@ -148,4 +140,4 @@ cd /home/ubuntu/workspace/rendering-cms-platform/frontend
 npm run build
 ```
 
-涉及 API 对接时，应同时确认 `src/api/client.ts` 的路径、错误处理和凭据策略是否符合后端接口约定。
+涉及 API 对接时，应同时确认 `src/api/client.ts` 的路径、错误处理和认证头策略是否符合后端接口约定。

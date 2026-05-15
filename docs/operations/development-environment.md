@@ -2,28 +2,35 @@
 
 ## 当前项目环境
 
-检查时间：2026-04-30。
-
 当前项目明确运行在 WSL2 Ubuntu 24.04 环境中，仓库路径为：
 
 ```text
-/home/administrator/workspace/rendering-cms-platform
+/home/ubuntu/workspace/rendering-cms-platform
 ```
 
 本项目后续开发、依赖服务启动、前端启动、后端测试和数据库操作都默认在 WSL2 Ubuntu 24.04 终端中执行。项目不再维护 PowerShell 启动脚本。
 
-## 当前工具状态
+## 环境检查口径
 
-| 工具 | 当前状态 | 项目要求 |
+本文档不再维护某个时间点的工具安装快照。当前环境是否可用以实时检查脚本为准：
+
+```bash
+cd /home/ubuntu/workspace/rendering-cms-platform
+bash scripts/env/check-env.sh
+```
+
+脚本只检查工具，不安装软件。检查项和项目要求如下：
+
+| 工具 | 项目要求 | 说明 |
 | --- | --- | --- |
-| Go | 未安装 | Go 1.22+ |
-| Node.js | 未安装 | Node.js 20+，推荐 22 LTS |
-| npm | 未安装 | npm 10+ |
-| Docker | 未安装 | Docker Engine 或 Docker Desktop WSL integration |
-| Docker Compose | 未安装 | Docker Compose v2 |
-| PostgreSQL client `psql` | 未安装 | PostgreSQL client 16+ |
-| `sqlc` | 未安装 | sqlc 1.25+ |
-| `migrate` | 未安装 | golang-migrate CLI |
+| Go | Go 1.22+ | 用于本机后端开发和 CLI 工具安装；也可以使用 Docker Go 容器执行测试。 |
+| Node.js | Node.js 20+，推荐 22 LTS | 用于本机前端开发；也可以使用 Docker Node 容器执行构建。 |
+| npm | npm 10+ | 与 Node.js 配套使用。 |
+| Docker | Docker Engine 或 Docker Desktop WSL integration | 用于依赖服务、后端容器、前端容器和生产镜像验证。 |
+| Docker Compose | Docker Compose v2 | 使用 `docker compose`，不使用旧版 `docker-compose`。 |
+| PostgreSQL client `psql` | PostgreSQL client 16+ | 用于本机连接和 SQL 验证。 |
+| `sqlc` | sqlc 1.25+ | 用于生成 Go 数据访问代码。 |
+| `migrate` | golang-migrate CLI | 用于执行 PostgreSQL migration。 |
 
 ## 必需工具
 
@@ -314,7 +321,7 @@ bash scripts/env/stop-dev-services.sh
 
 ## 推荐开发启动顺序
 
-1. 安装 Go、Node.js、npm、Docker、psql、sqlc、migrate。
+1. 确认 Go、Node.js、npm、Docker、psql、sqlc、migrate 已安装或准备使用 Docker 容器执行对应验证。
 2. 运行 `bash scripts/env/check-env.sh`。
 3. 复制 `scripts/env/dev.env.example` 为 `.env`。
 4. 运行 `bash scripts/env/start-backend-docker.sh` 启动依赖服务和后端。

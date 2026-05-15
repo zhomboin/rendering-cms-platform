@@ -16,6 +16,8 @@
 logs/backend/
 ```
 
+生产 Docker 环境使用 Compose volume `rendering_cms_backend_logs` 挂载该目录；如需接入宿主机 logrotate 或外部采集系统，可在 Compose 层调整为宿主机目录挂载。
+
 可通过环境变量调整容器内日志目录和宿主机挂载目录：
 
 ```bash
@@ -30,10 +32,10 @@ export BACKEND_LOG_HOST_DIR=/var/log/rendering-cms-platform
 - `status`：响应状态码。
 - `bytes`：响应体字节数。
 - `duration_ms`：请求处理耗时，单位为毫秒。
-- `remote_addr`：优先从 `X-Forwarded-For`、`X-Real-IP` 提取的客户端地址。
+- `remote_ip_hash`：优先从 `X-Forwarded-For`、`X-Real-IP`、`RemoteAddr` 提取客户端地址后计算得到的 SHA-256 哈希。
 - `user_agent`：请求 `User-Agent`。
 
-请求日志不记录请求体、不记录原始 query string，不在日志中写入密码、token、Cookie 或上传文件内容。
+请求日志不记录原始 IP 地址、不记录请求体、不记录原始 query string，不在日志中写入密码、token、Cookie 或上传文件内容。
 
 ## 日志失败策略
 

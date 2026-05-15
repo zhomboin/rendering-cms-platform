@@ -26,14 +26,14 @@
 - `src/pages/`：按路由和业务域组织页面组件。
 - `src/components/`：跨页面复用 UI 组件。
 - `src/routes/`：全局路由声明。
-- `DESIGN.md`：后台界面设计规范。
-- `ARCHITECTURE.md`：前端目录结构与代码开发规范。
+- `docs/guides/frontend-design.md`：后台界面设计规范。
+- `docs/guides/frontend-architecture.md`：前端目录结构与代码开发规范。
 
 ## UI 规则
 
 - 后台页面保持严肃、简洁、清晰，不做营销式 hero 页面。
 - 优先构建可操作的管理界面，而不是说明型展示页。
-- 页面布局遵循 `DESIGN.md` 中的侧边栏、顶部导航、内容区和 8px 间距体系。
+- 页面布局遵循 `docs/guides/frontend-design.md` 中的侧边栏、顶部导航、内容区和 8px 间距体系。
 - 主色使用 `#4F46E5`，避免大面积高饱和色块。
 - 管理页面应优先支持扫描、筛选、编辑、审核和重复操作。
 - 文案默认中文，按钮、表单、空状态和错误提示都应使用清晰中文。
@@ -42,7 +42,7 @@
 ## API 与状态
 
 - API base URL 使用 `VITE_API_BASE`，默认 `http://127.0.0.1:8080/api/v1`。
-- API 请求默认携带 `credentials: 'include'`。
+- 后台 API 请求默认通过 `Authorization: Bearer <token>` 传递登录态，不默认携带跨站 Cookie。
 - 服务端状态优先通过 TanStack Query 管理。
 - 各页面用到的具体 API 必须先封装在 `src/api/` 目录下的领域文件中，例如 `articles.ts`、`comments.ts`、`assets.ts`。
 - 页面和组件不得直接调用 `apiGet`、`apiPost`、`apiPatch`、`apiClient`、`fetch` 或 `axios` 方法；只能调用 `src/api/` 暴露的类型化业务函数。

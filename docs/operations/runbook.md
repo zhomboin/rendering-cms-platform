@@ -337,6 +337,7 @@ docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=
 
 ## 关联文档
 
+- `docs/README.md`
 - `docs/operations/deployment.md`
 - `docs/operations/production-access.md`
 - `docs/operations/backup.md`

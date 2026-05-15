@@ -1,6 +1,6 @@
 # PostgreSQL 备份
 
-本文档记录 Rendering CMS Platform 的 PostgreSQL 备份要求和手动备份流程。命令默认在 WSL Ubuntu 24.04 或 Linux 服务器中执行。
+本文档记录 Rendering CMS Platform 的 PostgreSQL 备份要求和手动备份流程。生产命令默认在 Ubuntu 服务器执行，应用目录为 `/opt/rendering-cms-platform`，生产 Docker 入口固定为 `deploy/docker-compose.prod.yml`。
 
 ## 备份时机
 
@@ -11,22 +11,39 @@
 
 ## 目录准备
 
-备份文件建议统一放在 `backups/`，该目录不应提交到 Git。
+备份文件建议统一放在应用目录下的 `backups/`，该目录不应提交到 Git。
 
 ```bash
+cd /opt/rendering-cms-platform
 mkdir -p backups
 chmod 700 backups
 ```
 
 ## 手动备份
 
-使用 `pg_dump` 基于 `DATABASE_URL` 导出 SQL 备份：
+生产环境的 `DATABASE_URL` 默认使用 Docker 网络内的 `postgres:5432`，不要在宿主机直接用该地址执行 `pg_dump`。应通过 Compose 进入 `postgres` 服务导出：
 
 ```bash
-pg_dump "$DATABASE_URL" > "backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql"
+cd /opt/rendering-cms-platform/deploy
+set -a
+. ./production.env
+set +a
+mkdir -p ../backups
+chmod 700 ../backups
+docker compose --env-file production.env -f docker-compose.prod.yml exec -T postgres \
+  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
+  > "../backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql"
 ```
 
 如果希望压缩备份文件：
+
+```bash
+docker compose --env-file production.env -f docker-compose.prod.yml exec -T postgres \
+  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
+  | gzip > "../backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
+```
+
+本地开发环境如果 `DATABASE_URL` 指向宿主机可访问的 `127.0.0.1:5432`，可以直接执行：
 
 ```bash
 pg_dump "$DATABASE_URL" | gzip > "backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
@@ -37,14 +54,14 @@ pg_dump "$DATABASE_URL" | gzip > "backups/rendering-cms-$(date +%Y%m%d-%H%M%S).s
 备份完成后至少检查文件是否存在且非空：
 
 ```bash
-ls -lh backups/rendering-cms-*.sql*
-test -s "$(ls -t backups/rendering-cms-*.sql* | head -n 1)"
+ls -lh ../backups/rendering-cms-*.sql*
+test -s "$(ls -t ../backups/rendering-cms-*.sql* | head -n 1)"
 ```
 
 如果使用压缩备份，应检查 gzip 文件完整性：
 
 ```bash
-gzip -t "$(ls -t backups/rendering-cms-*.sql.gz | head -n 1)"
+gzip -t "$(ls -t ../backups/rendering-cms-*.sql.gz | head -n 1)"
 ```
 
 ## 保留策略

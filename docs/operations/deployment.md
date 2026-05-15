@@ -183,7 +183,7 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 - MinIO API 域名转发到 `127.0.0.1:9000`。
 - MinIO Console 域名转发到 `127.0.0.1:9001`。
 
-完整 Nginx 配置见 `deploy/nginx/rendering.me.conf`。下方保留关键 CMS 片段示例：
+完整 Nginx 配置以 `deploy/nginx/rendering.me.conf` 为准。不要从本文档复制局部 Nginx 片段到生产环境，避免片段与完整配置发生漂移。
 
 部署到服务器：
 
@@ -203,76 +203,7 @@ sudo systemctl reload nginx
 
 如果服务器上的 Cloudflare SSL 证书路径不同，先修改 `deploy/nginx/rendering.me.conf` 中的 `ssl_certificate` 和 `ssl_certificate_key`，再执行 `nginx -t`。
 
-```nginx
-server {
-  listen 80;
-  server_name cms.rendering.me;
-  return 301 https://$host$request_uri;
-}
-
-server {
-  listen 443 ssl http2;
-  server_name cms.rendering.me;
-
-  ssl_certificate /etc/nginx/ssl/rendering.me/fullchain.pem;
-  ssl_certificate_key /etc/nginx/ssl/rendering.me/privkey.pem;
-
-  client_max_body_size 20m;
-
-  location / {
-    proxy_pass http://127.0.0.1:3001;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-}
-```
-
-MinIO API Nginx 示例：
-
-```nginx
-server {
-  listen 443 ssl http2;
-  server_name minio.rendering.me;
-
-  ssl_certificate /etc/nginx/ssl/rendering.me/fullchain.pem;
-  ssl_certificate_key /etc/nginx/ssl/rendering.me/privkey.pem;
-
-  client_max_body_size 20m;
-
-  location / {
-    proxy_pass http://127.0.0.1:9000;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-}
-```
-
-MinIO Console Nginx 示例：
-
-```nginx
-server {
-  listen 443 ssl http2;
-  server_name minio-console.rendering.me;
-
-  ssl_certificate /etc/nginx/ssl/rendering.me/fullchain.pem;
-  ssl_certificate_key /etc/nginx/ssl/rendering.me/privkey.pem;
-
-  location / {
-    proxy_pass http://127.0.0.1:9001;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-}
-```
+`deploy/nginx/rendering.me.conf` 当前覆盖 `rendering.me`、`www.rendering.me`、`cms.rendering.me`、`minio.rendering.me` 和 `minio-console.rendering.me`。如需调整域名、证书路径、上传大小限制或代理端口，统一修改该完整配置文件。
 
 如果临时不使用宿主机反向代理，可以把 `PUBLIC_HTTP_BIND` 改为 `0.0.0.0:80` 暴露 CMS HTTP。但当前服务器已有 Rendering 博客使用 `3000`，CMS 默认必须保留在 `3001` 或其他未占用端口。MinIO 预签名 URL 面向浏览器，正式上传下载必须配置 HTTPS 域名。
 

@@ -89,14 +89,15 @@ bash scripts/env/stop-dev-services.sh
 
 ## 文档入口
 
+- `docs/README.md`：当前文档索引，说明权威文档、历史归档和已清理内容。
 - `AGENTS.md`：Agent 协作规则、技术约束和本地环境约束。
 - `docs/cms-platform-technical-recommendation.zh-CN.md`：CMS 平台技术架构建议。
-- `docs/plans/2026-04-29-rendering-cms-platform-mvp.md`：MVP 版本迭代计划。
-- `docs/plans/2026-04-29-rendering-cms-platform-enhancements.md`：后续增强功能计划。
+- `docs/apis/`：当前 API 契约。
+- `docs/sql/schema.md`：当前数据库结构说明。
 - `docs/operations/development-environment.md`：WSL2 Ubuntu 24.04 开发环境配置指南。
 - `docs/operations/deployment.md`：生产 Docker 部署方案。
 - `docs/operations/runbook.md`：生产运维 SOP。
-- `docs/spec/`：MVP 各阶段子任务文档。
+- `docs/archive/`：已完成计划、MVP 阶段拆分和阶段性评审报告归档。
 
 ## MVP 子任务
 
@@ -112,7 +113,7 @@ bash scripts/env/stop-dev-services.sh
 8. 前端后台壳层与路由。
 9. 运维、验证与交付检查。
 
-各阶段详细任务位于 `docs/spec/`。
+各阶段详细任务已完成并归档到 `docs/archive/spec/`。
 
 ## 推荐目录结构
 
@@ -126,10 +127,10 @@ rendering-cms-platform/
   frontend/
     src/
   docs/
+    archive/
     apis/
+    guides/
     operations/
-    plans/
-    spec/
     sql/
   scripts/
     env/
@@ -159,11 +160,11 @@ npm run build
 
 ## 当前状态
 
-当前仓库已完成 MVP 主要工程骨架和功能代码落地，`docs/spec/` 下 9 个 MVP 阶段文档均已标记完成，覆盖后端 API、数据库 migration、认证、文章、统计、评论、文件、前端页面和基础运维文档。
+当前仓库已完成 MVP 主要工程骨架、MVP 后增强任务和生产运维文档收口。已完成计划与阶段拆分文档统一归档到 `docs/archive/`，当前接口、数据库和运维说明以 `docs/apis/`、`docs/sql/` 和 `docs/operations/` 为准。
 
 当前实现与文档同步口径如下：
 
 - MVP 主体代码已具备：Go 后端、React + TypeScript 前端、PostgreSQL migration、`sqlc` 查询、API 文档和 WSL2 Ubuntu 24.04 本地环境脚本。
 - CMS 前端是纯管理平台，`/` 默认跳转到后台仪表盘 `/admin`；文章展示由另一个 `Rendering` 博客项目读取 CMS 已发布内容后完成。
-- `docs/plans/2026-04-29-rendering-cms-platform-enhancements.md` 是 MVP 后增强计划，其中编辑器体验、搜索、评论限流、统计趋势、文件治理、角色权限、备份恢复等任务仍未完成。
-- 2026-05-12 当前环境复核时，WSL 中缺少可用的 Linux Go 工具链，`npm` 解析到 Windows Node 路径，后端测试、vet 和前端构建需要在修复 WSL 工具链后重新执行。
+- MVP 与 enhancement 实施计划已完成，归档到 `docs/archive/plans/`。
+- 本地和生产运维入口已收敛到 `docs/operations/`。

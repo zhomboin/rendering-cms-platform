@@ -41,7 +41,7 @@ backend/
 
 如果你有 Java Web 开发背景，建议阅读：
 
-- [Go 后端项目导读](./docs/go-backend-guide.md)
+- [Go 后端项目导读](../docs/guides/go-backend-guide.md)
 
 该文档按当前代码介绍项目结构、模块职责、Java Web 类比、Go 语法点、sqlc 数据库访问和建议阅读顺序。
 
@@ -131,9 +131,7 @@ sqlc generate
 
 ## 当前 API
 
-- `GET /api/v1/health`：服务健康检查。
-
-后续接口行为变更必须同步更新根目录 `docs/apis/` 下的中文 Markdown 文档。
+当前接口契约以根目录 `docs/apis/` 下的中文 Markdown 文档为准。后续接口行为变更必须同步更新对应 API 文档。
 
 ## 验证要求
 

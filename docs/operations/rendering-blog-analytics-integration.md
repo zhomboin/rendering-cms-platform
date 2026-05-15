@@ -319,41 +319,47 @@ navigator.sendBeacon(endpoint, new Blob([JSON.stringify(payload)], {
 
 ## 部署方案
 
-### 推荐生产路径
+### 当前生产路径
 
-推荐通过同域或同主域反向代理减少 CORS 复杂度：
-
-```text
-https://rendering.me/api/v1/* -> Rendering CMS Platform backend
-```
-
-Rendering 静态博客配置：
-
-```env
-NEXT_PUBLIC_CMS_API_BASE=https://rendering.me/api/v1
-```
-
-### 独立域名路径
-
-如果 CMS API 使用独立域名：
+当前生产部署默认通过 CMS 独立域名暴露公共 API：
 
 ```text
 https://cms.rendering.me/api/v1
 ```
 
-CMS 后端必须允许 Rendering 站点来源：
+Rendering 静态博客配置：
+
+```env
+NEXT_PUBLIC_CMS_API_BASE=https://cms.rendering.me/api/v1
+```
+
+CMS 后端必须允许 Rendering 站点来源。生产环境使用来源白名单：
 
 ```text
-FRONTEND_ORIGIN=https://rendering.me
+FRONTEND_ORIGINS=https://cms.rendering.me,https://rendering.me,https://www.rendering.me
 ```
 
 本地开发时允许：
 
 ```text
-FRONTEND_ORIGIN=http://127.0.0.1:3000
+FRONTEND_ORIGINS=http://127.0.0.1:3000,http://127.0.0.1:5173
 ```
 
-如果需要同时允许多个来源，应扩展后端 CORS 配置为来源白名单，而不是使用 `*`。
+`FRONTEND_ORIGIN` 仅保留给旧配置兼容；如果同时设置 `FRONTEND_ORIGINS` 和 `FRONTEND_ORIGIN`，以后端实际读取的 `FRONTEND_ORIGINS` 为准。
+
+### 可选同域路径
+
+如果后续希望减少 CORS 复杂度，可以在 Rendering 博客宿主机上额外把同域路径反向代理到 CMS：
+
+```text
+https://rendering.me/api/v1/* -> Rendering CMS Platform backend
+```
+
+启用该方案后，Rendering 静态博客可以改用：
+
+```env
+NEXT_PUBLIC_CMS_API_BASE=https://rendering.me/api/v1
+```
 
 ## 数据库与迁移
 

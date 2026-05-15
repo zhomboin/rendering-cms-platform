@@ -116,7 +116,7 @@ export async function generateMetadata({ params }) {
 Rendering 博客平台应新增服务端环境变量：
 
 ```env
-CMS_API_BASE=https://rendering.me/api/v1
+CMS_API_BASE=https://cms.rendering.me/api/v1
 ```
 
 本地开发示例：
@@ -133,29 +133,25 @@ CMS_API_BASE=http://127.0.0.1:8080/api/v1
 
 ## 生产访问路径
 
-推荐生产部署使用同域反向代理：
-
-```text
-https://rendering.me/api/v1/* -> Rendering CMS Platform backend
-```
-
-优点：
-
-- Rendering 前台服务端和浏览器都能用同一个公开 API 地址。
-- 减少 CORS 配置复杂度。
-- 后续访问统计上报也可以使用同域路径。
-
-如果 CMS API 使用独立域名：
+当前生产部署默认使用 CMS 独立域名：
 
 ```text
 https://cms.rendering.me/api/v1
 ```
 
-则需要确保：
+需要确保：
 
 - Rendering 服务器可以访问该域名。
-- CMS 后端 CORS 允许 `https://rendering.me`。
+- CMS 后端 CORS 白名单包含 `https://rendering.me` 和 `https://www.rendering.me`。
 - SSR 请求不能使用只在本机可达的 `127.0.0.1`，除非 Rendering 与 CMS 在同一主机且该地址确实指向 CMS 服务。
+
+如果后续希望减少 CORS 复杂度，可以在 Rendering 博客宿主机上额外把同域路径反向代理到 CMS：
+
+```text
+https://rendering.me/api/v1/* -> Rendering CMS Platform backend
+```
+
+启用该方案后，Rendering 博客可以把 `CMS_API_BASE` 改为 `https://rendering.me/api/v1`。
 
 ## SSR 与 ISR 规则
 
