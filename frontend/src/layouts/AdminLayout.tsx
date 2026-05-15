@@ -1,4 +1,4 @@
-import { Avatar, Button, Dropdown, Layout, Menu, Space, Typography } from 'antd';
+import { Avatar, Button, Dropdown, Layout, Menu, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   DashboardOutlined,
@@ -9,11 +9,13 @@ import {
   LogoutOutlined,
   UserOutlined,
 } from '@ant-design/icons';
+import { useState } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { clearAuthToken, getAuthToken, getAuthUser } from '../api/auth';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
+const logoSrc = '/logo/icon.png';
 
 const menuItems = [
   { key: '/admin', icon: <DashboardOutlined />, label: '仪表盘' },
@@ -32,6 +34,7 @@ const pageTitleMap: Record<string, string> = {
 function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
   const authToken = getAuthToken();
   const authUser = getAuthUser();
 
@@ -96,6 +99,10 @@ function AdminLayout() {
     <Layout style={{ minHeight: '100vh' }}>
       <Sider
         width={240}
+        theme="light"
+        collapsible
+        collapsed={collapsed}
+        onCollapse={setCollapsed}
         style={{
           background: '#FFFFFF',
           borderRight: '1px solid #E2E8F0',
@@ -108,12 +115,19 @@ function AdminLayout() {
             alignItems: 'center',
             justifyContent: 'center',
             borderBottom: '1px solid #E2E8F0',
+            padding: collapsed ? '0 16px' : '0 24px',
           }}
         >
-          <Text strong style={{ fontSize: 20, color: '#0F172A' }}>
-            Rendering{'\u00A0'}
-            <span style={{ color: '#4F46E5' }}>CMS</span>
-          </Text>
+          <img
+            src={logoSrc}
+            alt="Rendering CMS"
+            style={{
+              display: 'block',
+              width: collapsed ? 44 : 160,
+              height: collapsed ? 44 : 52,
+              objectFit: 'contain',
+            }}
+          />
         </div>
 
         <Menu
@@ -153,9 +167,20 @@ function AdminLayout() {
                 height: 44,
                 padding: '0 10px',
                 borderRadius: 8,
+                display: 'inline-flex',
+                alignItems: 'center',
+                lineHeight: 1,
               }}
             >
-              <Space size={8}>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  minWidth: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 <Avatar
                   size={28}
                   icon={!authUser?.name ? <UserOutlined /> : undefined}
@@ -167,14 +192,19 @@ function AdminLayout() {
                   style={{
                     display: 'inline-block',
                     maxWidth: 120,
+                    minWidth: 0,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
+                    lineHeight: '20px',
+                    verticalAlign: 'middle',
                   }}
                 >
                   {userName}
                 </span>
-                <DownOutlined style={{ fontSize: 12, color: '#64748B' }} />
-              </Space>
+                <DownOutlined
+                  style={{ flex: '0 0 auto', fontSize: 12, color: '#64748B' }}
+                />
+              </span>
             </Button>
           </Dropdown>
         </Header>
