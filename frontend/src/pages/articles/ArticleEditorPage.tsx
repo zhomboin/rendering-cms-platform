@@ -24,6 +24,8 @@ const initialFormData: ArticleFormData = {
   coverImageUrl: '',
 };
 
+const ARTICLE_DRAFT_KEY_PREFIX = 'rendering-cms-article-editor-draft';
+
 type MarkdownAction = {
   id: 'bold' | 'italic' | 'underline' | 'strike' | 'inlineCode' | 'codeBlock' | 'link';
   icon: ReactNode;
@@ -56,6 +58,79 @@ function toPayload(values: ArticleFormData): AdminArticlePayload {
   };
 }
 
+type StoredArticleDraft = {
+  values: ArticleFormData;
+  updatedAt: string;
+};
+
+function getArticleDraftKey(articleId: string | undefined) {
+  return `${ARTICLE_DRAFT_KEY_PREFIX}:${articleId ?? 'new'}`;
+}
+
+function normalizeFormData(values: Partial<ArticleFormData>): ArticleFormData {
+  return {
+    title: values.title ?? '',
+    slug: values.slug ?? '',
+    summary: values.summary ?? '',
+    tags: Array.isArray(values.tags) ? values.tags : [],
+    bodyMdx: values.bodyMdx ?? '',
+    coverImageUrl: values.coverImageUrl ?? '',
+  };
+}
+
+function hasMeaningfulDraft(values: ArticleFormData) {
+  return Boolean(
+    values.title.trim()
+      || values.slug.trim()
+      || values.summary.trim()
+      || values.bodyMdx.trim()
+      || values.coverImageUrl.trim()
+      || values.tags.length > 0,
+  );
+}
+
+function loadArticleDraft(key: string): StoredArticleDraft | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredArticleDraft;
+    const values = normalizeFormData(parsed.values ?? {});
+    if (!hasMeaningfulDraft(values)) return null;
+    return {
+      values,
+      updatedAt: parsed.updatedAt,
+    };
+  } catch {
+    window.localStorage.removeItem(key);
+    return null;
+  }
+}
+
+function saveArticleDraft(key: string, values: Partial<ArticleFormData>) {
+  try {
+    const normalizedValues = normalizeFormData(values);
+    if (!hasMeaningfulDraft(normalizedValues)) {
+      window.localStorage.removeItem(key);
+      return;
+    }
+    const draft: StoredArticleDraft = {
+      values: normalizedValues,
+      updatedAt: new Date().toISOString(),
+    };
+    window.localStorage.setItem(key, JSON.stringify(draft));
+  } catch {
+    // Local draft is best-effort and must not block writing in the editor.
+  }
+}
+
+function clearArticleDraft(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage errors after successful remote persistence.
+  }
+}
+
 export default function ArticleEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -64,7 +139,9 @@ export default function ArticleEditorPage() {
   const bodyMdx = Form.useWatch('bodyMdx', form) ?? '';
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [writerFullscreen, setWriterFullscreen] = useState(false);
+  const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null);
   const isEdit = Boolean(id);
+  const draftKey = useMemo(() => getArticleDraftKey(id), [id]);
 
   const articlesQuery = useQuery({
     queryKey: ['admin-articles'],
@@ -78,21 +155,30 @@ export default function ArticleEditorPage() {
   );
 
   useEffect(() => {
+    setRestoredDraftAt(null);
     if (!isEdit) {
-      form.setFieldsValue(initialFormData);
+      const draft = loadArticleDraft(draftKey);
+      form.setFieldsValue(draft?.values ?? initialFormData);
+      if (draft) setRestoredDraftAt(draft.updatedAt);
       return;
     }
     if (currentArticle) {
-      form.setFieldsValue({
+      const articleValues = {
         title: currentArticle.title,
         slug: currentArticle.slug,
         summary: currentArticle.summary,
         tags: currentArticle.tags,
         bodyMdx: currentArticle.bodyMdx,
         coverImageUrl: currentArticle.coverImageUrl ?? '',
+      };
+      const draft = loadArticleDraft(draftKey);
+      form.setFieldsValue({
+        ...articleValues,
+        ...(draft?.values ?? {}),
       });
+      if (draft) setRestoredDraftAt(draft.updatedAt);
     }
-  }, [currentArticle, form, isEdit]);
+  }, [currentArticle, draftKey, form, isEdit]);
 
   const saveMutation = useMutation({
     mutationFn: async (values: ArticleFormData) => {
@@ -102,6 +188,7 @@ export default function ArticleEditorPage() {
       return createAdminArticle(toPayload(values));
     },
     onSuccess: async (article) => {
+      clearArticleDraft(draftKey);
       message.success('草稿已保存');
       await queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
       if (!isEdit) navigate(`/admin/articles/${article.articleId}/edit`, { replace: true });
@@ -119,6 +206,7 @@ export default function ArticleEditorPage() {
       return publishAdminArticle(saved.articleId);
     },
     onSuccess: async () => {
+      clearArticleDraft(draftKey);
       message.success('文章已发布');
       setPublishModalOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
@@ -249,7 +337,17 @@ export default function ArticleEditorPage() {
       </Title>
 
       {articlesQuery.error && (
-        <Alert type="error" showIcon message={articlesQuery.error instanceof Error ? articlesQuery.error.message : '文章读取失败'} style={{ marginBottom: 20 }} />
+        <Alert type="error" showIcon title={articlesQuery.error instanceof Error ? articlesQuery.error.message : '文章读取失败'} style={{ marginBottom: 20 }} />
+      )}
+
+      {restoredDraftAt && (
+        <Alert
+          type="info"
+          showIcon
+          title="已恢复本地未保存草稿"
+          description={`恢复时间：${new Date(restoredDraftAt).toLocaleString()}`}
+          style={{ marginBottom: 20 }}
+        />
       )}
 
       <Card style={{ borderRadius: 8, border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }} styles={{ body: { padding: 32 } }}>
@@ -262,7 +360,12 @@ export default function ArticleEditorPage() {
             alignItems: 'start',
           }}
         >
-          <Form form={form} layout="vertical" initialValues={initialFormData}>
+          <Form
+            form={form}
+            layout="vertical"
+            initialValues={initialFormData}
+            onValuesChange={(_, values) => saveArticleDraft(draftKey, values)}
+          >
             <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入文章标题' }]}>
               <Input placeholder="输入文章标题" size="large" />
             </Form.Item>
