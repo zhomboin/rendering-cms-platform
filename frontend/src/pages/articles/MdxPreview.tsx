@@ -1,10 +1,12 @@
-import { Empty, Typography } from 'antd';
+import { Button, Empty, Tooltip, Typography } from 'antd';
 import type { ReactNode } from 'react';
 
 const { Text } = Typography;
 
 type MdxPreviewProps = {
   source: string;
+  fillHeight?: boolean;
+  onEnterFullscreen?: () => void;
 };
 
 type PreviewBlock =
@@ -14,24 +16,35 @@ type PreviewBlock =
   | { type: 'list'; items: string[] }
   | { type: 'code'; code: string };
 
-export function MdxPreview({ source }: MdxPreviewProps) {
+export function MdxPreview({ source, fillHeight = false, onEnterFullscreen }: MdxPreviewProps) {
   const blocks = parsePreviewBlocks(source);
 
   return (
     <section aria-label="MDX 预览">
-      <div style={{ marginBottom: 16 }}>
-        <Text strong style={{ display: 'block', color: '#0F172A', marginBottom: 4 }}>
-          MDX 预览
-        </Text>
-        <Text style={{ fontSize: 12, color: '#64748B' }}>
-          用于快速检查正文结构，复杂组件以源码形式展示。
-        </Text>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
+        <div>
+          <Text strong style={{ display: 'block', color: '#0F172A', marginBottom: 4 }}>
+            MDX 预览
+          </Text>
+          <Text style={{ fontSize: 12, color: '#64748B' }}>
+            用于快速检查正文结构，复杂组件以源码形式展示。
+          </Text>
+        </div>
+        {onEnterFullscreen && (
+          <Tooltip title="全屏写作预览">
+            <Button
+              aria-label="全屏写作预览"
+              icon={<FullscreenIcon />}
+              onClick={onEnterFullscreen}
+            />
+          </Tooltip>
+        )}
       </div>
 
       <div
         style={{
-          minHeight: 420,
-          maxHeight: 720,
+          minHeight: fillHeight ? 'calc(100vh - 145px)' : 420,
+          maxHeight: fillHeight ? 'calc(100vh - 145px)' : 720,
           overflow: 'auto',
           padding: 24,
           border: '1px solid #E2E8F0',
@@ -46,6 +59,17 @@ export function MdxPreview({ source }: MdxPreviewProps) {
         )}
       </div>
     </section>
+  );
+}
+
+function FullscreenIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M8 3H3v5" />
+      <path d="M16 3h5v5" />
+      <path d="M8 21H3v-5" />
+      <path d="M16 21h5v-5" />
+    </svg>
   );
 }
 
@@ -140,7 +164,7 @@ function renderBlock(block: PreviewBlock, index: number): ReactNode {
     const fontSize = block.level === 1 ? 24 : block.level === 2 ? 20 : 17;
     return (
       <h2 key={index} style={{ margin: '20px 0 10px', fontSize, color: '#0F172A', lineHeight: 1.35 }}>
-        {block.text}
+        {renderInlineMarkdown(block.text)}
       </h2>
     );
   }
@@ -149,7 +173,7 @@ function renderBlock(block: PreviewBlock, index: number): ReactNode {
     return (
       <ul key={index} style={{ margin: '10px 0 16px', paddingLeft: 22, color: '#334155', lineHeight: 1.8 }}>
         {block.items.map((item, itemIndex) => (
-          <li key={`${index}-${itemIndex}`}>{item}</li>
+          <li key={`${index}-${itemIndex}`}>{renderInlineMarkdown(item)}</li>
         ))}
       </ul>
     );
@@ -167,7 +191,7 @@ function renderBlock(block: PreviewBlock, index: number): ReactNode {
           color: '#475569',
         }}
       >
-        {block.text}
+        {renderInlineMarkdown(block.text)}
       </blockquote>
     );
   }
@@ -194,7 +218,51 @@ function renderBlock(block: PreviewBlock, index: number): ReactNode {
 
   return (
     <p key={index} style={{ margin: '0 0 14px', color: '#334155', fontSize: 14, lineHeight: 1.8 }}>
-      {block.text}
+      {renderInlineMarkdown(block.text)}
     </p>
   );
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const pattern = /(\*\*([^*]+)\*\*|~~([^~]+)~~|<u>(.*?)<\/u>|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+|mailto:[^)\s]+)\)|\*([^*\n]+)\*)/g;
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text))) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    const key = `${match.index}-${pattern.lastIndex}`;
+    if (match[2]) {
+      nodes.push(<strong key={key}>{match[2]}</strong>);
+    } else if (match[3]) {
+      nodes.push(<del key={key}>{match[3]}</del>);
+    } else if (match[4]) {
+      nodes.push(<u key={key}>{match[4]}</u>);
+    } else if (match[5]) {
+      nodes.push(
+        <code key={key} style={{ padding: '2px 5px', borderRadius: 4, background: '#F1F5F9', color: '#0F172A' }}>
+          {match[5]}
+        </code>,
+      );
+    } else if (match[6] && match[7]) {
+      nodes.push(
+        <a key={key} href={match[7]} target="_blank" rel="noreferrer" style={{ color: '#4F46E5' }}>
+          {match[6]}
+        </a>,
+      );
+    } else if (match[8]) {
+      nodes.push(<em key={key}>{match[8]}</em>);
+    }
+
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
 }
