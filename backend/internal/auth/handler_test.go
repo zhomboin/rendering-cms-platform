@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -42,6 +43,103 @@ func TestLoginHandlerRejectsLockedLoginBeforePasswordLookup(t *testing.T) {
 	}
 	if finder.called {
 		t.Fatal("user finder should not be called while login is locked")
+	}
+}
+
+func TestLoginHandlerReturnsRefreshToken(t *testing.T) {
+	passwordHash, err := HashPassword("correct-password")
+	if err != nil {
+		t.Fatalf("HashPassword() returned error: %v", err)
+	}
+	finder := &userFinderStub{user: UserRecord{
+		UserID:       "user-1",
+		Email:        "admin@example.com",
+		Name:         "Admin",
+		PasswordHash: passwordHash,
+		Role:         "admin",
+	}}
+	handler := NewLoginHandlerWithClock("secret-32-characters-minimum-value", finder, nil, func() time.Time {
+		return time.Date(2026, 5, 27, 8, 0, 0, 0, time.UTC)
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{
+		"email": "admin@example.com",
+		"password": "correct-password"
+	}`))
+	req.RemoteAddr = "192.0.2.10:12345"
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var response LoginResponse
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
+		t.Fatalf("decode login response: %v", err)
+	}
+	if response.Token == "" || response.RefreshToken == "" {
+		t.Fatalf("token response = %#v, want access and refresh token", response)
+	}
+	if _, err := ParseAccessToken("secret-32-characters-minimum-value", response.Token); err != nil {
+		t.Fatalf("access token invalid: %v", err)
+	}
+	if _, err := ParseRefreshToken("secret-32-characters-minimum-value", response.RefreshToken); err != nil {
+		t.Fatalf("refresh token invalid: %v", err)
+	}
+}
+
+func TestRefreshHandlerIssuesNewTokenPair(t *testing.T) {
+	now := time.Date(2026, 5, 27, 8, 0, 0, 0, time.UTC)
+	pair, err := IssueTokenPairWithClock("secret-32-characters-minimum-value", "user-1", "admin", func() time.Time {
+		return now
+	})
+	if err != nil {
+		t.Fatalf("IssueTokenPairWithClock() returned error: %v", err)
+	}
+	handler := NewRefreshHandlerWithClock("secret-32-characters-minimum-value", func() time.Time {
+		return now.Add(time.Hour)
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", strings.NewReader(`{
+		"refreshToken": "`+pair.RefreshToken+`"
+	}`))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var response RefreshResponse
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
+		t.Fatalf("decode refresh response: %v", err)
+	}
+	if response.Token == "" || response.RefreshToken == "" {
+		t.Fatalf("refresh response = %#v, want access and refresh token", response)
+	}
+	claims, err := ParseAccessToken("secret-32-characters-minimum-value", response.Token)
+	if err != nil {
+		t.Fatalf("access token invalid: %v", err)
+	}
+	if claims.UserID != "user-1" || claims.Role != "admin" {
+		t.Fatalf("claims = %#v, want refreshed original user", claims)
+	}
+}
+
+func TestRefreshHandlerRejectsAccessToken(t *testing.T) {
+	pair, err := IssueTokenPair("secret-32-characters-minimum-value", "user-1", "admin")
+	if err != nil {
+		t.Fatalf("IssueTokenPair() returned error: %v", err)
+	}
+	handler := NewRefreshHandler("secret-32-characters-minimum-value")
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", strings.NewReader(`{
+		"refreshToken": "`+pair.Token+`"
+	}`))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status code = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
 }
 

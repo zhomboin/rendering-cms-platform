@@ -10,6 +10,7 @@ import (
 
 type RouterConfig struct {
 	LoginHandler     http.HandlerFunc
+	RefreshHandler   http.HandlerFunc
 	JWTSecret        string
 	FrontendOrigin   string
 	FrontendOrigins  []string
@@ -25,6 +26,12 @@ type RouteRegistrar func(chi.Router)
 func WithLoginHandler(handler http.HandlerFunc) RouterOption {
 	return func(config *RouterConfig) {
 		config.LoginHandler = handler
+	}
+}
+
+func WithRefreshHandler(handler http.HandlerFunc) RouterOption {
+	return func(config *RouterConfig) {
+		config.RefreshHandler = handler
 	}
 }
 
@@ -91,6 +98,9 @@ func NewRouter(options ...RouterOption) http.Handler {
 	})
 	if config.LoginHandler != nil {
 		router.Post("/api/v1/auth/login", config.LoginHandler)
+	}
+	if config.RefreshHandler != nil {
+		router.Post("/api/v1/auth/refresh", config.RefreshHandler)
 	}
 	for _, registrar := range config.PublicRoutes {
 		registrar(router)

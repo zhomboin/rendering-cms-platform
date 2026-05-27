@@ -23,6 +23,7 @@ Content-Type: application/json
 ```json
 {
   "token": "jwt-token",
+  "refreshToken": "refresh-jwt-token",
   "user": {
     "userId": "uuid",
     "email": "admin@example.com",
@@ -49,6 +50,38 @@ Content-Type: application/json
 - `429 Too Many Requests`：登录失败次数过多，账号或来源被临时锁定。
 - `500 Internal Server Error`：令牌生成失败。
 
+## 刷新登录态
+
+```http
+POST /api/v1/auth/refresh
+Content-Type: application/json
+```
+
+请求体：
+
+```json
+{
+  "refreshToken": "refresh-jwt-token"
+}
+```
+
+成功响应：
+
+```json
+{
+  "token": "new-jwt-token",
+  "refreshToken": "new-refresh-jwt-token"
+}
+```
+
+状态码：
+
+- `200 OK`：刷新成功，前端应使用响应中的新 `token` 和 `refreshToken` 覆盖本地旧值。
+- `400 Bad Request`：请求体格式不正确或 `refreshToken` 为空。
+- `401 Unauthorized`：`refreshToken` 无效或已过期。
+- `403 Forbidden`：用户角色不允许访问后台。
+- `500 Internal Server Error`：令牌生成失败。
+
 ## 登录安全规则
 
 - 登录尝试记录在 `login_attempts` 表，用于审计和防止爆破登录。
@@ -73,9 +106,11 @@ token 规则：
 
 - 使用 HS256 签名。
 - 签名密钥来自 `JWT_SECRET`。
-- token 有效期默认为 24 小时。
-- token claims 必须包含 `userId` 和 `role`。
+- access token 有效期默认为 2 小时。
+- refresh token 有效期默认为 7 天，仅用于 `/api/v1/auth/refresh`，不能访问后台 API。
+- token claims 必须包含 `userId`、`role` 和 `tokenType`。
 - 允许访问后台 API 的角色为 `admin` 和 `editor`。
+- 前端在后台 API 返回 `401 Unauthorized` 时，会优先使用 refresh token 无感刷新并重放原请求；refresh token 刷新失败后才清理登录态并跳转登录页。
 
 ## 登出
 

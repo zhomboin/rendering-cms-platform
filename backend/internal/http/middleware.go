@@ -79,7 +79,7 @@ func AdminAuthMiddleware(secret string) func(http.Handler) http.Handler {
 				return
 			}
 
-			claims, err := auth.ParseToken(secret, strings.TrimSpace(strings.TrimPrefix(raw, "Bearer ")))
+			claims, err := auth.ParseAccessToken(secret, strings.TrimSpace(strings.TrimPrefix(raw, "Bearer ")))
 			if err != nil {
 				writeHTTPError(w, http.StatusUnauthorized, "无效或过期的 token")
 				return

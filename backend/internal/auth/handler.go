@@ -22,8 +22,18 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Token string    `json:"token"`
-	User  LoginUser `json:"user"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refreshToken"`
+	User         LoginUser `json:"user"`
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
+type RefreshResponse struct {
+	Token        string `json:"token"`
+	RefreshToken string `json:"refreshToken"`
 }
 
 type LoginUser struct {
@@ -126,7 +136,7 @@ func NewLoginHandlerWithClock(secret string, finder UserFinder, store LoginAttem
 			return
 		}
 
-		token, err := IssueToken(secret, user.UserID, user.Role)
+		tokens, err := IssueTokenPairWithClock(secret, user.UserID, user.Role, now)
 		if err != nil {
 			recordLoginAttempt(r.Context(), store, request.Email, ipHash, false, "token_issue_failed")
 			writeAuthError(w, http.StatusInternalServerError, "登录令牌生成失败")
@@ -135,13 +145,53 @@ func NewLoginHandlerWithClock(secret string, finder UserFinder, store LoginAttem
 		recordLoginAttempt(r.Context(), store, request.Email, ipHash, true, "")
 
 		writeJSON(w, http.StatusOK, LoginResponse{
-			Token: token,
+			Token:        tokens.Token,
+			RefreshToken: tokens.RefreshToken,
 			User: LoginUser{
 				UserID: user.UserID,
 				Email:  user.Email,
 				Name:   user.Name,
 				Role:   user.Role,
 			},
+		})
+	}
+}
+
+func NewRefreshHandler(secret string) http.HandlerFunc {
+	return NewRefreshHandlerWithClock(secret, time.Now)
+}
+
+func NewRefreshHandlerWithClock(secret string, now func() time.Time) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request RefreshRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			writeAuthError(w, http.StatusBadRequest, "请求体格式不正确")
+			return
+		}
+		refreshToken := strings.TrimSpace(request.RefreshToken)
+		if refreshToken == "" {
+			writeAuthError(w, http.StatusBadRequest, "refresh token 不能为空")
+			return
+		}
+
+		claims, err := ParseRefreshToken(secret, refreshToken)
+		if err != nil {
+			writeAuthError(w, http.StatusUnauthorized, "无效或过期的 refresh token")
+			return
+		}
+		if claims.Role != "admin" && claims.Role != "editor" {
+			writeAuthError(w, http.StatusForbidden, "用户无后台访问权限")
+			return
+		}
+
+		tokens, err := IssueTokenPairWithClock(secret, claims.UserID, claims.Role, now)
+		if err != nil {
+			writeAuthError(w, http.StatusInternalServerError, "登录令牌生成失败")
+			return
+		}
+		writeJSON(w, http.StatusOK, RefreshResponse{
+			Token:        tokens.Token,
+			RefreshToken: tokens.RefreshToken,
 		})
 	}
 }

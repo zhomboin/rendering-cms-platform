@@ -32,6 +32,20 @@ func TestNewRouterExposesHealthEndpoint(t *testing.T) {
 	}
 }
 
+func TestNewRouterExposesRefreshEndpoint(t *testing.T) {
+	router := NewRouter(WithRefreshHandler(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status code = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+}
+
 func TestNewRouterAddsCORSHeadersForConfiguredFrontendOrigin(t *testing.T) {
 	router := NewRouter(WithFrontendOrigin("http://127.0.0.1:5173"))
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)

@@ -1,6 +1,6 @@
 import axios from 'axios';
-import type { AxiosError } from 'axios';
-import { clearAuthToken, getAuthToken } from './auth-token';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { clearAuthToken, getAuthToken, getRefreshToken, setAuthToken, setRefreshToken } from './auth-token';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:8080/api/v1';
 
@@ -26,6 +26,16 @@ const apiClient = axios.create({
   },
 });
 
+const refreshClient = axios.create({
+  baseURL: API_BASE,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+let refreshTokenRequest: Promise<string | null> | null = null;
+
 apiClient.interceptors.request.use((config) => {
   const token = getAuthToken();
   if (token) {
@@ -39,8 +49,17 @@ apiClient.interceptors.request.use((config) => {
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<{ error?: string; message?: string }>) => {
+  async (error: AxiosError<{ error?: string; message?: string }>) => {
     const apiError = toApiRequestError(error);
+    const originalRequest = error.config as RetriableRequestConfig | undefined;
+    if (apiError.status === 401 && originalRequest && !originalRequest.__authRetry && !isAuthRefreshRequest(originalRequest)) {
+      originalRequest.__authRetry = true;
+      const refreshedToken = await refreshAuthToken();
+      if (refreshedToken) {
+        originalRequest.headers.Authorization = `Bearer ${refreshedToken}`;
+        return apiClient.request(originalRequest);
+      }
+    }
     if (apiError.status === 401) {
       clearAuthToken();
       redirectAdminToLogin();
@@ -48,6 +67,10 @@ apiClient.interceptors.response.use(
     return Promise.reject(apiError);
   },
 );
+
+interface RetriableRequestConfig extends InternalAxiosRequestConfig {
+  __authRetry?: boolean;
+}
 
 function toApiRequestError(error: AxiosError<{ error?: string; message?: string }>) {
   const status = error.response?.status ?? 0;
@@ -66,6 +89,29 @@ function redirectAdminToLogin() {
 
   const redirect = encodeURIComponent(currentPath);
   window.location.replace(`/admin/login?redirect=${redirect}`);
+}
+
+function isAuthRefreshRequest(config: InternalAxiosRequestConfig) {
+  return String(config.url ?? '').includes('/auth/refresh');
+}
+
+async function refreshAuthToken() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+
+  if (!refreshTokenRequest) {
+    refreshTokenRequest = refreshClient.post<{ token: string; refreshToken: string }>('/auth/refresh', {
+      refreshToken,
+    }).then((response) => {
+      setAuthToken(response.data.token);
+      setRefreshToken(response.data.refreshToken);
+      return response.data.token;
+    }).catch(() => null).finally(() => {
+      refreshTokenRequest = null;
+    });
+  }
+
+  return refreshTokenRequest;
 }
 
 export async function apiGet<T>(path: string): Promise<T> {

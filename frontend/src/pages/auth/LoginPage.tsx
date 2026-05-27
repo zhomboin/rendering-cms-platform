@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { App, Button, Checkbox, Form, Input, Typography } from 'antd';
 import { AppstoreOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
-import { loginAdmin, setAuthToken, setAuthUser } from '../../api/auth';
+import { loginAdmin, setAuthToken, setAuthUser, setRefreshToken } from '../../api/auth';
 import type { LoginRequest } from '../../api/auth';
 import './LoginPage.css';
 
@@ -32,6 +32,7 @@ function LoginForm() {
     try {
       const response = await loginAdmin(values);
       setAuthToken(response.token);
+      setRefreshToken(response.refreshToken);
       setAuthUser(response.user);
       void message.success('登录成功');
       navigate(redirectTo, { replace: true });
