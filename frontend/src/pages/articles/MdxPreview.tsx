@@ -20,8 +20,8 @@ export function MdxPreview({ source, fillHeight = false, onEnterFullscreen }: Md
   const blocks = parsePreviewBlocks(source);
 
   return (
-    <section aria-label="MDX 预览">
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
+    <section className="mdx-preview" aria-label="MDX 预览">
+      <div className="mdx-preview__header" style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
         <div>
           <Text strong style={{ display: 'block', color: '#0F172A', marginBottom: 4 }}>
             MDX 预览
@@ -42,6 +42,7 @@ export function MdxPreview({ source, fillHeight = false, onEnterFullscreen }: Md
       </div>
 
       <div
+        className={fillHeight ? 'mdx-preview__body mdx-preview__body--fill' : 'mdx-preview__body'}
         style={{
           minHeight: fillHeight ? 'calc(100vh - 145px)' : 420,
           maxHeight: fillHeight ? 'calc(100vh - 145px)' : 720,
@@ -224,7 +225,7 @@ function renderBlock(block: PreviewBlock, index: number): ReactNode {
 }
 
 function renderInlineMarkdown(text: string): ReactNode[] {
-  const pattern = /(\*\*([^*]+)\*\*|~~([^~]+)~~|<u>(.*?)<\/u>|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+|mailto:[^)\s]+)\)|\*([^*\n]+)\*)/g;
+  const pattern = /(!\[([^\]]*)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)|\*\*([^*]+)\*\*|~~([^~]+)~~|<u>(.*?)<\/u>|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+|mailto:[^)\s]+)\)|\*([^*\n]+)\*)/g;
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -235,26 +236,42 @@ function renderInlineMarkdown(text: string): ReactNode[] {
     }
 
     const key = `${match.index}-${pattern.lastIndex}`;
-    if (match[2]) {
-      nodes.push(<strong key={key}>{match[2]}</strong>);
-    } else if (match[3]) {
-      nodes.push(<del key={key}>{match[3]}</del>);
+    if (match[2] !== undefined && match[3]) {
+      nodes.push(
+        <img
+          key={key}
+          src={match[3]}
+          alt={match[2]}
+          style={{
+            display: 'block',
+            maxWidth: '100%',
+            height: 'auto',
+            margin: '12px 0',
+            borderRadius: 8,
+            border: '1px solid #E2E8F0',
+          }}
+        />,
+      );
     } else if (match[4]) {
-      nodes.push(<u key={key}>{match[4]}</u>);
+      nodes.push(<strong key={key}>{match[4]}</strong>);
     } else if (match[5]) {
+      nodes.push(<del key={key}>{match[5]}</del>);
+    } else if (match[6]) {
+      nodes.push(<u key={key}>{match[6]}</u>);
+    } else if (match[7]) {
       nodes.push(
         <code key={key} style={{ padding: '2px 5px', borderRadius: 4, background: '#F1F5F9', color: '#0F172A' }}>
-          {match[5]}
+          {match[7]}
         </code>,
       );
-    } else if (match[6] && match[7]) {
+    } else if (match[8] && match[9]) {
       nodes.push(
-        <a key={key} href={match[7]} target="_blank" rel="noreferrer" style={{ color: '#4F46E5' }}>
-          {match[6]}
+        <a key={key} href={match[9]} target="_blank" rel="noreferrer" style={{ color: '#4F46E5' }}>
+          {match[8]}
         </a>,
       );
-    } else if (match[8]) {
-      nodes.push(<em key={key}>{match[8]}</em>);
+    } else if (match[10]) {
+      nodes.push(<em key={key}>{match[10]}</em>);
     }
 
     lastIndex = pattern.lastIndex;

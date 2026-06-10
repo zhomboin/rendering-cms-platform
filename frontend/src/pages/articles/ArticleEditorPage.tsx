@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip } from 'antd';
+import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Upload } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
+import type { UploadProps } from 'antd/es/upload/interface';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createAdminArticle,
@@ -10,7 +12,9 @@ import {
   updateAdminArticle,
 } from '../../api/articles';
 import type { AdminArticlePayload, ArticleFormData } from '../../api/articles';
+import { uploadAdminAsset } from '../../api/assets';
 import { MdxPreview } from './MdxPreview';
+import './ArticleEditorPage.css';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -27,13 +31,18 @@ const initialFormData: ArticleFormData = {
 const ARTICLE_DRAFT_KEY_PREFIX = 'rendering-cms-article-editor-draft';
 
 type MarkdownAction = {
-  id: 'bold' | 'italic' | 'underline' | 'strike' | 'inlineCode' | 'codeBlock' | 'link';
+  id: 'bold' | 'italic' | 'underline' | 'strike' | 'inlineCode' | 'codeBlock' | 'link' | 'image';
   icon: ReactNode;
   title: string;
   shortcut?: string;
-  prefix: string;
-  suffix: string;
-  placeholder: string;
+  prefix?: string;
+  suffix?: string;
+  placeholder?: string;
+};
+
+type ImageInsertForm = {
+  altText: string;
+  imageUrl: string;
 };
 
 const markdownActions: MarkdownAction[] = [
@@ -44,6 +53,7 @@ const markdownActions: MarkdownAction[] = [
   { id: 'inlineCode', icon: <CodeInlineIcon />, title: '行内代码', prefix: '`', suffix: '`', placeholder: 'code' },
   { id: 'codeBlock', icon: <CodeBlockIcon />, title: '代码块', prefix: '```ts\n', suffix: '\n```', placeholder: 'const example = true;' },
   { id: 'link', icon: <LinkIcon />, title: '添加链接', shortcut: 'Ctrl+K', prefix: '[', suffix: '](https://example.com)', placeholder: '链接文本' },
+  { id: 'image', icon: <ImageIcon />, title: '插入图片' },
 ];
 
 function toPayload(values: ArticleFormData): AdminArticlePayload {
@@ -136,9 +146,13 @@ export default function ArticleEditorPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form] = Form.useForm<ArticleFormData>();
+  const [imageForm] = Form.useForm<ImageInsertForm>();
   const bodyMdx = Form.useWatch('bodyMdx', form) ?? '';
   const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const [writerFullscreen, setWriterFullscreen] = useState(false);
+  const [mobilePane, setMobilePane] = useState<'edit' | 'preview'>('edit');
   const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null);
   const isEdit = Boolean(id);
   const draftKey = useMemo(() => getArticleDraftKey(id), [id]);
@@ -228,21 +242,30 @@ export default function ArticleEditorPage() {
     publishMutation.mutate(values);
   };
 
-  const applyMarkdownAction = (action: MarkdownAction) => {
+  const getEditorSelection = () => {
     const editor = document.querySelector<HTMLTextAreaElement>('[data-article-body-editor="true"]');
     const currentValue = form.getFieldValue('bodyMdx') ?? '';
     const selectionStart = editor?.selectionStart ?? currentValue.length;
     const selectionEnd = editor?.selectionEnd ?? currentValue.length;
-    const selectedText = currentValue.slice(selectionStart, selectionEnd);
-    const insertedText = selectedText || action.placeholder;
+    return {
+      currentValue,
+      selectionStart,
+      selectionEnd,
+      selectedText: currentValue.slice(selectionStart, selectionEnd),
+    };
+  };
+
+  const insertIntoEditor = (prefix: string, suffix: string, fallbackText: string) => {
+    const { currentValue, selectionStart, selectionEnd, selectedText } = getEditorSelection();
+    const insertedText = selectedText || fallbackText;
     const nextValue = [
       currentValue.slice(0, selectionStart),
-      action.prefix,
+      prefix,
       insertedText,
-      action.suffix,
+      suffix,
       currentValue.slice(selectionEnd),
     ].join('');
-    const nextSelectionStart = selectionStart + action.prefix.length;
+    const nextSelectionStart = selectionStart + prefix.length;
     const nextSelectionEnd = nextSelectionStart + insertedText.length;
 
     form.setFieldsValue({ bodyMdx: nextValue });
@@ -251,6 +274,100 @@ export default function ArticleEditorPage() {
       nextEditor?.focus();
       nextEditor?.setSelectionRange(nextSelectionStart, nextSelectionEnd);
     });
+  };
+
+  const insertTextIntoEditor = (text: string) => {
+    const { currentValue, selectionStart, selectionEnd } = getEditorSelection();
+    const nextValue = [
+      currentValue.slice(0, selectionStart),
+      text,
+      currentValue.slice(selectionEnd),
+    ].join('');
+    const nextSelection = selectionStart + text.length;
+
+    form.setFieldsValue({ bodyMdx: nextValue });
+    window.requestAnimationFrame(() => {
+      const nextEditor = document.querySelector<HTMLTextAreaElement>('[data-article-body-editor="true"]');
+      nextEditor?.focus();
+      nextEditor?.setSelectionRange(nextSelection, nextSelection);
+    });
+  };
+
+  const openImageModal = () => {
+    const { selectedText } = getEditorSelection();
+    imageForm.setFieldsValue({
+      altText: selectedText,
+      imageUrl: '',
+    });
+    setImageModalOpen(true);
+  };
+
+  const applyMarkdownAction = (action: MarkdownAction) => {
+    if (action.id === 'image') {
+      openImageModal();
+      return;
+    }
+    insertIntoEditor(action.prefix ?? '', action.suffix ?? '', action.placeholder ?? '');
+  };
+
+  const handleInsertImage = async () => {
+    const values = await imageForm.validateFields();
+    const imageUrl = values.imageUrl.trim();
+    const altText = values.altText.trim() || '图片';
+    const { currentValue, selectionStart, selectionEnd } = getEditorSelection();
+    const beforeSelection = currentValue.slice(0, selectionStart);
+    const afterSelection = currentValue.slice(selectionEnd);
+    const prefix = beforeSelection.trimEnd()
+      ? beforeSelection.endsWith('\n\n')
+        ? ''
+        : beforeSelection.endsWith('\n')
+          ? '\n'
+          : '\n\n'
+      : '';
+    const suffix = afterSelection.trimStart()
+      ? afterSelection.startsWith('\n\n')
+        ? ''
+        : afterSelection.startsWith('\n')
+          ? '\n'
+          : '\n\n'
+      : '';
+    insertTextIntoEditor(`${prefix}![${altText}](${imageUrl})${suffix}`);
+    setImageModalOpen(false);
+  };
+
+  const imageUploadProps: UploadProps = {
+    accept: 'image/png,image/jpeg,image/webp',
+    maxCount: 1,
+    showUploadList: false,
+    customRequest: async (options) => {
+      const file = options.file as File;
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+        const error = new Error('仅支持 PNG、JPEG、WebP 图片');
+        message.error(error.message);
+        options.onError?.(error);
+        return;
+      }
+
+      setImageUploading(true);
+      try {
+        const asset = await uploadAdminAsset(file);
+        if (!asset.publicUrl) {
+          throw new Error('图片已上传，但当前存储未返回可公开访问的 URL');
+        }
+        imageForm.setFieldsValue({
+          imageUrl: asset.publicUrl,
+          altText: imageForm.getFieldValue('altText') || file.name.replace(/\.[^.]+$/, ''),
+        });
+        message.success('图片已上传，可插入正文');
+        options.onSuccess?.(asset);
+      } catch (error) {
+        const uploadError = error instanceof Error ? error : new Error('图片上传失败');
+        message.error(uploadError.message);
+        options.onError?.(uploadError);
+      } finally {
+        setImageUploading(false);
+      }
+    },
   };
 
   const handleEditorShortcut = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -284,14 +401,14 @@ export default function ArticleEditorPage() {
         htmlType="button"
         icon={action.icon}
         onClick={() => applyMarkdownAction(action)}
-        style={{ width: 36, height: 36 }}
+        className="article-editor__format-button"
       />
     </Tooltip>
   );
 
   const renderEditorWorkspace = (fullscreen: boolean) => (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', marginBottom: 12 }}>
+    <div className={fullscreen ? 'article-editor__writer article-editor__writer--fullscreen' : 'article-editor__writer'}>
+      <div className="article-editor__writer-header">
         <Text strong>MDX 正文</Text>
         <Tooltip title={fullscreen ? '退出全屏写作' : '全屏写作：正文和预览并排展示'}>
           <Button
@@ -303,17 +420,17 @@ export default function ArticleEditorPage() {
         </Tooltip>
       </div>
 
-      <Space size={8} wrap style={{ marginBottom: 12 }}>
+      <Space className="article-editor__toolbar" size={8} wrap>
         {markdownActions.map(renderFormatButton)}
       </Space>
 
       <Form.Item name="bodyMdx" rules={[{ required: true, message: '请输入文章正文' }]} style={{ marginBottom: 0 }}>
         <TextArea
           data-article-body-editor="true"
+          className="article-editor__body-input"
           rows={fullscreen ? 30 : 22}
           placeholder="使用 Markdown/MDX 格式编写文章正文"
           style={{
-            height: fullscreen ? 'calc(100vh - 250px)' : undefined,
             fontFamily: "'Fira Code', 'JetBrains Mono', 'SF Mono', Consolas, monospace",
             lineHeight: 1.7,
           }}
@@ -324,15 +441,15 @@ export default function ArticleEditorPage() {
 
   if (isEdit && articlesQuery.isLoading) {
     return (
-      <div style={{ padding: 24 }}>
+      <div className="article-editor article-editor--loading">
         <Skeleton active paragraph={{ rows: 12 }} />
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <Title level={1} style={{ margin: '0 0 24px', fontSize: 24, fontWeight: 700 }}>
+    <div className="article-editor">
+      <Title level={1} className="article-editor__title">
         {isEdit ? '编辑文章' : '新建文章'}
       </Title>
 
@@ -350,18 +467,30 @@ export default function ArticleEditorPage() {
         />
       )}
 
-      <Card style={{ borderRadius: 8, border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }} styles={{ body: { padding: 32 } }}>
+      <Card className="article-editor__card" styles={{ body: { padding: 0 } }}>
+        <div className="article-editor__mobile-tabs">
+          <Button
+            type={mobilePane === 'edit' ? 'primary' : 'text'}
+            aria-pressed={mobilePane === 'edit'}
+            onClick={() => setMobilePane('edit')}
+          >
+            编辑
+          </Button>
+          <Button
+            type={mobilePane === 'preview' ? 'primary' : 'text'}
+            aria-pressed={mobilePane === 'preview'}
+            onClick={() => setMobilePane('preview')}
+          >
+            预览
+          </Button>
+        </div>
         <div
           onKeyDown={handleEditorShortcut}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
-            gap: 28,
-            alignItems: 'start',
-          }}
+          className="article-editor__workspace"
         >
           <Form
             form={form}
+            className={mobilePane === 'preview' ? 'article-editor__form article-editor__pane-hidden-mobile' : 'article-editor__form'}
             layout="vertical"
             initialValues={initialFormData}
             onValuesChange={(_, values) => saveArticleDraft(draftKey, values)}
@@ -392,28 +521,13 @@ export default function ArticleEditorPage() {
             {!writerFullscreen && renderEditorWorkspace(false)}
             {writerFullscreen && (
               <div
-                style={{
-                  position: 'fixed',
-                  inset: 16,
-                  zIndex: 1100,
-                  padding: 24,
-                  borderRadius: 8,
-                  background: '#FFFFFF',
-                  boxShadow: '0 24px 80px rgba(15, 23, 42, 0.24)',
-                  overflow: 'auto',
-                }}
+                className="article-editor__fullscreen"
               >
                 <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))',
-                    gap: 24,
-                    height: '100%',
-                    alignItems: 'start',
-                  }}
+                  className="article-editor__fullscreen-grid"
                 >
                   {renderEditorWorkspace(true)}
-                  <div style={{ minHeight: 0 }}>
+                  <div className="article-editor__fullscreen-preview">
                     <MdxPreview source={bodyMdx} fillHeight />
                   </div>
                 </div>
@@ -438,7 +552,7 @@ export default function ArticleEditorPage() {
           </Form>
 
           {!writerFullscreen && (
-            <div style={{ position: 'sticky', top: 24 }}>
+            <div className={mobilePane === 'edit' ? 'article-editor__preview article-editor__pane-hidden-mobile' : 'article-editor__preview'}>
               <MdxPreview
                 source={bodyMdx}
                 onEnterFullscreen={() => setWriterFullscreen(true)}
@@ -449,20 +563,10 @@ export default function ArticleEditorPage() {
       </Card>
 
       <div
-        style={{
-          position: 'sticky',
-          bottom: 0,
-          marginTop: 24,
-          padding: '16px 0',
-          background: '#FFFFFF',
-          borderTop: '1px solid #E2E8F0',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
+        className="article-editor__actions"
       >
         <Button onClick={() => navigate('/admin/articles')}>取消</Button>
-        <Space size={12}>
+        <Space className="article-editor__actions-main" size={12}>
           <Button onClick={handleSaveDraft} loading={saveMutation.isPending} style={{ borderColor: '#4F46E5', color: '#4F46E5' }}>
             保存草稿
           </Button>
@@ -488,6 +592,45 @@ export default function ArticleEditorPage() {
         confirmLoading={publishMutation.isPending}
       >
         <p>确定要发布这篇文章吗？发布后将对所有读者可见。</p>
+      </Modal>
+
+      <Modal
+        title="插入图片"
+        open={imageModalOpen}
+        onOk={handleInsertImage}
+        onCancel={() => setImageModalOpen(false)}
+        okText="插入正文"
+        cancelText="取消"
+        confirmLoading={imageUploading}
+      >
+        <Form form={imageForm} layout="vertical" initialValues={{ altText: '', imageUrl: '' }}>
+          <Form.Item
+            name="imageUrl"
+            label="图片 URL"
+            rules={[
+              { required: true, message: '请输入图片 URL 或上传图片' },
+              {
+                validator: (_, value: string) => {
+                  if (!value) return Promise.resolve();
+                  if (/^(https?:\/\/|\/)/.test(value.trim())) return Promise.resolve();
+                  return Promise.reject(new Error('图片 URL 必须以 http(s):// 或 / 开头'));
+                },
+              },
+            ]}
+          >
+            <Input placeholder="https://example.com/image.webp" />
+          </Form.Item>
+
+          <Form.Item name="altText" label="替代文本">
+            <Input placeholder="用于无障碍和图片加载失败时展示" />
+          </Form.Item>
+
+          <Upload {...imageUploadProps}>
+            <Button icon={<UploadOutlined />} loading={imageUploading}>
+              上传图片并回填 URL
+            </Button>
+          </Upload>
+        </Form>
       </Modal>
     </div>
   );
@@ -518,6 +661,16 @@ function LinkIcon() {
     <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
       <path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1" />
+    </svg>
+  );
+}
+
+function ImageIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="8" cy="10" r="1.5" />
+      <path d="m21 16-5-5L5 19" />
     </svg>
   );
 }

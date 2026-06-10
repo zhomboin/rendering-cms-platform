@@ -1,4 +1,4 @@
-import { Avatar, Button, Dropdown, Layout, Menu, Typography } from 'antd';
+import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   DashboardOutlined,
@@ -7,6 +7,7 @@ import {
   MessageOutlined,
   FolderOutlined,
   LogoutOutlined,
+  MenuOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
@@ -15,6 +16,7 @@ import { clearAuthToken, getAuthToken, getAuthUser } from '../api/auth';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 const logoSrc = '/logo/icon.png';
 
 const menuItems = [
@@ -35,6 +37,9 @@ function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const authToken = getAuthToken();
   const authUser = getAuthUser();
 
@@ -95,66 +100,86 @@ function AdminLayout() {
     navigate('/admin/login', { replace: true });
   };
 
+  const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+    navigate(key);
+    setMobileMenuOpen(false);
+  };
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider
-        width={240}
-        theme="light"
-        collapsible
-        collapsed={collapsed}
-        onCollapse={setCollapsed}
-        style={{
-          background: '#FFFFFF',
-          borderRight: '1px solid #E2E8F0',
-        }}
-      >
-        <div
+      {!isMobile && (
+        <Sider
+          width={240}
+          theme="light"
+          collapsible
+          collapsed={collapsed}
+          onCollapse={setCollapsed}
           style={{
-            height: 80,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderBottom: '1px solid #E2E8F0',
-            padding: collapsed ? '0 16px' : '0 24px',
+            background: '#FFFFFF',
+            borderRight: '1px solid #E2E8F0',
           }}
         >
-          <img
-            src={logoSrc}
-            alt="Rendering CMS"
+          <div
             style={{
-              display: 'block',
-              width: collapsed ? 44 : 160,
-              height: collapsed ? 44 : 52,
-              objectFit: 'contain',
+              height: 80,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderBottom: '1px solid #E2E8F0',
+              padding: collapsed ? '0 16px' : '0 24px',
             }}
-          />
-        </div>
+          >
+            <img
+              src={logoSrc}
+              alt="Rendering CMS"
+              style={{
+                display: 'block',
+                width: collapsed ? 44 : 160,
+                height: collapsed ? 44 : 52,
+                objectFit: 'contain',
+              }}
+            />
+          </div>
 
-        <Menu
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
-          style={{ borderInlineEnd: 'none', marginTop: 8 }}
-        />
-      </Sider>
+          <Menu
+            mode="inline"
+            selectedKeys={[selectedKey]}
+            items={menuItems}
+            onClick={handleMenuClick}
+            style={{ borderInlineEnd: 'none', marginTop: 8 }}
+          />
+        </Sider>
+      )}
 
       <Layout>
         <Header
           style={{
-            height: 80,
-            lineHeight: '80px',
+            height: isMobile ? 64 : 80,
+            lineHeight: isMobile ? '64px' : '80px',
             background: '#FFFFFF',
             borderBottom: '1px solid #E2E8F0',
-            padding: '0 24px',
+            padding: isMobile ? '0 12px' : '0 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: 12,
+            position: isMobile ? 'sticky' : undefined,
+            top: isMobile ? 0 : undefined,
+            zIndex: isMobile ? 100 : undefined,
           }}
         >
-          <Text strong style={{ fontSize: 18, color: '#0F172A' }}>
-            {pageTitle}
-          </Text>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            {isMobile && (
+              <Button
+                aria-label="打开导航"
+                icon={<MenuOutlined />}
+                onClick={() => setMobileMenuOpen(true)}
+              />
+            )}
+            <Text strong style={{ fontSize: isMobile ? 16 : 18, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {pageTitle}
+            </Text>
+          </div>
 
           <Dropdown
             trigger={['click']}
@@ -191,7 +216,7 @@ function AdminLayout() {
                 <span
                   style={{
                     display: 'inline-block',
-                    maxWidth: 120,
+                    maxWidth: isMobile ? 82 : 120,
                     minWidth: 0,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -209,10 +234,27 @@ function AdminLayout() {
           </Dropdown>
         </Header>
 
+        <Drawer
+          title="Rendering CMS"
+          placement="left"
+          open={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          size={280}
+          styles={{ body: { padding: 0 } }}
+        >
+          <Menu
+            mode="inline"
+            selectedKeys={[selectedKey]}
+            items={menuItems}
+            onClick={handleMenuClick}
+            style={{ borderInlineEnd: 'none' }}
+          />
+        </Drawer>
+
         <Content
           style={{
-            padding: 24,
-            minHeight: 'calc(100vh - 80px)',
+            padding: isMobile ? 12 : 24,
+            minHeight: isMobile ? 'calc(100vh - 64px)' : 'calc(100vh - 80px)',
             background: '#F8FAFC',
           }}
         >
