@@ -66,6 +66,7 @@ cp scripts/env/dev.env.example .env
 - `S3_BUCKET`：对象存储 bucket。
 - `S3_ACCESS_KEY_ID`：对象存储访问 key。
 - `S3_SECRET_ACCESS_KEY`：对象存储访问密钥。
+- `S3_USE_PATH_STYLE`：是否使用路径风格寻址；本地 MinIO 使用 `true`，生产 Cloudflare R2 使用 `false`。
 
 ## 本地开发
 

@@ -94,6 +94,8 @@ Content-Type: application/json
 
 - 后端先校验文件名、类型和大小，再写入 `assets` 记录。
 - 客户端使用返回的 `uploadUrl` 和 `headers` 直接上传到对象存储。
+- 生产环境对象存储为 Cloudflare R2，`uploadUrl` 会指向 R2 S3 API 端点；前端无需感知具体供应商。
+- R2 bucket 必须配置 CORS，允许后台前端来源使用 `PUT` 并携带 `Content-Type`。
 
 ## 申请预签名下载 URL
 
@@ -121,6 +123,11 @@ Authorization: Bearer <jwt-token>
   "expiresInSeconds": 900
 }
 ```
+
+说明：
+
+- 生产环境 `downloadUrl` 会指向 Cloudflare R2 S3 API 端点。
+- R2 bucket 必须配置 CORS，允许后台前端来源使用 `GET`。
 
 说明：
 

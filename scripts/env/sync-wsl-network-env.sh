@@ -115,9 +115,13 @@ fi
 upsert_env "FRONTEND_ORIGINS" "$frontend_origins"
 upsert_env "VITE_API_BASE" "http://$BROWSER_ACCESS_HOST:$BACKEND_PORT/api/v1"
 upsert_env "S3_ENDPOINT" "http://$BROWSER_ACCESS_HOST:$MINIO_PORT"
+upsert_env "S3_USE_PATH_STYLE" "true"
+upsert_env "MINIO_API_CORS_ALLOW_ORIGIN" "$frontend_origins"
 
 echo "Updated $ENV_FILE with browser-accessible addresses:"
 echo "FRONTEND_ORIGIN=http://$BROWSER_ACCESS_HOST:$FRONTEND_PORT"
 echo "FRONTEND_ORIGINS=$frontend_origins"
 echo "VITE_API_BASE=http://$BROWSER_ACCESS_HOST:$BACKEND_PORT/api/v1"
 echo "S3_ENDPOINT=http://$BROWSER_ACCESS_HOST:$MINIO_PORT"
+echo "S3_USE_PATH_STYLE=true"
+echo "MINIO_API_CORS_ALLOW_ORIGIN=$frontend_origins"

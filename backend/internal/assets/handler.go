@@ -77,6 +77,7 @@ func (h Handler) createUploadURL(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "对象存储未配置")
 		return
 	}
+	// 后台文件上传必须绑定当前登录用户，避免未认证用户创建资源记录或申请 R2 上传 URL。
 	user, ok := httpapi.UserFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "未登录")
@@ -89,6 +90,7 @@ func (h Handler) createUploadURL(w http.ResponseWriter, r *http.Request) {
 	}
 	payload.Filename = strings.TrimSpace(payload.Filename)
 	payload.ContentType = strings.TrimSpace(payload.ContentType)
+	// 在生成 R2 预签名 URL 前先校验文件名、类型和大小，确保对象存储侧只接收允许的文件。
 	if err := ValidateUpload(payload.Filename, payload.ContentType, payload.ByteSize); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -100,6 +102,7 @@ func (h Handler) createUploadURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	storageKey := storageKeyFor(payload.Filename)
+	// 先写入资源元数据和 storage_key；文件本体随后由前端通过预签名 URL 直传到 R2。
 	asset, err := h.queries.CreateAsset(r.Context(), dbgen.CreateAssetParams{
 		Filename:    payload.Filename,
 		ContentType: payload.ContentType,
@@ -112,12 +115,14 @@ func (h Handler) createUploadURL(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "资源记录创建失败")
 		return
 	}
+	// 返回给浏览器的是短期 PUT URL，不包含 R2 密钥；实际上传由前端直接 PUT 到该 URL。
 	uploadURL, err := h.signer.PresignUploadURL(r.Context(), storageKey, payload.ContentType, presignExpiry)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "上传 URL 生成失败")
 		return
 	}
 
+	// headers 必须和签名时的输入一致，否则 R2/S3 会拒绝该预签名请求。
 	writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"asset":     mapAsset(asset),
 		"uploadUrl": uploadURL,

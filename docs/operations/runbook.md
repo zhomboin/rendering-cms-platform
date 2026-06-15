@@ -9,14 +9,13 @@
 - 生产环境变量：`deploy/production.env`，权限必须为 `600`。
 - 现有 Rendering 博客端口：`127.0.0.1:3000`，由宿主机 Nginx 转发 `rendering.me` 和 `www.rendering.me`。
 - CMS 生产入口端口：默认由 `frontend` 容器绑定 `127.0.0.1:3001`。
-- MinIO API 端口：默认绑定 `127.0.0.1:9000`，由宿主机 HTTPS 反向代理对外提供预签名上传下载访问。
-- MinIO Console 端口：默认绑定 `127.0.0.1:9001`，仅供运维访问。
-- 公网 HTTPS：由宿主机 Nginx、Caddy 或负载均衡器转发到 `127.0.0.1:3000`、`127.0.0.1:3001`、`127.0.0.1:9000` 和 `127.0.0.1:9001`。
+- 对象存储：生产使用 Cloudflare R2，后端通过 R2 S3 API 生成预签名上传和下载 URL。
+- 公网 HTTPS：由宿主机 Nginx、Caddy 或负载均衡器转发到 `127.0.0.1:3000` 和 `127.0.0.1:3001`。
 - 备份目录：`backups/`，不得提交到 Git。
 
 ## 生产访问入口
 
-生产环境中需要登录或进入的系统包括 CMS 后台、PostgreSQL、MinIO Console 和宿主机 Nginx。详细入口、登录方式和用户初始化步骤见 `docs/operations/production-access.md`。
+生产环境中需要登录或进入的系统包括 CMS 后台、PostgreSQL、Cloudflare R2 和宿主机 Nginx。详细入口、登录方式和用户初始化步骤见 `docs/operations/production-access.md`。
 
 ## 日常巡检
 
@@ -26,19 +25,17 @@
 cd /opt/rendering-cms-platform/deploy
 docker compose --env-file production.env -f docker-compose.prod.yml ps
 curl -fsS http://127.0.0.1:3001/api/v1/health
-curl -fsS http://127.0.0.1:9000/minio/health/ready
 docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=100 backend
 df -h
 ```
 
 检查项：
 
-- `postgres`、`minio`、`backend`、`frontend` 均处于运行状态。
+- `postgres`、`backend`、`frontend` 均处于运行状态。
 - `backend` 健康检查为 `healthy`。
 - `/api/v1/health` 返回 `{"status":"ok"}`。
-- MinIO readiness 接口返回成功。
 - 磁盘空间充足，备份目录和 Docker volume 所在磁盘没有接近满盘。
-- MinIO bucket 可访问，上传和下载凭据没有过期。
+- R2 bucket 可访问，上传和下载凭据没有过期。
 - 评论待审核队列没有异常堆积。
 - 登录失败次数没有异常升高。
 
@@ -105,7 +102,7 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 - 发布文章并检查公开读取。
 - 提交评论并完成审核。
 - 上传小文件并生成下载链接。
-- 确认预签名 URL 域名为生产 MinIO API 域名，而不是容器内 `minio:9000`。
+- 确认预签名 URL 指向 R2 S3 API 端点。
 - 打开统计页面并确认数据可读取。
 - 查看后端日志，确认有新的 `http_request` 记录。
 
@@ -147,7 +144,7 @@ curl -fsS https://cms.rendering.me/api/v1/articles
 
 ## 停止和启动
 
-停止应用容器，保留数据库和 MinIO：
+停止应用容器，保留数据库：
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
@@ -166,7 +163,7 @@ docker compose --env-file production.env -f docker-compose.prod.yml up -d backen
 docker compose --env-file production.env -f docker-compose.prod.yml stop
 ```
 
-不要在生产环境执行 `docker compose down -v`，该命令会删除 PostgreSQL 和 MinIO 数据 volume。
+不要在生产环境执行 `docker compose down -v`，该命令会删除 PostgreSQL 数据 volume。
 
 ## 日志查看
 
@@ -181,12 +178,6 @@ docker compose --env-file production.env -f docker-compose.prod.yml logs -f back
 
 ```bash
 docker compose --env-file production.env -f docker-compose.prod.yml logs -f frontend
-```
-
-查看 MinIO 日志：
-
-```bash
-docker compose --env-file production.env -f docker-compose.prod.yml logs -f minio
 ```
 
 导出最近日志：
@@ -218,25 +209,20 @@ gzip -t "$(ls -t ../backups/rendering-cms-*.sql.gz | head -n 1)"
 - 至少保留最近 7 天备份。
 - 大版本发布前的备份单独保留。
 - 删除旧备份前必须确认最新备份可用。
-- 对象存储文件本体不在 PostgreSQL 备份中，MinIO 数据 volume 需要单独备份或做磁盘快照。
+- 对象存储文件本体不在 PostgreSQL 备份中，R2 bucket 需要单独导出对象清单或同步到备份位置。
 
-导出 MinIO bucket：
+导出 R2 bucket 对象清单：
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
 set -a
 . ./production.env
 set +a
-MINIO_BACKUP_DIR="minio-$(date +%Y%m%d-%H%M%S)"
-mkdir -p "../backups/$MINIO_BACKUP_DIR"
-docker run --rm --network rendering_cms \
-  -e MINIO_ROOT_USER \
-  -e MINIO_ROOT_PASSWORD \
-  -e MINIO_BUCKET \
-  -e MINIO_BACKUP_DIR \
-  -v "$(cd ../backups && pwd):/backups" \
-  minio/mc:latest \
-  sh -c 'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc mirror "local/$MINIO_BUCKET" "/backups/$MINIO_BACKUP_DIR/$MINIO_BUCKET"'
+aws s3api list-objects-v2 \
+  --endpoint-url "$S3_ENDPOINT" \
+  --bucket "$S3_BUCKET" \
+  --output json \
+  > "../backups/r2-objects-$(date +%Y%m%d-%H%M%S).json"
 ```
 
 ## 恢复 SOP
@@ -247,7 +233,7 @@ docker run --rm --network rendering_cms \
 2. 先备份当前现场。
 3. 停止 `backend`，避免恢复过程中继续写入。
 4. 校验待恢复备份文件完整性。
-5. 确认 MinIO 数据 volume 或对象文件未被误清理。
+5. 确认 R2 bucket、R2 凭据和对象清单可用。
 
 停止后端：
 
@@ -290,7 +276,7 @@ docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=
 排查顺序：
 
 1. 检查 `backend` 是否能连接 `postgres`。
-2. 检查 `JWT_SECRET`、`DATABASE_URL`、`FRONTEND_ORIGINS`、`MINIO_*` 和 `S3_*` 是否存在。
+2. 检查 `JWT_SECRET`、`DATABASE_URL`、`FRONTEND_ORIGINS` 和 `S3_*` 是否存在。
 3. 检查 migration 是否已经执行。
 4. 检查对象存储凭据是否导致后端启动失败。
 
@@ -317,20 +303,19 @@ docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=
 
 排查顺序：
 
-1. 检查 `minio` 容器是否运行。
-2. 检查 `MINIO_SERVER_URL`、`S3_ENDPOINT` 是否都是浏览器可访问的 HTTPS MinIO API 域名。
-3. 检查 `MINIO_BUCKET` 和 `S3_BUCKET` 是否一致。
-4. 检查 `S3_ACCESS_KEY_ID`、`S3_SECRET_ACCESS_KEY` 是否能访问该 bucket。
-5. 检查宿主机 Nginx/Caddy 是否把 MinIO API 域名转发到 `127.0.0.1:9000`。
-6. 检查上传大小是否超过 `20MB`。
-7. 检查文件类型是否在允许列表内。
+1. 检查 `S3_ENDPOINT` 是否为 R2 S3 API 端点，例如 `https://<account-id>.r2.cloudflarestorage.com`。
+2. 检查 `S3_REGION=auto`、`S3_USE_PATH_STYLE=false`、`S3_BUCKET` 是否与 R2 bucket 一致。
+3. 检查 `S3_ACCESS_KEY_ID`、`S3_SECRET_ACCESS_KEY` 是否为 R2 专用访问密钥，并具备该 bucket 的对象读写权限。
+4. 检查 R2 bucket CORS 是否允许生产前端来源发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
+5. 检查上传大小是否超过 `20MB`。
+6. 检查文件类型是否在允许列表内。
+7. 检查预签名 URL 是否指向 R2 endpoint，且没有被浏览器 CORS 拦截。
 8. 检查 `download_events` 是否能写入。
 
 ## 禁止操作
 
 - 不要执行 `docker compose down -v`。
 - 不要删除 `rendering_cms_postgres_data` volume。
-- 不要删除 `rendering_cms_minio_data` volume。
 - 不要把 `deploy/production.env`、备份文件或对象存储密钥提交到 Git。
 - 不要在未备份生产数据库的情况下执行 migration。
 - 不要直接修改生产数据库数据，除非已经完成备份并记录操作原因。

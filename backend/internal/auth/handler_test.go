@@ -47,6 +47,7 @@ func TestLoginHandlerRejectsLockedLoginBeforePasswordLookup(t *testing.T) {
 }
 
 func TestLoginHandlerReturnsRefreshToken(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
 	passwordHash, err := HashPassword("correct-password")
 	if err != nil {
 		t.Fatalf("HashPassword() returned error: %v", err)
@@ -59,7 +60,7 @@ func TestLoginHandlerReturnsRefreshToken(t *testing.T) {
 		Role:         "admin",
 	}}
 	handler := NewLoginHandlerWithClock("secret-32-characters-minimum-value", finder, nil, func() time.Time {
-		return time.Date(2026, 5, 27, 8, 0, 0, 0, time.UTC)
+		return now
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{
 		"email": "admin@example.com",
@@ -89,7 +90,7 @@ func TestLoginHandlerReturnsRefreshToken(t *testing.T) {
 }
 
 func TestRefreshHandlerIssuesNewTokenPair(t *testing.T) {
-	now := time.Date(2026, 5, 27, 8, 0, 0, 0, time.UTC)
+	now := time.Now().UTC().Truncate(time.Second)
 	pair, err := IssueTokenPairWithClock("secret-32-characters-minimum-value", "user-1", "admin", func() time.Time {
 		return now
 	})

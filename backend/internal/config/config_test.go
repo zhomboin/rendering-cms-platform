@@ -44,6 +44,7 @@ func TestLoadReadsDatabaseAndS3Settings(t *testing.T) {
 	t.Setenv("S3_BUCKET", "rendering-assets")
 	t.Setenv("S3_ACCESS_KEY_ID", "rendering")
 	t.Setenv("S3_SECRET_ACCESS_KEY", "rendering_dev_password")
+	t.Setenv("S3_USE_PATH_STYLE", "true")
 
 	cfg, err := Load()
 	if err != nil {
@@ -59,8 +60,24 @@ func TestLoadReadsDatabaseAndS3Settings(t *testing.T) {
 	if cfg.S3.Bucket != "rendering-assets" {
 		t.Fatalf("S3.Bucket = %q, want rendering-assets", cfg.S3.Bucket)
 	}
+	if !cfg.S3.UsePathStyle {
+		t.Fatal("S3.UsePathStyle = false, want true")
+	}
 	if cfg.LogDir != "/var/log/rendering-cms-platform" {
 		t.Fatalf("LogDir = %q, want configured log dir", cfg.LogDir)
+	}
+}
+
+func TestLoadDefaultsS3PathStyleToFalse(t *testing.T) {
+	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+
+	if cfg.S3.UsePathStyle {
+		t.Fatal("S3.UsePathStyle = true, want false")
 	}
 }
 

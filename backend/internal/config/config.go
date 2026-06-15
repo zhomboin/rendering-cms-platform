@@ -22,6 +22,7 @@ type S3Config struct {
 	Bucket          string
 	AccessKeyID     string
 	SecretAccessKey string
+	UsePathStyle    bool
 }
 
 func Load() (Config, error) {
@@ -36,11 +37,14 @@ func Load() (Config, error) {
 		),
 		LogDir: envOrDefault("LOG_DIR", "logs"),
 		S3: S3Config{
+			// S3_* 同时兼容本地 MinIO 和生产 Cloudflare R2，生产环境由 deploy/production.env 提供。
 			Endpoint:        os.Getenv("S3_ENDPOINT"),
 			Region:          envOrDefault("S3_REGION", "us-east-1"),
 			Bucket:          os.Getenv("S3_BUCKET"),
 			AccessKeyID:     os.Getenv("S3_ACCESS_KEY_ID"),
 			SecretAccessKey: os.Getenv("S3_SECRET_ACCESS_KEY"),
+			// R2 使用虚拟主机风格寻址，应设为 false；本地 MinIO 使用路径风格，应设为 true。
+			UsePathStyle: parseBoolEnv("S3_USE_PATH_STYLE"),
 		},
 	}
 
@@ -57,6 +61,11 @@ func envOrDefault(key string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func parseBoolEnv(key string) bool {
+	value := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
+	return value == "1" || value == "true" || value == "yes" || value == "on"
 }
 
 func parseCSVEnvOrFallback(key string, fallback string) []string {

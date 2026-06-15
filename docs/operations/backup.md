@@ -73,30 +73,31 @@ gzip -t "$(ls -t ../backups/rendering-cms-*.sql.gz | head -n 1)"
 
 ## 对象存储备份
 
-PostgreSQL 只保存上传文件元数据和 object key，不保存文件本体。当前生产对象存储暂时使用服务器本机 MinIO，因此 PostgreSQL 备份不能替代 MinIO 数据备份。
+PostgreSQL 只保存上传文件元数据和 object key，不保存文件本体。生产对象存储使用 Cloudflare R2，因此 PostgreSQL 备份不能替代 R2 对象清单和对象数据备份。
 
-- MinIO 数据保存在 Docker volume `rendering_cms_minio_data`。
-- 生产服务器应对该 volume 所在磁盘做快照或文件级备份。
-- 如后续迁移到 Cloudflare R2、AWS S3 或其他托管对象存储，迁移前应先导出 bucket 清单。
+- R2 bucket 名称由 `S3_BUCKET` 指定。
+- 每次重大发布或对象存储迁移前，应导出 bucket 对象清单，至少包含 object key、大小和更新时间。
+- 如需跨供应商备份，可使用 `rclone` 或 AWS CLI 配置 R2 endpoint，将 R2 bucket 同步到另一处对象存储或离线备份目录。
 - 恢复数据库后必须确认 `assets.storage_key` 对应对象仍存在。
 
-使用 `mc mirror` 导出当前 bucket：
+使用 AWS CLI 导出 R2 对象清单示例：
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
 set -a
 . ./production.env
 set +a
-MINIO_BACKUP_DIR="minio-$(date +%Y%m%d-%H%M%S)"
-mkdir -p "../backups/$MINIO_BACKUP_DIR"
-docker run --rm --network rendering_cms \
-  -e MINIO_ROOT_USER \
-  -e MINIO_ROOT_PASSWORD \
-  -e MINIO_BUCKET \
-  -e MINIO_BACKUP_DIR \
-  -v "$(cd ../backups && pwd):/backups" \
-  minio/mc:latest \
-  sh -c 'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc mirror "local/$MINIO_BUCKET" "/backups/$MINIO_BACKUP_DIR/$MINIO_BUCKET"'
+aws s3api list-objects-v2 \
+  --endpoint-url "$S3_ENDPOINT" \
+  --bucket "$S3_BUCKET" \
+  --output json \
+  > "../backups/r2-objects-$(date +%Y%m%d-%H%M%S).json"
 ```
 
-如果使用服务器磁盘快照，应同时覆盖 Docker volume `rendering_cms_postgres_data` 和 `rendering_cms_minio_data`，并记录快照时间点。
+使用 `rclone` 同步 R2 bucket 示例：
+
+```bash
+rclone sync "r2:$S3_BUCKET" "../backups/r2-$S3_BUCKET-$(date +%Y%m%d-%H%M%S)" --progress
+```
+
+执行跨存储备份前应先在服务器上配置只读或最小权限的 R2 访问凭据。若使用服务器磁盘快照，只能覆盖 PostgreSQL volume，不能替代 R2 对象备份。

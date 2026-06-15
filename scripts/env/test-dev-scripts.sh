@@ -18,7 +18,9 @@ grep -q '^  backend:' "$COMPOSE_FILE" || fail "docker-compose.dev.yml must defin
 grep -q 'container_name: rendering-cms-backend' "$COMPOSE_FILE" || fail "backend container name is missing"
 grep -q '8080:8080' "$COMPOSE_FILE" || fail "backend service must publish port 8080"
 grep -q 'FRONTEND_ORIGINS: ${FRONTEND_ORIGINS:-http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173}' "$COMPOSE_FILE" || fail "backend service must allow localhost and 127.0.0.1 frontend origins"
+grep -q 'MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_API_CORS_ALLOW_ORIGIN:-http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173}' "$COMPOSE_FILE" || fail "minio service must allow localhost frontend uploads with global CORS"
 grep -q 'LOG_DIR: ${LOG_DIR:-/var/log/rendering-cms-platform}' "$COMPOSE_FILE" || fail "backend service must write logs to the mounted container log directory"
+grep -q 'S3_USE_PATH_STYLE: ${S3_USE_PATH_STYLE:-true}' "$COMPOSE_FILE" || fail "backend service must use path-style S3 addressing for local MinIO"
 grep -q '${BACKEND_LOG_HOST_DIR:-../../logs/backend}:/var/log/rendering-cms-platform' "$COMPOSE_FILE" || fail "backend log directory must be bind-mounted to the host filesystem"
 grep -q 'start-backend-docker.sh' "$ROOT_DIR/scripts/env/start-dev-stack.sh" || fail "start-dev-stack.sh must start backend"
 grep -q -- '--profile backend' "$ROOT_DIR/scripts/env/start-backend-docker.sh" || fail "backend script must use backend profile"
@@ -30,5 +32,7 @@ grep -q '^FRONTEND_ORIGIN=http://127.0.0.1:5173$' "$TMP_DIR/.env" || fail "sync 
 grep -q '^FRONTEND_ORIGINS=http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173$' "$TMP_DIR/.env" || fail "sync script should default frontend origins to localhost and 127.0.0.1 local dev ports"
 grep -q '^VITE_API_BASE=http://127.0.0.1:8080/api/v1$' "$TMP_DIR/.env" || fail "sync script should default API base to localhost"
 grep -q '^S3_ENDPOINT=http://127.0.0.1:9000$' "$TMP_DIR/.env" || fail "sync script should default S3 endpoint to localhost"
+grep -q '^S3_USE_PATH_STYLE=true$' "$TMP_DIR/.env" || fail "sync script should default path-style S3 addressing for local MinIO"
+grep -q '^MINIO_API_CORS_ALLOW_ORIGIN=http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173$' "$TMP_DIR/.env" || fail "sync script should default MinIO CORS origins to localhost and 127.0.0.1 local dev ports"
 
 echo "dev scripts look consistent"

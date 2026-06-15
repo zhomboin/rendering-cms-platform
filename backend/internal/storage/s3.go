@@ -25,17 +25,20 @@ func NewS3Client(cfg config.S3Config) (*Client, error) {
 		region = "us-east-1"
 	}
 
+	// BaseEndpoint 指向 S3 兼容服务入口：本地是 MinIO，生产是 Cloudflare R2 S3 API。
 	s3Client := s3.New(s3.Options{
 		BaseEndpoint: aws.String(cfg.Endpoint),
 		Region:       region,
 		Credentials: aws.CredentialsProviderFunc(func(context.Context) (aws.Credentials, error) {
+			// 使用环境变量中的静态访问密钥生成签名，不把密钥返回给浏览器。
 			return aws.Credentials{
 				AccessKeyID:     cfg.AccessKeyID,
 				SecretAccessKey: cfg.SecretAccessKey,
 				Source:          "rendering-cms-static",
 			}, nil
 		}),
-		UsePathStyle: true,
+		// false 时生成 R2 需要的虚拟主机风格 URL；true 时兼容本地 MinIO path-style URL。
+		UsePathStyle: cfg.UsePathStyle,
 	})
 
 	return &Client{
@@ -45,6 +48,7 @@ func NewS3Client(cfg config.S3Config) (*Client, error) {
 }
 
 func (c *Client) PresignUploadURL(ctx context.Context, key string, contentType string, expires time.Duration) (string, error) {
+	// 预签名 PUT URL 只允许上传指定 key 和 Content-Type，前端需要原样携带该 Content-Type。
 	request, err := c.presigner.PresignPutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(c.bucket),
 		Key:         aws.String(key),
@@ -57,6 +61,7 @@ func (c *Client) PresignUploadURL(ctx context.Context, key string, contentType s
 }
 
 func (c *Client) PresignDownloadURL(ctx context.Context, key string, expires time.Duration) (string, error) {
+	// 下载也通过短期预签名 URL 完成，避免公开 bucket 或泄露对象存储凭据。
 	request, err := c.presigner.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(key),

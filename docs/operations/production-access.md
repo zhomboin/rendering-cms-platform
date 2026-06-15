@@ -1,6 +1,6 @@
 # 生产访问与登录 SOP
 
-本文档记录生产环境中需要登录或进入的系统入口，包括 CMS 后台、PostgreSQL、MinIO Console 和宿主机 Nginx。命令默认在 Ubuntu 服务器执行，应用目录默认是 `/opt/rendering-cms-platform`。
+本文档记录生产环境中需要登录或进入的系统入口，包括 CMS 后台、PostgreSQL、Cloudflare R2 和宿主机 Nginx。命令默认在 Ubuntu 服务器执行，应用目录默认是 `/opt/rendering-cms-platform`。
 
 ## 入口总览
 
@@ -8,8 +8,7 @@
 | --- | --- | --- |
 | CMS 后台 | `https://cms.rendering.me` | 文章、评论、统计、文件等后台操作 |
 | PostgreSQL | Docker Compose `postgres` 服务内 `psql` | 数据查询、用户初始化、紧急数据核查 |
-| MinIO Console | `https://minio-console.rendering.me` | 对象存储 bucket、对象和凭据检查 |
-| MinIO API | `https://minio.rendering.me` | 预签名上传和下载 URL 访问 |
+| Cloudflare R2 | Cloudflare Dashboard 或 S3 API 工具 | 对象存储 bucket、对象、CORS 和访问密钥检查 |
 | 宿主机 Nginx | SSH 登录服务器后使用 `sudo nginx` | 反向代理、证书和域名入口配置 |
 
 ## 基础准备
@@ -112,33 +111,22 @@ order by created_at desc;
 - 生产用户创建完成后，应使用一次性强密码登录，并尽快切换到正式密码管理流程。
 - 如果怀疑密码泄露，直接使用同一条 `insert ... on conflict ... do update` SQL 重置密码。
 
-## MinIO Console 登录
+## Cloudflare R2 访问
 
-访问地址：
-
-```text
-https://minio-console.rendering.me
-```
-
-登录凭据来自 `deploy/production.env`：
+R2 bucket、对象、CORS 和访问密钥在 Cloudflare Dashboard 中管理。生产环境后端使用 `deploy/production.env` 中的 S3 兼容配置访问 R2：
 
 ```env
-MINIO_ROOT_USER=rendering
-MINIO_ROOT_PASSWORD=replace-with-strong-minio-password
+S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+S3_REGION=auto
+S3_BUCKET=rendering-assets
+S3_ACCESS_KEY_ID=<r2-access-key-id>
+S3_SECRET_ACCESS_KEY=<r2-secret-access-key>
+S3_USE_PATH_STYLE=false
 ```
 
-检查当前配置：
+不要把 `S3_SECRET_ACCESS_KEY` 打印到共享终端截图或日志里。需要在服务器上检查 bucket 时，优先使用只读或临时凭据。
 
-```bash
-cd /opt/rendering-cms-platform/deploy
-grep -E '^(MINIO_ROOT_USER|MINIO_BUCKET|MINIO_SERVER_URL|MINIO_BROWSER_REDIRECT_URL)=' production.env
-```
-
-不要把 `MINIO_ROOT_PASSWORD` 打印到共享终端截图或日志里。
-
-## MinIO CLI 访问
-
-使用临时 `mc` 容器连接生产 MinIO：
+使用 AWS CLI 检查 R2 bucket 示例：
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
@@ -146,24 +134,13 @@ set -a
 . ./production.env
 set +a
 
-docker run --rm --network rendering_cms \
-  -e MINIO_ROOT_USER \
-  -e MINIO_ROOT_PASSWORD \
-  -e MINIO_BUCKET \
-  minio/mc:latest \
-  sh -c 'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc ls "local/$MINIO_BUCKET"'
+aws s3api list-objects-v2 \
+  --endpoint-url "$S3_ENDPOINT" \
+  --bucket "$S3_BUCKET" \
+  --max-items 10
 ```
 
-如果需要检查 bucket 是否存在：
-
-```bash
-docker run --rm --network rendering_cms \
-  -e MINIO_ROOT_USER \
-  -e MINIO_ROOT_PASSWORD \
-  -e MINIO_BUCKET \
-  minio/mc:latest \
-  sh -c 'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc stat "local/$MINIO_BUCKET"'
-```
+R2 bucket 必须配置 CORS，允许 `https://cms.rendering.me` 对预签名 URL 发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
 
 ## Nginx 访问与验证
 
@@ -194,8 +171,6 @@ sudo systemctl status nginx --no-pager
 rendering.me             -> 127.0.0.1:3000
 www.rendering.me         -> 127.0.0.1:3000
 cms.rendering.me         -> 127.0.0.1:3001
-minio.rendering.me       -> 127.0.0.1:9000
-minio-console.rendering.me -> 127.0.0.1:9001
 ```
 
 ## 登录故障排查
@@ -221,13 +196,10 @@ PostgreSQL 无法进入：
    docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=100 postgres
    ```
 
-MinIO Console 无法登录：
+R2 文件上传或下载失败：
 
-1. 确认 `minio` 容器运行。
-2. 确认 `MINIO_ROOT_USER` 和 `MINIO_ROOT_PASSWORD` 未改错。
-3. 确认 `minio-console.rendering.me` 的 Nginx 代理指向 `127.0.0.1:9001`。
-4. 查看 MinIO 日志：
-
-   ```bash
-   docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=100 minio
-   ```
+1. 确认 `S3_ENDPOINT` 是 R2 S3 API 端点。
+2. 确认 `S3_REGION=auto` 且 `S3_USE_PATH_STYLE=false`。
+3. 确认 R2 API Token 具备目标 bucket 的对象读写权限。
+4. 确认 R2 bucket CORS 允许生产前端来源、`PUT`、`GET` 和 `Content-Type`。
+5. 查看后端日志中生成预签名 URL 或写入下载审计的错误。

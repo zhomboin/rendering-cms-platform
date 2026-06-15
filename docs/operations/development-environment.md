@@ -154,6 +154,7 @@ S3_REGION=us-east-1
 S3_BUCKET=rendering-assets
 S3_ACCESS_KEY_ID=rendering
 S3_SECRET_ACCESS_KEY=rendering_dev_password
+S3_USE_PATH_STYLE=true
 
 POSTGRES_DB=rendering_cms
 POSTGRES_USER=rendering
@@ -162,6 +163,7 @@ POSTGRES_PASSWORD=rendering_dev_password
 MINIO_ROOT_USER=rendering
 MINIO_ROOT_PASSWORD=rendering_dev_password
 MINIO_BUCKET=rendering-assets
+MINIO_API_CORS_ALLOW_ORIGIN=http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173
 ```
 
 不要提交 `.env`。
@@ -190,6 +192,8 @@ FRONTEND_ORIGIN=http://127.0.0.1:5173
 FRONTEND_ORIGINS=http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173
 VITE_API_BASE=http://127.0.0.1:8080/api/v1
 S3_ENDPOINT=http://127.0.0.1:9000
+S3_USE_PATH_STYLE=true
+MINIO_API_CORS_ALLOW_ORIGIN=http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173
 ```
 
 脚本不会修改：
@@ -197,7 +201,7 @@ S3_ENDPOINT=http://127.0.0.1:9000
 - `HTTP_ADDR`：后端仍应监听 `0.0.0.0:8080`。
 - `DATABASE_URL`：后端在 WSL 内连接 PostgreSQL，仍使用 `127.0.0.1:5432`。
 
-`FRONTEND_ORIGINS` 是后端 CORS 白名单，多个地址使用英文逗号分隔。`FRONTEND_ORIGIN` 保留给旧配置兼容；如果同时设置两者，后端优先读取 `FRONTEND_ORIGINS`。
+`FRONTEND_ORIGINS` 是后端 CORS 白名单，`MINIO_API_CORS_ALLOW_ORIGIN` 是 MinIO 直传对象存储的 CORS 白名单，多个地址都使用英文逗号分隔。`S3_USE_PATH_STYLE=true` 仅用于本地 MinIO；生产 Cloudflare R2 必须设置为 `false`。`FRONTEND_ORIGIN` 保留给旧配置兼容；如果同时设置两者，后端优先读取 `FRONTEND_ORIGINS`。
 
 `start-backend-docker.sh` 和 `start-frontend-docker.sh` 会在启动容器前自动执行该同步脚本。如果确实需要使用 WSL 真实 IP，执行启动脚本前先设置：
 

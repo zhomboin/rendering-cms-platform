@@ -25,7 +25,7 @@ func TestIssueAndParseToken(t *testing.T) {
 }
 
 func TestIssueTokenPairUsesSeparateAccessAndRefreshTypes(t *testing.T) {
-	now := time.Date(2026, 5, 27, 8, 0, 0, 0, time.UTC)
+	now := time.Now().UTC().Truncate(time.Second)
 	pair, err := IssueTokenPairWithClock("secret-32-characters-minimum-value", "user-1", "admin", func() time.Time {
 		return now
 	})

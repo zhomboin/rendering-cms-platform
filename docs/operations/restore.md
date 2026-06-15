@@ -10,7 +10,7 @@
 2. 备份当前数据库现场。
 3. 停止会写入数据库的后端服务或切到维护模式。
 4. 确认备份文件来源、时间和完整性。
-5. 确认 MinIO 数据 volume `rendering_cms_minio_data` 未被误清理。
+5. 确认 R2 bucket、R2 访问密钥和对象清单可用。
 
 ## 恢复命令
 
@@ -76,29 +76,26 @@ gzip -dc backups/rendering-cms-latest.sql.gz | psql "$DATABASE_URL"
 
 ## 对象存储一致性检查
 
-数据库恢复后应抽样检查文件元数据与 MinIO 对象是否一致：
+数据库恢复后应抽样检查文件元数据与 R2 对象是否一致：
 
 - `assets.storage_key` 对应对象能下载。
 - 已软删除资源不会出现在公开下载入口。
 - 下载审计能继续写入 `download_events`。
 
-如果需要从 `mc mirror` 备份恢复 MinIO bucket，先确认 `minio` 容器已启动，再执行：
+使用 AWS CLI 抽样检查 R2 对象是否存在：
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
 set -a
 . ./production.env
 set +a
-docker run --rm --network rendering_cms \
-  -e MINIO_ROOT_USER \
-  -e MINIO_ROOT_PASSWORD \
-  -e MINIO_BUCKET \
-  -v "$(cd ../backups && pwd):/backups:ro" \
-  minio/mc:latest \
-  sh -c 'mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc mirror --overwrite "/backups/minio-latest/$MINIO_BUCKET" "local/$MINIO_BUCKET"'
+aws s3api head-object \
+  --endpoint-url "$S3_ENDPOINT" \
+  --bucket "$S3_BUCKET" \
+  --key "assets/<uuid>/<filename>"
 ```
 
-恢复 MinIO 前应先保留当前 bucket 现场，避免覆盖后无法回退。
+如果需要从离线备份恢复 R2 bucket，先保留当前 bucket 清单，再使用 `rclone sync` 或 AWS CLI 将备份目录写回 R2。恢复完成后再次抽样检查 `assets.storage_key`。
 
 ## 回滚处理
 
