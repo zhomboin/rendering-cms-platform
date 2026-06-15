@@ -78,22 +78,40 @@ cp production.env.example production.env
 chmod 600 production.env
 ```
 
-必须修改以下值：
+### 必须修改的生产配置
+
+生产部署时必须修改 `deploy/production.env`。不要直接使用 `deploy/production.env.example` 中的占位值。
+
+基础部署配置：
 
 ```env
 APP_IMAGE_TAG=latest
 PUBLIC_HTTP_BIND=127.0.0.1:3001
+```
 
+数据库配置：
+
+```env
 POSTGRES_DB=rendering_cms
 POSTGRES_USER=rendering
 POSTGRES_PASSWORD=replace-with-strong-database-password
 DATABASE_URL=postgres://rendering:replace-with-strong-database-password@postgres:5432/rendering_cms?sslmode=disable
+```
 
+后端运行时与登录安全配置：
+
+```env
+APP_ENV=production
+DEV_BOOTSTRAP_ADMIN=false
 JWT_SECRET=replace-with-32-plus-character-secret
 FRONTEND_ORIGIN=https://cms.rendering.me
 FRONTEND_ORIGINS=https://cms.rendering.me,https://rendering.me,https://www.rendering.me
 VITE_API_BASE=/api/v1
+```
 
+Cloudflare R2 对象存储配置：
+
+```env
 S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 S3_REGION=auto
 S3_BUCKET=rendering-assets
@@ -109,6 +127,8 @@ S3_ASSET_FILE_PREFIX=assets
 
 - `POSTGRES_PASSWORD` 必须使用强密码；如果密码包含特殊字符，`DATABASE_URL` 中的密码段必须 URL 编码。
 - `DATABASE_URL` 在容器网络内连接 `postgres:5432`，不要写成 `127.0.0.1`。
+- `APP_ENV` 生产环境固定为 `production`。
+- `DEV_BOOTSTRAP_ADMIN` 生产环境固定为 `false`，不要在生产启动 dev 默认管理员账号填充。
 - `JWT_SECRET` 至少 32 字符，生产环境不得使用示例值。
 - `FRONTEND_ORIGINS` 使用生产访问域名；多个来源使用英文逗号分隔。
 - `VITE_API_BASE` 保持 `/api/v1`，让浏览器走同域 API 反代。
@@ -119,6 +139,18 @@ S3_ASSET_FILE_PREFIX=assets
 - `S3_BLOG_IMAGE_PREFIX` 和 `S3_ASSET_FILE_PREFIX` 分别控制文章图片和普通资源文件的对象 key 前缀。
 - `S3_ACCESS_KEY_ID` 和 `S3_SECRET_ACCESS_KEY` 使用 Cloudflare R2 专用访问密钥，权限限定到 `S3_BUCKET` 的对象读写。
 - R2 bucket 必须配置 CORS，允许生产前端来源对预签名 URL 发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
+
+### R2 地址配置说明
+
+生产环境有两类 R2 地址，不要混用：
+
+- `S3_ENDPOINT`：R2 S3 API 端点，格式为 `https://<account-id>.r2.cloudflarestorage.com`。后端用它生成预签名上传和下载 URL。
+- `S3_PUBLIC_BASE_URL`：图片公开访问域名，例如 `https://assets.rendering.me`。文章编辑器上传正文图片后，接口返回的 `publicUrl` 使用该域名。
+
+文章图片和普通资源文件使用不同对象 key 前缀：
+
+- `S3_BLOG_IMAGE_PREFIX=blog`：文章正文图片上传后保存为 `blog/YYYY/MM/<uuid>.<ext>`，并返回公开访问 URL。
+- `S3_ASSET_FILE_PREFIX=assets`：后台普通资源上传后保存为 `assets/YYYY/MM/<uuid>.<ext>`，默认不返回公开 URL，通过下载预签名 URL 访问。
 
 ## 首次部署
 

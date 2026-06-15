@@ -39,6 +39,8 @@ services:
     restart: unless-stopped
     environment:
       HTTP_ADDR: 0.0.0.0:8080
+      APP_ENV: ${APP_ENV:-production}
+      DEV_BOOTSTRAP_ADMIN: ${DEV_BOOTSTRAP_ADMIN:-false}
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?FRONTEND_ORIGIN is required}

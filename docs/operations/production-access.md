@@ -116,6 +116,8 @@ order by created_at desc;
 R2 bucket、对象、CORS 和访问密钥在 Cloudflare Dashboard 中管理。生产环境后端使用 `deploy/production.env` 中的 S3 兼容配置访问 R2：
 
 ```env
+APP_ENV=production
+DEV_BOOTSTRAP_ADMIN=false
 S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 S3_REGION=auto
 S3_BUCKET=rendering-assets
@@ -128,6 +130,7 @@ S3_ASSET_FILE_PREFIX=assets
 ```
 
 不要把 `S3_SECRET_ACCESS_KEY` 打印到共享终端截图或日志里。需要在服务器上检查 bucket 时，优先使用只读或临时凭据。
+生产环境必须保持 `APP_ENV=production` 和 `DEV_BOOTSTRAP_ADMIN=false`，不要启用 dev 默认管理员账号填充。
 
 使用 AWS CLI 检查 R2 bucket 示例：
 
@@ -145,6 +148,7 @@ aws s3api list-objects-v2 \
 
 R2 bucket 必须配置 CORS，允许 `https://cms.rendering.me` 对预签名 URL 发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
 `S3_PUBLIC_BASE_URL` 应配置为 R2 公开访问域名或自定义域名，用于文章正文图片 URL；不要把它和 `S3_ENDPOINT` 混用。
+文章正文图片对象 key 使用 `S3_BLOG_IMAGE_PREFIX/YYYY/MM/<uuid>.<ext>`，普通资源文件对象 key 使用 `S3_ASSET_FILE_PREFIX/YYYY/MM/<uuid>.<ext>`。
 
 ## Nginx 访问与验证
 
