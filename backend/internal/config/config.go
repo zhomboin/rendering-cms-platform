@@ -7,13 +7,18 @@ import (
 )
 
 type Config struct {
-	HTTPAddr        string
-	DatabaseURL     string
-	JWTSecret       string
-	FrontendOrigin  string
-	FrontendOrigins []string
-	LogDir          string
-	S3              S3Config
+	HTTPAddr          string
+	DatabaseURL       string
+	JWTSecret         string
+	FrontendOrigin    string
+	FrontendOrigins   []string
+	LogDir            string
+	AppEnv            string
+	DevBootstrapAdmin bool
+	DevAdminEmail     string
+	DevAdminName      string
+	DevAdminPassword  string
+	S3                S3Config
 }
 
 type S3Config struct {
@@ -23,6 +28,9 @@ type S3Config struct {
 	AccessKeyID     string
 	SecretAccessKey string
 	UsePathStyle    bool
+	PublicBaseURL   string
+	BlogImagePrefix string
+	AssetFilePrefix string
 }
 
 func Load() (Config, error) {
@@ -35,7 +43,12 @@ func Load() (Config, error) {
 			"FRONTEND_ORIGINS",
 			envOrDefault("FRONTEND_ORIGIN", "http://127.0.0.1:5173"),
 		),
-		LogDir: envOrDefault("LOG_DIR", "logs"),
+		LogDir:            envOrDefault("LOG_DIR", "logs"),
+		AppEnv:            envOrDefault("APP_ENV", "production"),
+		DevBootstrapAdmin: parseBoolEnv("DEV_BOOTSTRAP_ADMIN"),
+		DevAdminEmail:     envOrDefault("DEV_ADMIN_EMAIL", "admin@rendering.me"),
+		DevAdminName:      envOrDefault("DEV_ADMIN_NAME", "Dev Admin"),
+		DevAdminPassword:  os.Getenv("DEV_ADMIN_PASSWORD"),
 		S3: S3Config{
 			// S3_* 同时兼容本地 MinIO 和生产 Cloudflare R2，生产环境由 deploy/production.env 提供。
 			Endpoint:        os.Getenv("S3_ENDPOINT"),
@@ -44,7 +57,10 @@ func Load() (Config, error) {
 			AccessKeyID:     os.Getenv("S3_ACCESS_KEY_ID"),
 			SecretAccessKey: os.Getenv("S3_SECRET_ACCESS_KEY"),
 			// R2 使用虚拟主机风格寻址，应设为 false；本地 MinIO 使用路径风格，应设为 true。
-			UsePathStyle: parseBoolEnv("S3_USE_PATH_STYLE"),
+			UsePathStyle:    parseBoolEnv("S3_USE_PATH_STYLE"),
+			PublicBaseURL:   strings.TrimRight(os.Getenv("S3_PUBLIC_BASE_URL"), "/"),
+			BlogImagePrefix: cleanPrefixEnv("S3_BLOG_IMAGE_PREFIX", "blog"),
+			AssetFilePrefix: cleanPrefixEnv("S3_ASSET_FILE_PREFIX", "assets"),
 		},
 	}
 
@@ -66,6 +82,14 @@ func envOrDefault(key string, fallback string) string {
 func parseBoolEnv(key string) bool {
 	value := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
 	return value == "1" || value == "true" || value == "yes" || value == "on"
+}
+
+func cleanPrefixEnv(key string, fallback string) string {
+	value := strings.Trim(strings.TrimSpace(os.Getenv(key)), "/")
+	if value == "" || value == "." {
+		return fallback
+	}
+	return value
 }
 
 func parseCSVEnvOrFallback(key string, fallback string) []string {

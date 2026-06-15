@@ -50,6 +50,9 @@ services:
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
       S3_USE_PATH_STYLE: ${S3_USE_PATH_STYLE:-false}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-}
+      S3_BLOG_IMAGE_PREFIX: ${S3_BLOG_IMAGE_PREFIX:-blog}
+      S3_ASSET_FILE_PREFIX: ${S3_ASSET_FILE_PREFIX:-assets}
     volumes:
       - backend_logs:/var/log/rendering-cms-platform
     depends_on:

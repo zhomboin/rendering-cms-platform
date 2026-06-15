@@ -350,7 +350,7 @@ export default function ArticleEditorPage() {
 
       setImageUploading(true);
       try {
-        const asset = await uploadAdminAsset(file);
+        const asset = await uploadAdminAsset(file, 'blog-image');
         if (!asset.publicUrl) {
           throw new Error('图片已上传，但当前存储未返回可公开访问的 URL');
         }

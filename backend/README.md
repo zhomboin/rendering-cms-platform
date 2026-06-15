@@ -67,6 +67,9 @@ cp scripts/env/dev.env.example .env
 - `S3_ACCESS_KEY_ID`：对象存储访问 key。
 - `S3_SECRET_ACCESS_KEY`：对象存储访问密钥。
 - `S3_USE_PATH_STYLE`：是否使用路径风格寻址；本地 MinIO 使用 `true`，生产 Cloudflare R2 使用 `false`。
+- `S3_PUBLIC_BASE_URL`：公开访问对象的基础 URL，例如 `https://assets.rendering.me`，用于文章图片回填。
+- `S3_BLOG_IMAGE_PREFIX`：文章图片对象 key 前缀，默认 `blog`。
+- `S3_ASSET_FILE_PREFIX`：后台资源文件对象 key 前缀，默认 `assets`。
 
 ## 本地开发
 

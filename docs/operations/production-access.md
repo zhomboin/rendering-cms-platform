@@ -122,6 +122,9 @@ S3_BUCKET=rendering-assets
 S3_ACCESS_KEY_ID=<r2-access-key-id>
 S3_SECRET_ACCESS_KEY=<r2-secret-access-key>
 S3_USE_PATH_STYLE=false
+S3_PUBLIC_BASE_URL=https://assets.rendering.me
+S3_BLOG_IMAGE_PREFIX=blog
+S3_ASSET_FILE_PREFIX=assets
 ```
 
 不要把 `S3_SECRET_ACCESS_KEY` 打印到共享终端截图或日志里。需要在服务器上检查 bucket 时，优先使用只读或临时凭据。
@@ -141,6 +144,7 @@ aws s3api list-objects-v2 \
 ```
 
 R2 bucket 必须配置 CORS，允许 `https://cms.rendering.me` 对预签名 URL 发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
+`S3_PUBLIC_BASE_URL` 应配置为 R2 公开访问域名或自定义域名，用于文章正文图片 URL；不要把它和 `S3_ENDPOINT` 混用。
 
 ## Nginx 访问与验证
 

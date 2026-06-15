@@ -34,6 +34,8 @@ interface DownloadURLResponse {
   expiresInSeconds: number;
 }
 
+type UploadAssetUsage = 'asset-file' | 'blog-image';
+
 export function listAdminAssets() {
   return apiGet<AssetFile[]>('/admin/assets');
 }
@@ -43,11 +45,12 @@ export async function getAdminAssetDownloadUrl(assetId: string) {
   return response.downloadUrl;
 }
 
-export async function uploadAdminAsset(file: File) {
+export async function uploadAdminAsset(file: File, usage: UploadAssetUsage = 'asset-file') {
   const upload = await apiPost<UploadURLResponse>('/admin/assets/upload-url', {
     filename: file.name,
     contentType: file.type,
     byteSize: file.size,
+    usage,
   });
   await axios.put(upload.uploadUrl, file, {
     headers: upload.headers,

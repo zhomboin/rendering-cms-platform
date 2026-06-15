@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"path"
 	"strings"
@@ -20,6 +21,11 @@ import (
 
 const presignExpiry = 15 * time.Minute
 
+const (
+	UploadUsageAssetFile = "asset-file"
+	UploadUsageBlogImage = "blog-image"
+)
+
 type URLSigner interface {
 	PresignUploadURL(ctx context.Context, key string, contentType string, expires time.Duration) (string, error)
 	PresignDownloadURL(ctx context.Context, key string, expires time.Duration) (string, error)
@@ -28,12 +34,21 @@ type URLSigner interface {
 type Handler struct {
 	queries assetStore
 	signer  URLSigner
+	options HandlerOptions
+}
+
+type HandlerOptions struct {
+	PublicBaseURL   string
+	BlogImagePrefix string
+	AssetFilePrefix string
+	Now             func() time.Time
 }
 
 type UploadURLPayload struct {
 	Filename    string `json:"filename"`
 	ContentType string `json:"contentType"`
 	ByteSize    int    `json:"byteSize"`
+	Usage       string `json:"usage"`
 }
 
 type UpdateAssetStatusPayload struct {
@@ -49,7 +64,17 @@ type assetStore interface {
 }
 
 func NewHandler(queries assetStore, signer URLSigner) Handler {
-	return Handler{queries: queries, signer: signer}
+	return NewHandlerWithOptions(queries, signer, HandlerOptions{})
+}
+
+func NewHandlerWithOptions(queries assetStore, signer URLSigner, options HandlerOptions) Handler {
+	if options.Now == nil {
+		options.Now = time.Now
+	}
+	options.PublicBaseURL = strings.TrimRight(strings.TrimSpace(options.PublicBaseURL), "/")
+	options.BlogImagePrefix = cleanStoragePrefix(options.BlogImagePrefix, "blog")
+	options.AssetFilePrefix = cleanStoragePrefix(options.AssetFilePrefix, "assets")
+	return Handler{queries: queries, signer: signer, options: options}
 }
 
 func (h Handler) RegisterAdminRoutes(router chi.Router) {
@@ -90,9 +115,14 @@ func (h Handler) createUploadURL(w http.ResponseWriter, r *http.Request) {
 	}
 	payload.Filename = strings.TrimSpace(payload.Filename)
 	payload.ContentType = strings.TrimSpace(payload.ContentType)
+	payload.Usage = normalizeUploadUsage(payload.Usage)
 	// 在生成 R2 预签名 URL 前先校验文件名、类型和大小，确保对象存储侧只接收允许的文件。
 	if err := ValidateUpload(payload.Filename, payload.ContentType, payload.ByteSize); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if payload.Usage == UploadUsageBlogImage && !strings.HasPrefix(payload.ContentType, "image/") {
+		writeError(w, http.StatusBadRequest, "文章图片只能上传图片类型")
 		return
 	}
 	userID, err := uuidFromString(user.UserID)
@@ -101,14 +131,15 @@ func (h Handler) createUploadURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	storageKey := storageKeyFor(payload.Filename)
+	storageKey := h.storageKeyFor(payload.Filename, payload.Usage)
+	publicURL := h.publicURLFor(storageKey, payload.Usage)
 	// 先写入资源元数据和 storage_key；文件本体随后由前端通过预签名 URL 直传到 R2。
 	asset, err := h.queries.CreateAsset(r.Context(), dbgen.CreateAssetParams{
 		Filename:    payload.Filename,
 		ContentType: payload.ContentType,
 		ByteSize:    int32(payload.ByteSize),
 		StorageKey:  storageKey,
-		PublicUrl:   pgtype.Text{},
+		PublicUrl:   nullableText(publicURL),
 		CreatedBy:   userID,
 	})
 	if err != nil {
@@ -210,9 +241,37 @@ func (h Handler) updateAssetStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, mapAsset(asset))
 }
 
-func storageKeyFor(filename string) string {
-	cleanName := path.Base(strings.ReplaceAll(filename, "\\", "/"))
-	return path.Join("assets", uuid.NewString(), cleanName)
+func (h Handler) storageKeyFor(filename string, usage string) string {
+	now := h.options.Now().UTC()
+	prefix := h.options.AssetFilePrefix
+	if usage == UploadUsageBlogImage {
+		prefix = h.options.BlogImagePrefix
+	}
+	extension := strings.ToLower(path.Ext(path.Base(strings.ReplaceAll(filename, "\\", "/"))))
+	return path.Join(prefix, fmt.Sprintf("%04d", now.Year()), fmt.Sprintf("%02d", int(now.Month())), uuid.NewString()+extension)
+}
+
+func (h Handler) publicURLFor(storageKey string, usage string) string {
+	if usage != UploadUsageBlogImage || h.options.PublicBaseURL == "" {
+		return ""
+	}
+	return h.options.PublicBaseURL + "/" + strings.TrimLeft(storageKey, "/")
+}
+
+func cleanStoragePrefix(value string, fallback string) string {
+	value = strings.Trim(strings.TrimSpace(value), "/")
+	if value == "" || value == "." {
+		return fallback
+	}
+	return value
+}
+
+func normalizeUploadUsage(value string) string {
+	value = strings.TrimSpace(value)
+	if value == UploadUsageBlogImage {
+		return UploadUsageBlogImage
+	}
+	return UploadUsageAssetFile
 }
 
 func uuidFromString(value string) (pgtype.UUID, error) {

@@ -100,6 +100,9 @@ S3_BUCKET=rendering-assets
 S3_ACCESS_KEY_ID=<r2-access-key-id>
 S3_SECRET_ACCESS_KEY=<r2-secret-access-key>
 S3_USE_PATH_STYLE=false
+S3_PUBLIC_BASE_URL=https://assets.rendering.me
+S3_BLOG_IMAGE_PREFIX=blog
+S3_ASSET_FILE_PREFIX=assets
 ```
 
 配置要求：
@@ -110,8 +113,10 @@ S3_USE_PATH_STYLE=false
 - `FRONTEND_ORIGINS` 使用生产访问域名；多个来源使用英文逗号分隔。
 - `VITE_API_BASE` 保持 `/api/v1`，让浏览器走同域 API 反代。
 - `S3_ENDPOINT` 使用 R2 S3 API 端点，不要填写 R2 公开访问自定义域名。
+- `S3_PUBLIC_BASE_URL` 使用图片公开访问域名，和 `S3_ENDPOINT` 分开配置；文章正文图片会使用该 URL。
 - `S3_REGION` 使用 `auto`。
 - `S3_USE_PATH_STYLE` 生产环境固定为 `false`，让 AWS SDK 使用 R2 需要的虚拟主机风格寻址。
+- `S3_BLOG_IMAGE_PREFIX` 和 `S3_ASSET_FILE_PREFIX` 分别控制文章图片和普通资源文件的对象 key 前缀。
 - `S3_ACCESS_KEY_ID` 和 `S3_SECRET_ACCESS_KEY` 使用 Cloudflare R2 专用访问密钥，权限限定到 `S3_BUCKET` 的对象读写。
 - R2 bucket 必须配置 CORS，允许生产前端来源对预签名 URL 发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
 
@@ -237,6 +242,7 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 - 审核评论后公开接口只返回已通过评论。
 - 上传允许类型文件后，对象进入 Cloudflare R2 bucket。
 - 预签名上传和下载 URL 指向 R2 S3 API 端点。
+- 在文章编辑器上传图片后，接口返回的 `publicUrl` 指向 `S3_PUBLIC_BASE_URL` 下的 `blog/YYYY/MM/<uuid>.<ext>`。
 - 下载链接可以生成，`download_events` 写入审计记录。
 - 后端日志持续写入，容器健康状态为 `healthy`。
 

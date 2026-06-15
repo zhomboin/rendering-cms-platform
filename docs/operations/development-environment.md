@@ -142,8 +142,13 @@ MVP 本地开发变量：
 
 ```env
 HTTP_ADDR=0.0.0.0:8080
+APP_ENV=development
 DATABASE_URL=postgres://rendering:rendering_dev_password@127.0.0.1:5432/rendering_cms?sslmode=disable
 JWT_SECRET=replace-with-32-plus-character-secret
+DEV_BOOTSTRAP_ADMIN=true
+DEV_ADMIN_EMAIL=admin@rendering.me
+DEV_ADMIN_NAME=Dev Admin
+DEV_ADMIN_PASSWORD=rendering_dev_password
 FRONTEND_ORIGIN=http://127.0.0.1:5173
 FRONTEND_ORIGINS=http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173
 VITE_API_BASE=http://127.0.0.1:8080/api/v1
@@ -155,6 +160,9 @@ S3_BUCKET=rendering-assets
 S3_ACCESS_KEY_ID=rendering
 S3_SECRET_ACCESS_KEY=rendering_dev_password
 S3_USE_PATH_STYLE=true
+S3_PUBLIC_BASE_URL=http://127.0.0.1:9000/rendering-assets
+S3_BLOG_IMAGE_PREFIX=blog
+S3_ASSET_FILE_PREFIX=assets
 
 POSTGRES_DB=rendering_cms
 POSTGRES_USER=rendering
@@ -167,6 +175,15 @@ MINIO_API_CORS_ALLOW_ORIGIN=http://127.0.0.1:3000,http://127.0.0.1:5173,http://l
 ```
 
 不要提交 `.env`。
+
+本地 dev 后端启动时会自动 upsert 默认后台管理员：
+
+```text
+账号：admin@rendering.me
+密码：rendering_dev_password
+```
+
+该逻辑仅用于本地开发。生产环境不要设置 `APP_ENV=development` 或 `DEV_BOOTSTRAP_ADMIN=true`。
 
 后端容器内的 `LOG_DIR` 通过 Docker bind mount 写入宿主机目录。本地默认目录为 `logs/backend`，位于项目目录下，已被 `.gitignore` 排除，不会提交到 Git。如需挂载到其他系统盘路径，可在启动脚本前导出 `BACKEND_LOG_HOST_DIR`：
 
@@ -193,6 +210,7 @@ FRONTEND_ORIGINS=http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:30
 VITE_API_BASE=http://127.0.0.1:8080/api/v1
 S3_ENDPOINT=http://127.0.0.1:9000
 S3_USE_PATH_STYLE=true
+S3_PUBLIC_BASE_URL=http://127.0.0.1:9000/rendering-assets
 MINIO_API_CORS_ALLOW_ORIGIN=http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173
 ```
 
@@ -201,7 +219,7 @@ MINIO_API_CORS_ALLOW_ORIGIN=http://127.0.0.1:3000,http://127.0.0.1:5173,http://l
 - `HTTP_ADDR`：后端仍应监听 `0.0.0.0:8080`。
 - `DATABASE_URL`：后端在 WSL 内连接 PostgreSQL，仍使用 `127.0.0.1:5432`。
 
-`FRONTEND_ORIGINS` 是后端 CORS 白名单，`MINIO_API_CORS_ALLOW_ORIGIN` 是 MinIO 直传对象存储的 CORS 白名单，多个地址都使用英文逗号分隔。`S3_USE_PATH_STYLE=true` 仅用于本地 MinIO；生产 Cloudflare R2 必须设置为 `false`。`FRONTEND_ORIGIN` 保留给旧配置兼容；如果同时设置两者，后端优先读取 `FRONTEND_ORIGINS`。
+`FRONTEND_ORIGINS` 是后端 CORS 白名单，`MINIO_API_CORS_ALLOW_ORIGIN` 是 MinIO 直传对象存储的 CORS 白名单，多个地址都使用英文逗号分隔。`S3_USE_PATH_STYLE=true` 仅用于本地 MinIO；生产 Cloudflare R2 必须设置为 `false`。`S3_PUBLIC_BASE_URL` 用于文章图片公开访问 URL，和上传用的 `S3_ENDPOINT` 分开配置。`FRONTEND_ORIGIN` 保留给旧配置兼容；如果同时设置两者，后端优先读取 `FRONTEND_ORIGINS`。
 
 `start-backend-docker.sh` 和 `start-frontend-docker.sh` 会在启动容器前自动执行该同步脚本。如果确实需要使用 WSL 真实 IP，执行启动脚本前先设置：
 

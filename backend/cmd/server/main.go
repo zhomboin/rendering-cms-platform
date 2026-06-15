@@ -34,6 +34,15 @@ func main() {
 	}
 	defer db.Close()
 
+	if err := auth.EnsureDevAdmin(context.Background(), db, auth.DevAdminConfig{
+		Enabled:  cfg.AppEnv == "development" || cfg.DevBootstrapAdmin,
+		Email:    cfg.DevAdminEmail,
+		Name:     cfg.DevAdminName,
+		Password: cfg.DevAdminPassword,
+	}); err != nil {
+		log.Fatalf("bootstrap dev admin: %v", err)
+	}
+
 	queries := dbgen.New(db)
 	storageClient, err := storage.NewS3Client(cfg.S3)
 	if err != nil {
@@ -43,7 +52,11 @@ func main() {
 	articleHandler := articles.NewHandler(queries)
 	analyticsHandler := analytics.NewHandler(queries)
 	commentHandler := comments.NewHandler(queries)
-	assetHandler := assets.NewHandler(queries, storageClient)
+	assetHandler := assets.NewHandlerWithOptions(queries, storageClient, assets.HandlerOptions{
+		PublicBaseURL:   cfg.S3.PublicBaseURL,
+		BlogImagePrefix: cfg.S3.BlogImagePrefix,
+		AssetFilePrefix: cfg.S3.AssetFilePrefix,
+	})
 
 	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
 	defer stopScheduler()

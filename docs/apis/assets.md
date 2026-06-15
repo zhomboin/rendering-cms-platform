@@ -62,7 +62,8 @@ Content-Type: application/json
 {
   "filename": "diagram.webp",
   "contentType": "image/webp",
-  "byteSize": 384000
+  "byteSize": 384000,
+  "usage": "blog-image"
 }
 ```
 
@@ -96,6 +97,9 @@ Content-Type: application/json
 - 客户端使用返回的 `uploadUrl` 和 `headers` 直接上传到对象存储。
 - 生产环境对象存储为 Cloudflare R2，`uploadUrl` 会指向 R2 S3 API 端点；前端无需感知具体供应商。
 - R2 bucket 必须配置 CORS，允许后台前端来源使用 `PUT` 并携带 `Content-Type`。
+- `usage` 可选，默认为 `asset-file`；文章编辑器上传正文图片时传 `blog-image`。
+- `blog-image` 会按 `S3_BLOG_IMAGE_PREFIX/YYYY/MM/<uuid>.<ext>` 生成对象 key，并返回 `publicUrl`。
+- 普通资源上传按 `S3_ASSET_FILE_PREFIX/YYYY/MM/<uuid>.<ext>` 生成对象 key，默认不返回公开 URL，通过下载预签名 URL 访问。
 
 ## 申请预签名下载 URL
 
