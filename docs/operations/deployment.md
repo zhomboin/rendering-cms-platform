@@ -140,6 +140,32 @@ S3_ASSET_FILE_PREFIX=assets
 - `S3_ACCESS_KEY_ID` 和 `S3_SECRET_ACCESS_KEY` 使用 Cloudflare R2 专用访问密钥，权限限定到 `S3_BUCKET` 的对象读写。
 - R2 bucket 必须配置 CORS，允许生产前端来源对预签名 URL 发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
 
+R2 bucket CORS JSON 示例：
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://cms.rendering.me"
+    ],
+    "AllowedMethods": [
+      "PUT",
+      "GET",
+      "HEAD"
+    ],
+    "AllowedHeaders": [
+      "Content-Type"
+    ],
+    "ExposeHeaders": [
+      "ETag"
+    ],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+如果后续生产前端新增域名，需要同步加入 `AllowedOrigins`，例如 `https://admin.example.com`。不要把 `https://rendering.me` 当作后台上传来源，除非实际上传页面运行在该域名下。
+
 ### R2 地址配置说明
 
 生产环境有两类 R2 地址，不要混用：

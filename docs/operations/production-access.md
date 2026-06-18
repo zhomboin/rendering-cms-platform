@@ -150,6 +150,32 @@ R2 bucket 必须配置 CORS，允许 `https://cms.rendering.me` 对预签名 URL
 `S3_PUBLIC_BASE_URL` 应配置为 R2 公开访问域名或自定义域名，用于文章正文图片 URL；不要把它和 `S3_ENDPOINT` 混用。
 文章正文图片对象 key 使用 `S3_BLOG_IMAGE_PREFIX/YYYY/MM/<uuid>.<ext>`，普通资源文件对象 key 使用 `S3_ASSET_FILE_PREFIX/YYYY/MM/<uuid>.<ext>`。
 
+推荐的 R2 bucket CORS JSON：
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://cms.rendering.me"
+    ],
+    "AllowedMethods": [
+      "PUT",
+      "GET",
+      "HEAD"
+    ],
+    "AllowedHeaders": [
+      "Content-Type"
+    ],
+    "ExposeHeaders": [
+      "ETag"
+    ],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+配置后重新上传文件。如果浏览器仍命中旧的预检缓存，等待缓存过期或打开无痕窗口重新验证。
+
 ## Nginx 访问与验证
 
 Nginx 没有后台登录入口。所有操作都通过 SSH 登录服务器后执行。
