@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "test:mdx-preview": "mkdir -p .tmp/mdx-preview-parser && rm -rf .tmp/mdx-preview-parser && tsc src/pages/articles/MdxPreviewParser.ts --target ES2022 --module NodeNext --moduleResolution NodeNext --outDir .tmp/mdx-preview-parser --skipLibCheck --strict && node scripts/test-mdx-preview-parser.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.7",

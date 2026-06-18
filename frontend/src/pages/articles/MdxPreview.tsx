@@ -1,5 +1,7 @@
 import { Button, Empty, Tooltip, Typography } from 'antd';
 import type { ReactNode } from 'react';
+import { parsePreviewBlocks } from './MdxPreviewParser';
+import type { PreviewBlock } from './MdxPreviewParser';
 
 const { Text } = Typography;
 
@@ -8,13 +10,6 @@ type MdxPreviewProps = {
   fillHeight?: boolean;
   onEnterFullscreen?: () => void;
 };
-
-type PreviewBlock =
-  | { type: 'heading'; level: 1 | 2 | 3; text: string }
-  | { type: 'paragraph'; text: string }
-  | { type: 'quote'; text: string }
-  | { type: 'list'; items: string[] }
-  | { type: 'code'; code: string };
 
 export function MdxPreview({ source, fillHeight = false, onEnterFullscreen }: MdxPreviewProps) {
   const blocks = parsePreviewBlocks(source);
@@ -74,92 +69,6 @@ function FullscreenIcon() {
   );
 }
 
-function parsePreviewBlocks(source: string): PreviewBlock[] {
-  const lines = source.replace(/\r\n/g, '\n').split('\n');
-  const blocks: PreviewBlock[] = [];
-  let paragraph: string[] = [];
-  let listItems: string[] = [];
-  let codeLines: string[] = [];
-  let inCode = false;
-
-  const flushParagraph = () => {
-    if (paragraph.length === 0) return;
-    blocks.push({ type: 'paragraph', text: paragraph.join(' ') });
-    paragraph = [];
-  };
-
-  const flushList = () => {
-    if (listItems.length === 0) return;
-    blocks.push({ type: 'list', items: listItems });
-    listItems = [];
-  };
-
-  for (const rawLine of lines) {
-    const line = rawLine.trimEnd();
-    const trimmed = line.trim();
-
-    if (trimmed.startsWith('```')) {
-      if (inCode) {
-        blocks.push({ type: 'code', code: codeLines.join('\n') });
-        codeLines = [];
-        inCode = false;
-      } else {
-        flushParagraph();
-        flushList();
-        inCode = true;
-      }
-      continue;
-    }
-
-    if (inCode) {
-      codeLines.push(line);
-      continue;
-    }
-
-    if (!trimmed) {
-      flushParagraph();
-      flushList();
-      continue;
-    }
-
-    const heading = /^(#{1,3})\s+(.+)$/.exec(trimmed);
-    if (heading) {
-      flushParagraph();
-      flushList();
-      blocks.push({
-        type: 'heading',
-        level: heading[1].length as 1 | 2 | 3,
-        text: heading[2],
-      });
-      continue;
-    }
-
-    const listItem = /^[-*]\s+(.+)$/.exec(trimmed);
-    if (listItem) {
-      flushParagraph();
-      listItems.push(listItem[1]);
-      continue;
-    }
-
-    if (trimmed.startsWith('>')) {
-      flushParagraph();
-      flushList();
-      blocks.push({ type: 'quote', text: trimmed.replace(/^>\s?/, '') });
-      continue;
-    }
-
-    paragraph.push(trimmed);
-  }
-
-  flushParagraph();
-  flushList();
-  if (codeLines.length > 0) {
-    blocks.push({ type: 'code', code: codeLines.join('\n') });
-  }
-
-  return blocks;
-}
-
 function renderBlock(block: PreviewBlock, index: number): ReactNode {
   if (block.type === 'heading') {
     const fontSize = block.level === 1 ? 24 : block.level === 2 ? 20 : 17;
@@ -197,6 +106,71 @@ function renderBlock(block: PreviewBlock, index: number): ReactNode {
     );
   }
 
+  if (block.type === 'table') {
+    return (
+      <div
+        key={index}
+        style={{
+          margin: '12px 0 18px',
+          overflowX: 'auto',
+          border: '1px solid #CBD5E1',
+          borderRadius: 8,
+        }}
+      >
+        <table
+          style={{
+            width: '100%',
+            minWidth: 420,
+            borderCollapse: 'collapse',
+            color: '#334155',
+            fontSize: 14,
+          }}
+        >
+          <thead>
+            <tr>
+              {block.headers.map((header, headerIndex) => (
+                <th
+                  key={`${index}-header-${headerIndex}`}
+                  style={{
+                    padding: '10px 12px',
+                    borderBottom: '1px solid #CBD5E1',
+                    background: '#F8FAFC',
+                    color: '#0F172A',
+                    fontWeight: 700,
+                    textAlign: 'left',
+                    verticalAlign: 'top',
+                  }}
+                >
+                  {renderInlineMarkdown(header)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {block.rows.map((row, rowIndex) => (
+              <tr key={`${index}-row-${rowIndex}`}>
+                {row.map((cell, cellIndex) => (
+                  <td
+                    key={`${index}-cell-${rowIndex}-${cellIndex}`}
+                    style={{
+                      padding: '10px 12px',
+                      borderTop: rowIndex === 0 ? 0 : '1px solid #E2E8F0',
+                      color: '#334155',
+                      verticalAlign: 'top',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {renderInlineMarkdown(cell)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   if (block.type === 'code') {
     return (
       <pre
@@ -204,7 +178,9 @@ function renderBlock(block: PreviewBlock, index: number): ReactNode {
         style={{
           margin: '12px 0 16px',
           padding: 16,
-          overflow: 'auto',
+          overflowX: 'auto',
+          whiteSpace: 'pre-wrap',
+          overflowWrap: 'anywhere',
           borderRadius: 8,
           background: '#0F172A',
           color: '#E2E8F0',
