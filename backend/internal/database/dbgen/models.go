@@ -200,6 +200,8 @@ type Article struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -219,6 +221,8 @@ type ArticleLog struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID

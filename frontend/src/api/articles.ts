@@ -9,6 +9,9 @@ export interface ArticleFormData {
   summary: string;
   tags: string[];
   bodyMdx: string;
+  featured: boolean;
+  featuredRank: number;
+  featuredAt: string | null;
   coverImageUrl: string;
 }
 
@@ -25,6 +28,8 @@ export interface AdminArticlePayload {
   bodyMdx: string;
   tags: string[];
   featured: boolean;
+  featuredRank: number;
+  featuredAt: string | null;
   coverImageUrl: string;
 }
 

@@ -20,10 +20,12 @@ insert into articles (
   body_mdx,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   author_id
 ) values (
-  $1, $2, $3, $4, $5, $6, $7, $8, $9
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
 returning
   article_id,
@@ -35,6 +37,8 @@ returning
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -52,6 +56,8 @@ type CreateDraftArticleParams struct {
 	BodyMdx       string
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	AuthorID      pgtype.UUID
 }
@@ -66,6 +72,8 @@ type CreateDraftArticleRow struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -84,6 +92,8 @@ func (q *Queries) CreateDraftArticle(ctx context.Context, arg CreateDraftArticle
 		arg.BodyMdx,
 		arg.Tags,
 		arg.Featured,
+		arg.FeaturedRank,
+		arg.FeaturedAt,
 		arg.CoverImageUrl,
 		arg.AuthorID,
 	)
@@ -98,6 +108,8 @@ func (q *Queries) CreateDraftArticle(ctx context.Context, arg CreateDraftArticle
 		&i.Status,
 		&i.Tags,
 		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
 		&i.CoverImageUrl,
 		&i.PublishedAt,
 		&i.AuthorID,
@@ -120,6 +132,8 @@ select
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -141,6 +155,8 @@ type GetArticleByArticleNameRow struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -163,6 +179,8 @@ func (q *Queries) GetArticleByArticleName(ctx context.Context, articleName strin
 		&i.Status,
 		&i.Tags,
 		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
 		&i.CoverImageUrl,
 		&i.PublishedAt,
 		&i.AuthorID,
@@ -185,6 +203,8 @@ select
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -206,6 +226,8 @@ type GetArticleByIDRow struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -228,6 +250,8 @@ func (q *Queries) GetArticleByID(ctx context.Context, articleID pgtype.UUID) (Ge
 		&i.Status,
 		&i.Tags,
 		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
 		&i.CoverImageUrl,
 		&i.PublishedAt,
 		&i.AuthorID,
@@ -250,6 +274,8 @@ select
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -271,6 +297,8 @@ type GetArticleBySlugRow struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -293,6 +321,8 @@ func (q *Queries) GetArticleBySlug(ctx context.Context, slug string) (GetArticle
 		&i.Status,
 		&i.Tags,
 		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
 		&i.CoverImageUrl,
 		&i.PublishedAt,
 		&i.AuthorID,
@@ -315,6 +345,8 @@ select
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -336,6 +368,8 @@ type ListAdminArticlesRow struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -364,6 +398,8 @@ func (q *Queries) ListAdminArticles(ctx context.Context) ([]ListAdminArticlesRow
 			&i.Status,
 			&i.Tags,
 			&i.Featured,
+			&i.FeaturedRank,
+			&i.FeaturedAt,
 			&i.CoverImageUrl,
 			&i.PublishedAt,
 			&i.AuthorID,
@@ -393,6 +429,8 @@ select
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -415,6 +453,8 @@ type ListPublishedArticlesRow struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -443,6 +483,8 @@ func (q *Queries) ListPublishedArticles(ctx context.Context) ([]ListPublishedArt
 			&i.Status,
 			&i.Tags,
 			&i.Featured,
+			&i.FeaturedRank,
+			&i.FeaturedAt,
 			&i.CoverImageUrl,
 			&i.PublishedAt,
 			&i.AuthorID,
@@ -478,6 +520,8 @@ returning
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -497,6 +541,8 @@ type PublishArticleRow struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -519,6 +565,8 @@ func (q *Queries) PublishArticle(ctx context.Context, articleID pgtype.UUID) (Pu
 		&i.Status,
 		&i.Tags,
 		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
 		&i.CoverImageUrl,
 		&i.PublishedAt,
 		&i.AuthorID,
@@ -540,7 +588,9 @@ set
   body_mdx = $6,
   tags = $7,
   featured = $8,
-  cover_image_url = $9,
+  featured_rank = $9,
+  featured_at = $10,
+  cover_image_url = $11,
   updated_at = now()
 where article_id = $1
 returning
@@ -553,6 +603,8 @@ returning
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -571,6 +623,8 @@ type UpdateDraftArticleParams struct {
 	BodyMdx       string
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 }
 
@@ -584,6 +638,8 @@ type UpdateDraftArticleRow struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -603,6 +659,8 @@ func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticle
 		arg.BodyMdx,
 		arg.Tags,
 		arg.Featured,
+		arg.FeaturedRank,
+		arg.FeaturedAt,
 		arg.CoverImageUrl,
 	)
 	var i UpdateDraftArticleRow
@@ -616,6 +674,8 @@ func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticle
 		&i.Status,
 		&i.Tags,
 		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
 		&i.CoverImageUrl,
 		&i.PublishedAt,
 		&i.AuthorID,
@@ -637,11 +697,13 @@ insert into articles (
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id
 ) values (
-  $1, $2, $3, $4, $5, 'published', $6, $7, $8, $9, $10
+  $1, $2, $3, $4, $5, 'published', $6, $7, $8, $9, $10, $11, $12
 )
 on conflict (slug)
 do update set
@@ -652,6 +714,8 @@ do update set
   status = 'published',
   tags = excluded.tags,
   featured = excluded.featured,
+  featured_rank = excluded.featured_rank,
+  featured_at = excluded.featured_at,
   cover_image_url = excluded.cover_image_url,
   published_at = excluded.published_at,
   author_id = excluded.author_id,
@@ -666,6 +730,8 @@ returning
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -683,6 +749,8 @@ type UpsertPublishedArticleFromImportParams struct {
 	BodyMdx       string
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -698,6 +766,8 @@ type UpsertPublishedArticleFromImportRow struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -716,6 +786,8 @@ func (q *Queries) UpsertPublishedArticleFromImport(ctx context.Context, arg Upse
 		arg.BodyMdx,
 		arg.Tags,
 		arg.Featured,
+		arg.FeaturedRank,
+		arg.FeaturedAt,
 		arg.CoverImageUrl,
 		arg.PublishedAt,
 		arg.AuthorID,
@@ -731,6 +803,8 @@ func (q *Queries) UpsertPublishedArticleFromImport(ctx context.Context, arg Upse
 		&i.Status,
 		&i.Tags,
 		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
 		&i.CoverImageUrl,
 		&i.PublishedAt,
 		&i.AuthorID,

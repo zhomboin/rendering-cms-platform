@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Upload } from 'antd';
+import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Upload, Switch, InputNumber } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd/es/upload/interface';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,6 +26,9 @@ const initialFormData: ArticleFormData = {
   summary: '',
   tags: [],
   bodyMdx: '',
+  featured: false,
+  featuredRank: 100,
+  featuredAt: null,
   coverImageUrl: '',
 };
 
@@ -64,7 +67,9 @@ function toPayload(values: ArticleFormData): AdminArticlePayload {
     summary: values.summary ?? '',
     bodyMdx: values.bodyMdx,
     tags: values.tags ?? [],
-    featured: false,
+    featured: values.featured ?? false,
+    featuredRank: values.featuredRank ?? 100,
+    featuredAt: values.featuredAt ?? null,
     coverImageUrl: values.coverImageUrl ?? '',
   };
 }
@@ -86,6 +91,9 @@ function normalizeFormData(values: Partial<ArticleFormData>): ArticleFormData {
     summary: values.summary ?? '',
     tags: Array.isArray(values.tags) ? values.tags : [],
     bodyMdx: values.bodyMdx ?? '',
+    featured: values.featured ?? false,
+    featuredRank: values.featuredRank ?? 100,
+    featuredAt: values.featuredAt ?? null,
     coverImageUrl: values.coverImageUrl ?? '',
   };
 }
@@ -97,6 +105,9 @@ function hasMeaningfulDraft(values: ArticleFormData) {
       || values.summary.trim()
       || values.bodyMdx.trim()
       || values.coverImageUrl.trim()
+      || values.featured
+      || values.featuredRank !== 100
+      || Boolean(values.featuredAt)
       || values.tags.length > 0,
   );
 }
@@ -186,6 +197,9 @@ export default function ArticleEditorPage() {
         summary: currentArticle.summary,
         tags: currentArticle.tags,
         bodyMdx: currentArticle.bodyMdx,
+        featured: currentArticle.featured ?? false,
+        featuredRank: currentArticle.featuredRank ?? 100,
+        featuredAt: currentArticle.featuredAt ?? null,
         coverImageUrl: currentArticle.coverImageUrl ?? '',
       };
       const draft = loadArticleDraft(draftKey);
@@ -527,6 +541,25 @@ export default function ArticleEditorPage() {
 
             <Form.Item name="tags" label="标签">
               <Select mode="tags" placeholder="输入标签后按回车添加" style={{ width: '100%' }} tokenSeparators={[',', '，']} />
+            </Form.Item>
+
+            <Space size={16} align="start" wrap style={{ width: '100%', marginBottom: 20 }}>
+              <Form.Item name="featured" label="首页精选" valuePropName="checked" style={{ marginBottom: 0 }}>
+                <Switch
+                  onChange={(checked) => {
+                    if (checked && !form.getFieldValue('featuredAt')) {
+                      form.setFieldsValue({ featuredAt: new Date().toISOString() });
+                    }
+                  }}
+                />
+              </Form.Item>
+
+              <Form.Item name="featuredRank" label="精选排序" style={{ marginBottom: 0 }}>
+                <InputNumber min={1} max={999} precision={0} style={{ width: 140 }} />
+              </Form.Item>
+            </Space>
+            <Form.Item name="featuredAt" hidden>
+              <Input />
             </Form.Item>
 
             {!writerFullscreen && renderEditorWorkspace(false)}

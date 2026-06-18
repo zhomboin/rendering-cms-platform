@@ -80,6 +80,7 @@ GET /api/v1/articles
 - 按发布时间倒序排列。
 - 使用返回字段 `slug` 生成详情页链接 `/blog/<slug>`。
 - 使用返回字段 `articleName` 展示或保留原英文名，不再用它拼接公开 URL。
+- 使用返回字段 `isFeatured`、`featuredRank`、`featuredAt` 拆分首页“精选文章”和“最近更新”；精选文章优先按 `featuredRank` 升序，最近更新按 `publishedAt` 倒序并排除已进入精选的文章。
 - 作为博客首页或文章列表的数据源。
 
 ### 文章详情页

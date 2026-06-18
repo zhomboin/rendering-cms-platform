@@ -10,6 +10,7 @@
 {
   "articleId": "uuid",
   "slug": "aB3dE9",
+  "canonicalSlug": "aB3dE9",
   "articleName": "my-article",
   "title": "文章标题",
   "summary": "文章摘要",
@@ -18,12 +19,14 @@
   "version": 1,
   "tags": ["Go", "React"],
   "featured": false,
+  "isFeatured": false,
+  "featuredRank": 100,
+  "featuredAt": null,
   "coverImageUrl": null,
   "publishedAt": null,
   "authorId": "uuid",
   "createdAt": "2026-04-30T00:00:00Z",
   "updatedAt": "2026-04-30T00:00:00Z",
-  "canonicalSlug": "aB3dE9",
   "resolvedBy": "slug"
 }
 ```
@@ -40,6 +43,13 @@
 ^[a-z0-9]+(?:-[a-z0-9]+)*$
 ```
 
+首页分区字段说明：
+
+- `isFeatured`：是否进入 Rendering 首页“精选文章”候选集合；与历史字段 `featured` 保持同值返回。
+- `featuredRank`：精选排序值，数字越小越靠前；未单独配置时默认为 `100`。
+- `featuredAt`：可选精选设置时间，未设置时返回 `null`。
+- `canonicalSlug`：实际 6 位短链码。文章列表和详情都返回该字段，Rendering 前台应优先使用它构造 `/blog/<canonicalSlug>`。
+
 ## Rendering 博客文章列表
 
 ```http
@@ -51,6 +61,8 @@ GET /api/v1/articles
 - 只返回 `published` 状态文章。
 - 按发布时间倒序排列。
 - 该接口由 Rendering 博客服务端或前台读取，CMS 前端自身不提供公开文章列表页面。
+- 返回 `isFeatured`、`featuredRank`、`featuredAt`，供 Rendering 首页拆分“精选文章”和“最近更新”。
+- 首页精选应优先取 `isFeatured=true`，按 `featuredRank` 升序排列；最近更新可按 `publishedAt` 倒序并排除已进入精选的文章。
 
 ## Rendering 博客文章详情
 
@@ -112,6 +124,8 @@ Content-Type: application/json
   "bodyMdx": "## 正文",
   "tags": ["Go"],
   "featured": false,
+  "featuredRank": 100,
+  "featuredAt": null,
   "coverImageUrl": ""
 }
 ```
@@ -121,6 +135,8 @@ Content-Type: application/json
 - 创建后默认状态为 `draft`。
 - 后端自动生成 6 位短链码并写入 `slug`，请求体中的 `slug` 字段会被忽略。
 - `articleName` 必填，用于保存用户命名的文章英文名。
+- `featuredRank` 可选，未传时默认为 `100`。
+- `featuredAt` 可选，必须使用 RFC3339 时间字符串；未传或为空时保存为空。
 - 创建草稿时 `version` 默认为 `1`。
 - 创建草稿成功后由数据库触发器自动写入 `article_logs`。
 
@@ -198,6 +214,9 @@ bash scripts/ops/import-mdx.sh \
 - `summary` 优先读取 `description`，其次读取 `summary`。
 - `published_at` 读取 `publishedAt`。
 - `tags` 读取 front matter 的 `tags` 列表。
+- `featured` 读取 front matter 的 `featured`。
+- `featuredRank` 读取 front matter 的 `featuredRank`，未配置时默认为 `100`。
+- `featuredAt` 读取 front matter 的 `featuredAt`，未配置时为空。
 - `draft: true` 的文章跳过导入。
 - 非草稿文章写入或更新为 `published` 状态。
 - 新导入文章的 `version` 默认为 `1`。

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -78,6 +79,8 @@ type ImportedPost struct {
 	Tags          []string
 	Draft         bool
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    time.Time
 	CoverImageURL string
 	PublishedAt   time.Time
 }
@@ -125,6 +128,8 @@ func (s DatabaseImportStore) UpsertPublishedArticle(ctx context.Context, post Im
 		BodyMdx:       post.BodyMDX,
 		Tags:          post.Tags,
 		Featured:      post.Featured,
+		FeaturedRank:  post.FeaturedRank,
+		FeaturedAt:    nullableTimestamptz(post.FeaturedAt),
 		CoverImageUrl: nullableText(post.CoverImageURL),
 		PublishedAt:   pgtype.Timestamptz{Time: post.PublishedAt, Valid: true},
 		AuthorID:      authorID,
@@ -228,6 +233,8 @@ func ParseMDXPost(path string) (ImportedPost, error) {
 		Tags:          metadata["tags"],
 		Draft:         parseBool(firstNonEmpty(metadata["draft"], []string{"false"})),
 		Featured:      parseBool(metadata["featured"]),
+		FeaturedRank:  parseInt32WithDefault(metadata["featuredRank"], 100),
+		FeaturedAt:    parseOptionalDate(metadata["featuredAt"]),
 		CoverImageURL: firstString(metadata["coverImageUrl"], metadata["coverImageURL"], metadata["cover"]),
 		PublishedAt:   publishedAt,
 	}
@@ -350,6 +357,26 @@ func parseBool(values []string) bool {
 	}
 }
 
+func parseInt32WithDefault(values []string, defaultValue int32) int32 {
+	raw := firstString(values)
+	if raw == "" {
+		return defaultValue
+	}
+	parsed, err := strconv.ParseInt(raw, 10, 32)
+	if err != nil {
+		return defaultValue
+	}
+	return int32(parsed)
+}
+
+func parseOptionalDate(values []string) time.Time {
+	parsed, err := parseDate(values)
+	if err != nil {
+		return time.Time{}
+	}
+	return parsed
+}
+
 func parseDate(value []string) (time.Time, error) {
 	raw := firstString(value)
 	if raw == "" {
@@ -376,4 +403,11 @@ func unquote(value string) string {
 
 func nullableText(value string) pgtype.Text {
 	return pgtype.Text{String: value, Valid: strings.TrimSpace(value) != ""}
+}
+
+func nullableTimestamptz(value time.Time) pgtype.Timestamptz {
+	if value.IsZero() {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: value, Valid: true}
 }

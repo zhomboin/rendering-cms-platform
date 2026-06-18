@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -29,6 +30,8 @@ type ArticlePayload struct {
 	BodyMdx       string   `json:"bodyMdx"`
 	Tags          []string `json:"tags"`
 	Featured      bool     `json:"featured"`
+	FeaturedRank  *int32   `json:"featuredRank"`
+	FeaturedAt    *string  `json:"featuredAt"`
 	CoverImageURL string   `json:"coverImageUrl"`
 }
 
@@ -159,6 +162,8 @@ func (h Handler) createDraftArticle(w http.ResponseWriter, r *http.Request) {
 			BodyMdx:       payload.BodyMdx,
 			Tags:          payload.Tags,
 			Featured:      payload.Featured,
+			FeaturedRank:  int32WithDefault(payload.FeaturedRank, 100),
+			FeaturedAt:    nullableTimestamptzFromString(payload.FeaturedAt),
 			CoverImageUrl: nullableText(payload.CoverImageURL),
 			AuthorID:      authorID,
 		})
@@ -216,6 +221,8 @@ func (h Handler) updateDraftArticle(w http.ResponseWriter, r *http.Request) {
 		BodyMdx:       payload.BodyMdx,
 		Tags:          payload.Tags,
 		Featured:      payload.Featured,
+		FeaturedRank:  int32WithDefault(payload.FeaturedRank, 100),
+		FeaturedAt:    nullableTimestamptzFromString(payload.FeaturedAt),
 		CoverImageUrl: nullableText(payload.CoverImageURL),
 	})
 	if err != nil {
@@ -298,6 +305,24 @@ func nullableText(value string) pgtype.Text {
 	return pgtype.Text{String: value, Valid: value != ""}
 }
 
+func int32WithDefault(value *int32, defaultValue int32) int32 {
+	if value == nil {
+		return defaultValue
+	}
+	return *value
+}
+
+func nullableTimestamptzFromString(value *string) pgtype.Timestamptz {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return pgtype.Timestamptz{}
+	}
+	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(*value))
+	if err != nil {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: parsed, Valid: true}
+}
+
 func mapArticles[T articleRow](articles []T) []map[string]interface{} {
 	response := make([]map[string]interface{}, 0, len(articles))
 	for _, article := range articles {
@@ -328,6 +353,8 @@ type articleView struct {
 	Status        dbgen.ArticleStatus
 	Tags          []string
 	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -341,6 +368,7 @@ func mapArticle[T articleRow](row T) map[string]interface{} {
 	return map[string]interface{}{
 		"articleId":     article.ArticleID.String(),
 		"slug":          article.Slug,
+		"canonicalSlug": article.Slug,
 		"articleName":   article.ArticleName,
 		"title":         article.Title,
 		"summary":       article.Summary,
@@ -349,6 +377,9 @@ func mapArticle[T articleRow](row T) map[string]interface{} {
 		"version":       article.Version,
 		"tags":          article.Tags,
 		"featured":      article.Featured,
+		"isFeatured":    article.Featured,
+		"featuredRank":  article.FeaturedRank,
+		"featuredAt":    timestamptzValue(article.FeaturedAt),
 		"coverImageUrl": textValue(article.CoverImageUrl),
 		"publishedAt":   timestamptzValue(article.PublishedAt),
 		"authorId":      article.AuthorID.String(),
@@ -364,6 +395,7 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
 			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
 			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
 			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
 			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
 			Version: article.Version,
@@ -373,6 +405,7 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
 			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
 			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
 			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
 			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
 			Version: article.Version,
@@ -382,6 +415,7 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
 			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
 			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
 			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
 			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
 			Version: article.Version,
@@ -391,6 +425,7 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
 			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
 			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
 			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
 			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
 			Version: article.Version,
@@ -400,6 +435,7 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
 			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
 			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
 			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
 			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
 			Version: article.Version,
@@ -409,6 +445,7 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
 			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
 			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
 			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
 			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
 			Version: article.Version,
@@ -418,6 +455,7 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
 			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
 			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
 			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
 			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
 			Version: article.Version,
@@ -427,6 +465,7 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
 			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
 			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
 			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
 			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
 			Version: article.Version,

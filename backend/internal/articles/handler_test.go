@@ -82,6 +82,62 @@ func TestSearchPublishedArticlesReturnsPublishedMatches(t *testing.T) {
 	}
 }
 
+func TestListPublishedArticlesReturnsHomeSectionFields(t *testing.T) {
+	publishedAt := pgtype.Timestamptz{Time: time.Date(2026, 6, 10, 8, 0, 0, 0, time.UTC), Valid: true}
+	featuredAt := pgtype.Timestamptz{Time: time.Date(2026, 6, 12, 8, 0, 0, 0, time.UTC), Valid: true}
+	store := &articleStoreStub{
+		publishedRows: []dbgen.ListPublishedArticlesRow{
+			{
+				ArticleID:    uuidForTest("11111111-1111-1111-1111-111111111111"),
+				Slug:         "aB3dE9",
+				ArticleName:  "redis-sentinel-with-docker",
+				Title:        "短链文章",
+				Summary:      "摘要",
+				BodyMdx:      "正文",
+				Status:       dbgen.ArticleStatusPublished,
+				Tags:         []string{"go"},
+				Featured:     true,
+				FeaturedRank: 10,
+				FeaturedAt:   featuredAt,
+				PublishedAt:  publishedAt,
+				AuthorID:     uuidForTest("22222222-2222-2222-2222-222222222222"),
+				Version:      1,
+			},
+		},
+	}
+	handler := NewHandler(store)
+	router := chi.NewRouter()
+	handler.RegisterPublicRoutes(router)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/articles", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var body []map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(body) != 1 {
+		t.Fatalf("article count = %d, want 1", len(body))
+	}
+	got := body[0]
+	if got["slug"] != "aB3dE9" || got["canonicalSlug"] != "aB3dE9" {
+		t.Fatalf("unexpected slug fields: %#v", got)
+	}
+	if got["isFeatured"] != true {
+		t.Fatalf("isFeatured = %#v, want true", got["isFeatured"])
+	}
+	if got["featuredRank"] != float64(10) {
+		t.Fatalf("featuredRank = %#v, want 10", got["featuredRank"])
+	}
+	if got["featuredAt"] == nil {
+		t.Fatalf("featuredAt should be present: %#v", got)
+	}
+}
+
 func TestCreateDraftArticleGeneratesShortSlugOnServer(t *testing.T) {
 	store := &articleStoreStub{}
 	handler := NewHandlerWithSlugGenerator(store, func() (string, error) {
@@ -197,6 +253,7 @@ func TestGetPublishedArticleFallsBackFromArticleNameToShortSlug(t *testing.T) {
 
 type articleStoreStub struct {
 	searchRows            []dbgen.SearchPublishedArticlesRow
+	publishedRows         []dbgen.ListPublishedArticlesRow
 	lastSearchQuery       string
 	lastArticleNameLookup string
 	createArgs            []dbgen.CreateDraftArticleParams
@@ -211,7 +268,7 @@ func (s *articleStoreStub) SearchPublishedArticles(ctx context.Context, query st
 }
 
 func (s *articleStoreStub) ListPublishedArticles(ctx context.Context) ([]dbgen.ListPublishedArticlesRow, error) {
-	return nil, nil
+	return s.publishedRows, nil
 }
 
 func (s *articleStoreStub) GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error) {

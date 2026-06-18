@@ -9,6 +9,8 @@ select
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -30,6 +32,8 @@ select
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -51,6 +55,8 @@ select
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -72,6 +78,8 @@ select
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -94,6 +102,8 @@ select
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -113,10 +123,12 @@ insert into articles (
   body_mdx,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   author_id
 ) values (
-  $1, $2, $3, $4, $5, $6, $7, $8, $9
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
 )
 returning
   article_id,
@@ -128,6 +140,8 @@ returning
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -146,7 +160,9 @@ set
   body_mdx = $6,
   tags = $7,
   featured = $8,
-  cover_image_url = $9,
+  featured_rank = $9,
+  featured_at = $10,
+  cover_image_url = $11,
   updated_at = now()
 where article_id = $1
 returning
@@ -159,6 +175,8 @@ returning
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -184,6 +202,8 @@ returning
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
@@ -202,11 +222,13 @@ insert into articles (
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id
 ) values (
-  $1, $2, $3, $4, $5, 'published', $6, $7, $8, $9, $10
+  $1, $2, $3, $4, $5, 'published', $6, $7, $8, $9, $10, $11, $12
 )
 on conflict (slug)
 do update set
@@ -217,6 +239,8 @@ do update set
   status = 'published',
   tags = excluded.tags,
   featured = excluded.featured,
+  featured_rank = excluded.featured_rank,
+  featured_at = excluded.featured_at,
   cover_image_url = excluded.cover_image_url,
   published_at = excluded.published_at,
   author_id = excluded.author_id,
@@ -231,6 +255,8 @@ returning
   status,
   tags,
   featured,
+  featured_rank,
+  featured_at,
   cover_image_url,
   published_at,
   author_id,
