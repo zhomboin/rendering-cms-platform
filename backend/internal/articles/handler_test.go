@@ -10,9 +10,12 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"rendering-cms-platform/backend/internal/auth"
 	"rendering-cms-platform/backend/internal/database/dbgen"
+	httpapi "rendering-cms-platform/backend/internal/http"
 )
 
 func TestSearchPublishedArticlesRequiresQuery(t *testing.T) {
@@ -79,9 +82,127 @@ func TestSearchPublishedArticlesReturnsPublishedMatches(t *testing.T) {
 	}
 }
 
+func TestCreateDraftArticleGeneratesShortSlugOnServer(t *testing.T) {
+	store := &articleStoreStub{}
+	handler := NewHandlerWithSlugGenerator(store, func() (string, error) {
+		return "aB3dE9", nil
+	})
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles", strings.NewReader(`{
+		"slug": "../user-named-slug",
+		"articleName": "redis-sentinel-with-docker",
+		"title": "短链文章",
+		"summary": "摘要",
+		"bodyMdx": "正文",
+		"tags": ["go"],
+		"featured": false,
+		"coverImageUrl": ""
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if len(store.createArgs) != 1 {
+		t.Fatalf("create calls = %d, want 1", len(store.createArgs))
+	}
+	if store.createArgs[0].Slug != "aB3dE9" {
+		t.Fatalf("created slug = %q, want generated short slug", store.createArgs[0].Slug)
+	}
+	if store.createArgs[0].ArticleName != "redis-sentinel-with-docker" {
+		t.Fatalf("created articleName = %q, want user English name", store.createArgs[0].ArticleName)
+	}
+	var body map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["slug"] != "aB3dE9" {
+		t.Fatalf("response slug = %q, want generated short slug", body["slug"])
+	}
+	if body["articleName"] != "redis-sentinel-with-docker" {
+		t.Fatalf("response articleName = %q, want user English name", body["articleName"])
+	}
+}
+
+func TestUpdateDraftArticlePreservesExistingShortSlug(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	store := &articleStoreStub{
+		getByIDArticle: articleByIDForTest(articleID, "Z9yX8w", "旧标题"),
+	}
+	handler := NewHandlerWithSlugGenerator(store, func() (string, error) {
+		return "aB3dE9", nil
+	})
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPatch, "/articles/11111111-1111-1111-1111-111111111111", strings.NewReader(`{
+		"slug": "abcdef",
+		"articleName": "updated-english-name",
+		"title": "更新标题",
+		"summary": "更新摘要",
+		"bodyMdx": "更新正文",
+		"tags": ["go"],
+		"featured": false,
+		"coverImageUrl": ""
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if len(store.updateArgs) != 1 {
+		t.Fatalf("update calls = %d, want 1", len(store.updateArgs))
+	}
+	if store.updateArgs[0].Slug != "Z9yX8w" {
+		t.Fatalf("updated slug = %q, want existing short slug", store.updateArgs[0].Slug)
+	}
+	if store.updateArgs[0].ArticleName != "updated-english-name" {
+		t.Fatalf("updated articleName = %q, want user English name", store.updateArgs[0].ArticleName)
+	}
+}
+
+func TestGetPublishedArticleFallsBackFromArticleNameToShortSlug(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	store := &articleStoreStub{
+		byArticleNameArticle: publishedArticleByNameForTest(articleID, "aB3dE9", "redis-sentinel-with-docker", "短链文章"),
+	}
+	handler := NewHandler(store)
+	router := chi.NewRouter()
+	handler.RegisterPublicRoutes(router)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/articles/redis-sentinel-with-docker", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if store.lastArticleNameLookup != "redis-sentinel-with-docker" {
+		t.Fatalf("articleName lookup = %q", store.lastArticleNameLookup)
+	}
+	var body map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["slug"] != "aB3dE9" || body["articleName"] != "redis-sentinel-with-docker" {
+		t.Fatalf("unexpected mapped article response: %#v", body)
+	}
+}
+
 type articleStoreStub struct {
-	searchRows      []dbgen.SearchPublishedArticlesRow
-	lastSearchQuery string
+	searchRows            []dbgen.SearchPublishedArticlesRow
+	lastSearchQuery       string
+	lastArticleNameLookup string
+	createArgs            []dbgen.CreateDraftArticleParams
+	updateArgs            []dbgen.UpdateDraftArticleParams
+	getByIDArticle        dbgen.GetArticleByIDRow
+	byArticleNameArticle  dbgen.GetArticleByArticleNameRow
 }
 
 func (s *articleStoreStub) SearchPublishedArticles(ctx context.Context, query string) ([]dbgen.SearchPublishedArticlesRow, error) {
@@ -89,28 +210,45 @@ func (s *articleStoreStub) SearchPublishedArticles(ctx context.Context, query st
 	return s.searchRows, nil
 }
 
-func (s *articleStoreStub) ListPublishedArticles(ctx context.Context) ([]dbgen.Article, error) {
+func (s *articleStoreStub) ListPublishedArticles(ctx context.Context) ([]dbgen.ListPublishedArticlesRow, error) {
 	return nil, nil
 }
 
-func (s *articleStoreStub) GetArticleBySlug(ctx context.Context, slug string) (dbgen.Article, error) {
-	return dbgen.Article{}, nil
+func (s *articleStoreStub) GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error) {
+	return dbgen.GetArticleBySlugRow{}, pgx.ErrNoRows
 }
 
-func (s *articleStoreStub) ListAdminArticles(ctx context.Context) ([]dbgen.Article, error) {
+func (s *articleStoreStub) GetArticleByArticleName(ctx context.Context, articleName string) (dbgen.GetArticleByArticleNameRow, error) {
+	s.lastArticleNameLookup = articleName
+	if s.byArticleNameArticle.ArticleID.Valid {
+		return s.byArticleNameArticle, nil
+	}
+	return dbgen.GetArticleByArticleNameRow{}, pgx.ErrNoRows
+}
+
+func (s *articleStoreStub) GetArticleByID(ctx context.Context, articleID pgtype.UUID) (dbgen.GetArticleByIDRow, error) {
+	if s.getByIDArticle.ArticleID.Valid {
+		return s.getByIDArticle, nil
+	}
+	return articleByIDForTest(articleID, "aB3dE9", "短链文章"), nil
+}
+
+func (s *articleStoreStub) ListAdminArticles(ctx context.Context) ([]dbgen.ListAdminArticlesRow, error) {
 	return nil, nil
 }
 
-func (s *articleStoreStub) CreateDraftArticle(ctx context.Context, arg dbgen.CreateDraftArticleParams) (dbgen.Article, error) {
-	return dbgen.Article{}, nil
+func (s *articleStoreStub) CreateDraftArticle(ctx context.Context, arg dbgen.CreateDraftArticleParams) (dbgen.CreateDraftArticleRow, error) {
+	s.createArgs = append(s.createArgs, arg)
+	return createArticleForTest(uuidForTest("11111111-1111-1111-1111-111111111111"), arg.Slug, arg.ArticleName, arg.Title), nil
 }
 
-func (s *articleStoreStub) UpdateDraftArticle(ctx context.Context, arg dbgen.UpdateDraftArticleParams) (dbgen.Article, error) {
-	return dbgen.Article{}, nil
+func (s *articleStoreStub) UpdateDraftArticle(ctx context.Context, arg dbgen.UpdateDraftArticleParams) (dbgen.UpdateDraftArticleRow, error) {
+	s.updateArgs = append(s.updateArgs, arg)
+	return updateArticleForTest(arg.ArticleID, arg.Slug, arg.ArticleName, arg.Title), nil
 }
 
-func (s *articleStoreStub) PublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.Article, error) {
-	return dbgen.Article{}, nil
+func (s *articleStoreStub) PublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.PublishArticleRow, error) {
+	return dbgen.PublishArticleRow{}, nil
 }
 
 func uuidForTest(value string) pgtype.UUID {
@@ -119,4 +257,81 @@ func uuidForTest(value string) pgtype.UUID {
 		panic(err)
 	}
 	return uuid
+}
+
+func articleByIDForTest(articleID pgtype.UUID, slug string, title string) dbgen.GetArticleByIDRow {
+	return dbgen.GetArticleByIDRow{
+		ArticleID:   articleID,
+		Slug:        slug,
+		ArticleName: "redis-sentinel-with-docker",
+		Title:       title,
+		Summary:     "摘要",
+		BodyMdx:     "正文",
+		Status:      dbgen.ArticleStatusDraft,
+		Tags:        []string{"go"},
+		AuthorID:    uuidForTest("22222222-2222-2222-2222-222222222222"),
+		Version:     1,
+	}
+}
+
+func createArticleForTest(articleID pgtype.UUID, slug string, articleName string, title string) dbgen.CreateDraftArticleRow {
+	return dbgen.CreateDraftArticleRow{
+		ArticleID:   articleID,
+		Slug:        slug,
+		ArticleName: articleName,
+		Title:       title,
+		Summary:     "摘要",
+		BodyMdx:     "正文",
+		Status:      dbgen.ArticleStatusDraft,
+		Tags:        []string{"go"},
+		AuthorID:    uuidForTest("22222222-2222-2222-2222-222222222222"),
+		Version:     1,
+	}
+}
+
+func updateArticleForTest(articleID pgtype.UUID, slug string, articleName string, title string) dbgen.UpdateDraftArticleRow {
+	return dbgen.UpdateDraftArticleRow{
+		ArticleID:   articleID,
+		Slug:        slug,
+		ArticleName: articleName,
+		Title:       title,
+		Summary:     "摘要",
+		BodyMdx:     "正文",
+		Status:      dbgen.ArticleStatusDraft,
+		Tags:        []string{"go"},
+		AuthorID:    uuidForTest("22222222-2222-2222-2222-222222222222"),
+		Version:     1,
+	}
+}
+
+func publishedArticleByNameForTest(articleID pgtype.UUID, slug string, articleName string, title string) dbgen.GetArticleByArticleNameRow {
+	return dbgen.GetArticleByArticleNameRow{
+		ArticleID:   articleID,
+		Slug:        slug,
+		ArticleName: articleName,
+		Title:       title,
+		Summary:     "摘要",
+		BodyMdx:     "正文",
+		Status:      dbgen.ArticleStatusPublished,
+		Tags:        []string{"go"},
+		AuthorID:    uuidForTest("22222222-2222-2222-2222-222222222222"),
+		Version:     1,
+	}
+}
+
+func authenticatedArticleRouter(t *testing.T, handler Handler) chi.Router {
+	t.Helper()
+	router := chi.NewRouter()
+	router.Use(httpapi.AdminAuthMiddleware("test-secret"))
+	handler.RegisterAdminRoutes(router)
+	return router
+}
+
+func adminToken(t *testing.T) string {
+	t.Helper()
+	token, err := auth.IssueToken("test-secret", "22222222-2222-2222-2222-222222222222", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return token
 }

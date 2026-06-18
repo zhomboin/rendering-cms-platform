@@ -15,7 +15,11 @@ select
   sqlc.arg(ip_hash),
   sqlc.narg(user_agent)
 from articles
-where slug = sqlc.arg(slug) and status = 'published'
+where (
+    (sqlc.arg(is_slug)::boolean and slug = sqlc.arg(slug))
+    or (not sqlc.arg(is_slug)::boolean and article_name = sqlc.arg(slug))
+  )
+  and status = 'published'
 returning
   comment_id,
   article_id,
@@ -68,7 +72,10 @@ select
   c.created_at
 from comments c
 join articles a on a.article_id = c.article_id
-where a.slug = $1
+where (
+    (sqlc.arg(is_slug)::boolean and a.slug = sqlc.arg(slug))
+    or (not sqlc.arg(is_slug)::boolean and a.article_name = sqlc.arg(slug))
+  )
   and a.status = 'published'
   and c.status = 'approved'
 order by c.created_at asc;

@@ -2,6 +2,7 @@
 select
   article_id,
   slug,
+  article_name,
   title,
   summary,
   published_at

@@ -45,10 +45,36 @@ func TestCreateCommentReturnsTooManyRequestsWhenIPHashIsOverLimit(t *testing.T) 
 	}
 }
 
+func TestCreateCommentMarksArticleNameIdentifierAsFallback(t *testing.T) {
+	store := &commentStoreStub{}
+	handler := NewHandler(store)
+	router := chi.NewRouter()
+	handler.RegisterPublicRoutes(router)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/articles/redis-sentinel-with-docker/comments", strings.NewReader(`{
+		"authorName": "Alice",
+		"body": "hello"
+	}`))
+	req.RemoteAddr = "192.0.2.10:12345"
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if !store.createCalled {
+		t.Fatal("CreateComment should be called")
+	}
+	if store.createArg.IsSlug {
+		t.Fatal("articleName identifier should not be marked as slug")
+	}
+	if store.createArg.Slug != "redis-sentinel-with-docker" {
+		t.Fatalf("identifier = %q", store.createArg.Slug)
+	}
+}
+
 type commentStoreStub struct {
 	recentCommentTimes []pgtype.Timestamptz
 	recentIPHashArg    string
 	createCalled       bool
+	createArg          dbgen.CreateCommentParams
 }
 
 func (s *commentStoreStub) ListRecentCommentTimesByIPHash(ctx context.Context, arg dbgen.ListRecentCommentTimesByIPHashParams) ([]pgtype.Timestamptz, error) {
@@ -58,10 +84,11 @@ func (s *commentStoreStub) ListRecentCommentTimesByIPHash(ctx context.Context, a
 
 func (s *commentStoreStub) CreateComment(ctx context.Context, arg dbgen.CreateCommentParams) (dbgen.Comment, error) {
 	s.createCalled = true
+	s.createArg = arg
 	return dbgen.Comment{}, nil
 }
 
-func (s *commentStoreStub) ListApprovedCommentsByArticleSlug(ctx context.Context, slug string) ([]dbgen.ListApprovedCommentsByArticleSlugRow, error) {
+func (s *commentStoreStub) ListApprovedCommentsByArticleSlug(ctx context.Context, arg dbgen.ListApprovedCommentsByArticleSlugParams) ([]dbgen.ListApprovedCommentsByArticleSlugRow, error) {
 	return nil, nil
 }
 

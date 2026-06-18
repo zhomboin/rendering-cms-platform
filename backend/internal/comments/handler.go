@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	articleutil "rendering-cms-platform/backend/internal/articles"
 	"rendering-cms-platform/backend/internal/database/dbgen"
 	httpapi "rendering-cms-platform/backend/internal/http"
 )
@@ -31,7 +32,7 @@ type ReviewCommentPayload struct {
 }
 
 type commentStore interface {
-	ListApprovedCommentsByArticleSlug(ctx context.Context, slug string) ([]dbgen.ListApprovedCommentsByArticleSlugRow, error)
+	ListApprovedCommentsByArticleSlug(ctx context.Context, arg dbgen.ListApprovedCommentsByArticleSlugParams) ([]dbgen.ListApprovedCommentsByArticleSlugRow, error)
 	ListRecentCommentTimesByIPHash(ctx context.Context, arg dbgen.ListRecentCommentTimesByIPHashParams) ([]pgtype.Timestamptz, error)
 	CreateComment(ctx context.Context, arg dbgen.CreateCommentParams) (dbgen.Comment, error)
 	ListAdminComments(ctx context.Context) ([]dbgen.ListAdminCommentsRow, error)
@@ -53,7 +54,11 @@ func (h Handler) RegisterAdminRoutes(router chi.Router) {
 }
 
 func (h Handler) listApprovedComments(w http.ResponseWriter, r *http.Request) {
-	comments, err := h.queries.ListApprovedCommentsByArticleSlug(r.Context(), chi.URLParam(r, "slug"))
+	identifier := chi.URLParam(r, "slug")
+	comments, err := h.queries.ListApprovedCommentsByArticleSlug(r.Context(), dbgen.ListApprovedCommentsByArticleSlugParams{
+		IsSlug: articleutil.ValidSlug(identifier),
+		Slug:   identifier,
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "评论列表读取失败")
 		return
@@ -93,6 +98,7 @@ func (h Handler) createComment(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.queries.CreateComment(r.Context(), dbgen.CreateCommentParams{
 		Slug:        chi.URLParam(r, "slug"),
+		IsSlug:      articleutil.ValidSlug(chi.URLParam(r, "slug")),
 		AuthorName:  comment.AuthorName,
 		AuthorEmail: nullableText(strings.TrimSpace(payload.AuthorEmail)),
 		Body:        comment.Body,

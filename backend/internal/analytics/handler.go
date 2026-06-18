@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	articleutil "rendering-cms-platform/backend/internal/articles"
 	"rendering-cms-platform/backend/internal/database/dbgen"
 )
 
@@ -20,7 +21,8 @@ type Handler struct {
 }
 
 type analyticsStore interface {
-	GetArticleBySlug(ctx context.Context, slug string) (dbgen.Article, error)
+	GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error)
+	GetArticleByArticleName(ctx context.Context, articleName string) (dbgen.GetArticleByArticleNameRow, error)
 	UpsertArticleViewDaily(ctx context.Context, arg dbgen.UpsertArticleViewDailyParams) error
 	UpsertSiteViewDaily(ctx context.Context, arg dbgen.UpsertSiteViewDailyParams) error
 	GetTodaySiteViews(ctx context.Context) (int32, error)
@@ -47,7 +49,7 @@ func (h Handler) RegisterAdminRoutes(router chi.Router) {
 }
 
 func (h Handler) recordArticleView(w http.ResponseWriter, r *http.Request) {
-	article, err := h.queries.GetArticleBySlug(r.Context(), chi.URLParam(r, "slug"))
+	articleID, err := h.resolveArticleID(r.Context(), chi.URLParam(r, "slug"))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "文章不存在")
@@ -59,7 +61,7 @@ func (h Handler) recordArticleView(w http.ResponseWriter, r *http.Request) {
 
 	today := pgtype.Date{Time: time.Now(), Valid: true}
 	if err := h.queries.UpsertArticleViewDaily(r.Context(), dbgen.UpsertArticleViewDailyParams{
-		ArticleID: article.ArticleID,
+		ArticleID: articleID,
 		ViewDate:  today,
 		Views:     1,
 	}); err != nil {
@@ -75,6 +77,21 @@ func (h Handler) recordArticleView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h Handler) resolveArticleID(ctx context.Context, identifier string) (pgtype.UUID, error) {
+	if articleutil.ValidSlug(identifier) {
+		article, err := h.queries.GetArticleBySlug(ctx, identifier)
+		if err != nil {
+			return pgtype.UUID{}, err
+		}
+		return article.ArticleID, nil
+	}
+	article, err := h.queries.GetArticleByArticleName(ctx, identifier)
+	if err != nil {
+		return pgtype.UUID{}, err
+	}
+	return article.ArticleID, nil
 }
 
 func (h Handler) recordSiteView(w http.ResponseWriter, r *http.Request) {

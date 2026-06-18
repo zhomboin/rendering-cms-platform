@@ -8,6 +8,7 @@ func mapSearchResults(articles []dbgen.SearchPublishedArticlesRow) []map[string]
 		response = append(response, map[string]interface{}{
 			"articleId":   article.ArticleID.String(),
 			"slug":        article.Slug,
+			"articleName": article.ArticleName,
 			"title":       article.Title,
 			"summary":     article.Summary,
 			"publishedAt": timestamptzValue(article.PublishedAt),

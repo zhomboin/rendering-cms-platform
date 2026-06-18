@@ -25,7 +25,7 @@
 {
   "commentId": "uuid",
   "articleId": "uuid",
-  "articleSlug": "my-article",
+  "articleSlug": "aB3dE9",
   "articleTitle": "文章标题",
   "authorName": "访客昵称",
   "authorEmail": null,
@@ -53,6 +53,8 @@ GET /api/v1/articles/{slug}/comments
 
 - 只返回所属文章的 `approved` 评论。
 - 文章必须是 `published` 状态。
+- `{slug}` 是 CMS 返回的 6 位短链码，格式为 `^[0-9A-Za-z]{6}$`。
+- 兼容期内，如果 `{slug}` 不是 6 位短链码，后端会按 `articleName` 解析到对应文章。
 
 ## 提交评论
 
@@ -75,6 +77,8 @@ Content-Type: application/json
 
 - `authorName` 和 `body` 必填。
 - 新评论默认进入 `pending` 状态。
+- `{slug}` 是 CMS 返回的 6 位短链码。
+- 兼容期内支持传入 `articleName`，但 Rendering 博客正式实现应使用短链 `slug`。
 - 后端从请求上下文派生 IP 哈希，只保存哈希值。
 - 未发布或不存在的文章返回 `404`。
 - 同一 IP 哈希 1 分钟内最多提交 3 条评论，超限时返回 `429 Too Many Requests`。

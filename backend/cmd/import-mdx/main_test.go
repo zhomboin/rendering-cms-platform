@@ -38,8 +38,11 @@ Content here.
 		t.Fatal(err)
 	}
 
-	if post.Slug != "redis-sentinel-with-docker" {
-		t.Fatalf("Slug = %q", post.Slug)
+	if !isShortSlugForTest(post.Slug) {
+		t.Fatalf("Slug = %q, want six Base62 characters", post.Slug)
+	}
+	if post.ArticleName != "redis-sentinel-with-docker" {
+		t.Fatalf("ArticleName = %q", post.ArticleName)
 	}
 	if post.Title != "Redis Sentinel with Docker" {
 		t.Fatalf("Title = %q", post.Title)
@@ -119,8 +122,11 @@ func TestImportPostsSkipsDraftsAndUpsertsPublishedArticles(t *testing.T) {
 	if result.Imported != 1 || result.SkippedDrafts != 1 {
 		t.Fatalf("result = %#v", result)
 	}
-	if len(store.upserts) != 1 || store.upserts[0].Slug != "published-post" {
+	if len(store.upserts) != 1 || !isShortSlugForTest(store.upserts[0].Slug) {
 		t.Fatalf("upserts = %#v", store.upserts)
+	}
+	if store.upserts[0].ArticleName != "published-post" {
+		t.Fatalf("ArticleName = %q, want original imported slug", store.upserts[0].ArticleName)
 	}
 }
 
@@ -137,4 +143,23 @@ func (s *recordingStore) ResolveImportAuthor(ctx context.Context, email string) 
 func (s *recordingStore) UpsertPublishedArticle(ctx context.Context, post ImportedPost, authorID pgtype.UUID) (pgtype.UUID, error) {
 	s.upserts = append(s.upserts, post)
 	return s.articleID, nil
+}
+
+func isShortSlugForTest(value string) bool {
+	if len(value) != 6 {
+		return false
+	}
+	for _, char := range value {
+		if char >= '0' && char <= '9' {
+			continue
+		}
+		if char >= 'a' && char <= 'z' {
+			continue
+		}
+		if char >= 'A' && char <= 'Z' {
+			continue
+		}
+		return false
+	}
+	return true
 }

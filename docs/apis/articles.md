@@ -9,7 +9,8 @@
 ```json
 {
   "articleId": "uuid",
-  "slug": "my-article",
+  "slug": "aB3dE9",
+  "articleName": "my-article",
   "title": "文章标题",
   "summary": "文章摘要",
   "bodyMdx": "## MDX 正文",
@@ -21,11 +22,19 @@
   "publishedAt": null,
   "authorId": "uuid",
   "createdAt": "2026-04-30T00:00:00Z",
-  "updatedAt": "2026-04-30T00:00:00Z"
+  "updatedAt": "2026-04-30T00:00:00Z",
+  "canonicalSlug": "aB3dE9",
+  "resolvedBy": "slug"
 }
 ```
 
-`slug` 格式必须满足：
+`slug` 是系统生成的 6 位短链码，不由用户输入。格式必须满足：
+
+```text
+^[0-9A-Za-z]{6}$
+```
+
+`articleName` 是用户输入或导入工具保留的文章英文名，用于后台识别和旧内容对照，不作为公开访问地址。格式必须满足：
 
 ```text
 ^[a-z0-9]+(?:-[a-z0-9]+)*$
@@ -54,6 +63,10 @@ GET /api/v1/articles/{slug}
 - 只返回 `published` 状态文章。
 - 未发布或不存在时返回 `404`。
 - 该接口用于 Rendering 博客的 `/blog/<slug>` 页面渲染。
+- `{slug}` 必须使用 CMS 返回的 6 位短链码。
+- 兼容期内，如果 `{slug}` 不是 6 位短链码，后端会尝试按 `articleName` 查找并返回对应文章。
+- 响应中的 `canonicalSlug` 永远是实际短链；`resolvedBy` 取值为 `slug` 或 `articleName`。
+- Rendering 博客如果收到 `resolvedBy: "articleName"`，必须把浏览器地址重定向或替换为 `/blog/<canonicalSlug>`。
 
 ## Rendering 博客文章搜索
 
@@ -66,7 +79,7 @@ GET /api/v1/articles/search?q=keyword
 - 基于 PostgreSQL full text search 搜索已发布文章。
 - 搜索范围包含标题、摘要和 MDX 正文。
 - 搜索关键词为空时返回 `400`。
-- 返回字段包含 `articleId`、`slug`、`title`、`summary` 和 `publishedAt`，不返回完整 `bodyMdx`。
+- 返回字段包含 `articleId`、`slug`、`articleName`、`title`、`summary` 和 `publishedAt`，不返回完整 `bodyMdx`。
 - 搜索排序优先使用 `ts_rank` 相关度，其次按发布时间倒序排列。
 
 ## 后台文章列表
@@ -93,7 +106,7 @@ Content-Type: application/json
 
 ```json
 {
-  "slug": "my-article",
+  "articleName": "my-article",
   "title": "文章标题",
   "summary": "文章摘要",
   "bodyMdx": "## 正文",
@@ -106,6 +119,8 @@ Content-Type: application/json
 说明：
 
 - 创建后默认状态为 `draft`。
+- 后端自动生成 6 位短链码并写入 `slug`，请求体中的 `slug` 字段会被忽略。
+- `articleName` 必填，用于保存用户命名的文章英文名。
 - 创建草稿时 `version` 默认为 `1`。
 - 创建草稿成功后由数据库触发器自动写入 `article_logs`。
 
@@ -117,10 +132,12 @@ Authorization: Bearer <jwt-token>
 Content-Type: application/json
 ```
 
-请求体同创建草稿。
+请求体同创建草稿，不需要传入 `slug`。
 
 说明：
 
+- 更新草稿不会修改已有短链码。
+- 更新草稿可以修改 `articleName`。
 - 更新成功后 `articles.version` 自动加 `1`。
 - 更新成功后由数据库触发器自动写入 `article_logs`。
 
@@ -171,11 +188,12 @@ bash scripts/ops/import-mdx.sh \
 - `-source`：必填，Rendering 静态博客 `content/posts` 目录。
 - `-database-url`：PostgreSQL 连接字符串；未传时读取 `DATABASE_URL`。
 - `-author-email`：可选，指定导入文章的作者邮箱；未传时使用第一个 `admin` 或 `editor` 用户。
-- `-dry-run`：只解析并输出文章状态、slug 和标题，不写数据库。
+- `-dry-run`：只解析并输出文章状态、短链码和标题，不写数据库。
 
 导入规则：
 
-- `slug` 使用 MDX 文件名。
+- `slug` 使用 MDX 文件名稳定派生出的 6 位短链码，不直接使用文件名作为访问地址。
+- `articleName` 使用 MDX 文件名，保留历史文章的英文名。
 - `title` 读取 front matter 的 `title`。
 - `summary` 优先读取 `description`，其次读取 `summary`。
 - `published_at` 读取 `publishedAt`。

@@ -9,10 +9,40 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"rendering-cms-platform/backend/internal/database/dbgen"
 )
+
+func TestRecordArticleViewFallsBackFromArticleNameToShortSlugMapping(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	store := &analyticsStoreStub{
+		byArticleNameArticle: dbgen.GetArticleByArticleNameRow{
+			ArticleID:   articleID,
+			Slug:        "aB3dE9",
+			ArticleName: "redis-sentinel-with-docker",
+			Status:      dbgen.ArticleStatusPublished,
+		},
+	}
+	handler := NewHandler(store)
+	router := chi.NewRouter()
+	handler.RegisterPublicRoutes(router)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/articles/redis-sentinel-with-docker/views", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+	if store.lastArticleNameLookup != "redis-sentinel-with-docker" {
+		t.Fatalf("articleName lookup = %q", store.lastArticleNameLookup)
+	}
+	if store.lastArticleViewID != articleID {
+		t.Fatalf("article view id = %v, want mapped article id", store.lastArticleViewID)
+	}
+}
 
 func TestTrendReturnsSiteAndArticleTrend(t *testing.T) {
 	store := &analyticsStoreStub{
@@ -58,13 +88,17 @@ func TestTrendReturnsSiteAndArticleTrend(t *testing.T) {
 }
 
 type analyticsStoreStub struct {
-	siteTrendRows        []dbgen.ListSiteViewTrendRow
-	articleTrendRows     []dbgen.ListArticleViewTrendRow
-	lastSiteTrendDays    int32
-	lastArticleTrendDays int32
+	siteTrendRows         []dbgen.ListSiteViewTrendRow
+	articleTrendRows      []dbgen.ListArticleViewTrendRow
+	byArticleNameArticle  dbgen.GetArticleByArticleNameRow
+	lastArticleNameLookup string
+	lastArticleViewID     pgtype.UUID
+	lastSiteTrendDays     int32
+	lastArticleTrendDays  int32
 }
 
 func (s *analyticsStoreStub) UpsertArticleViewDaily(ctx context.Context, arg dbgen.UpsertArticleViewDailyParams) error {
+	s.lastArticleViewID = arg.ArticleID
 	return nil
 }
 
@@ -72,8 +106,16 @@ func (s *analyticsStoreStub) UpsertSiteViewDaily(ctx context.Context, arg dbgen.
 	return nil
 }
 
-func (s *analyticsStoreStub) GetArticleBySlug(ctx context.Context, slug string) (dbgen.Article, error) {
-	return dbgen.Article{}, nil
+func (s *analyticsStoreStub) GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error) {
+	return dbgen.GetArticleBySlugRow{}, pgx.ErrNoRows
+}
+
+func (s *analyticsStoreStub) GetArticleByArticleName(ctx context.Context, articleName string) (dbgen.GetArticleByArticleNameRow, error) {
+	s.lastArticleNameLookup = articleName
+	if s.byArticleNameArticle.ArticleID.Valid {
+		return s.byArticleNameArticle, nil
+	}
+	return dbgen.GetArticleByArticleNameRow{}, pgx.ErrNoRows
 }
 
 func (s *analyticsStoreStub) GetTodaySiteViews(ctx context.Context) (int32, error) {
@@ -100,4 +142,12 @@ func (s *analyticsStoreStub) ListSiteViewTrend(ctx context.Context, days int32) 
 func (s *analyticsStoreStub) ListArticleViewTrend(ctx context.Context, days int32) ([]dbgen.ListArticleViewTrendRow, error) {
 	s.lastArticleTrendDays = days
 	return s.articleTrendRows, nil
+}
+
+func uuidForTest(value string) pgtype.UUID {
+	var uuid pgtype.UUID
+	if err := uuid.Scan(value); err != nil {
+		panic(err)
+	}
+	return uuid
 }

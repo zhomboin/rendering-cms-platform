@@ -11,11 +11,14 @@ POST /api/v1/articles/{slug}/views
 说明：
 
 - 公开接口。
+- `{slug}` 是 CMS 返回的 6 位短链码，格式为 `^[0-9A-Za-z]{6}$`。
+- 兼容期内，如果 `{slug}` 不是 6 位短链码，后端会按 `articleName` 解析到对应文章后写入同一篇文章的访问量。
+- Rendering 博客正式实现必须使用短链 `slug` 上报，不应长期使用 `articleName`。
 - 仅对已发布文章写入访问统计。
 - 每次调用使 `article_view_daily` 中当日文章访问量加 `1`。
 - 同时使 `site_view_daily` 中当日站点访问量加 `1`。
 - `article_view_daily` 只保存当天实时计数，历史日期统计应在每日归档后进入 `article_view_history`。
-- Rendering 静态博客文章详情页接入时，必须先确保 CMS `articles` 表中存在相同 `slug` 的已发布文章。
+- Rendering 静态博客文章详情页接入时，必须使用 CMS 返回的短链码上报文章访问。
 
 成功响应：
 
@@ -80,7 +83,7 @@ Authorization: Bearer <jwt-token>
   "hotArticles": [
     {
       "rank": 1,
-      "slug": "hello-world",
+      "slug": "aB3dE9",
       "title": "Hello World",
       "views": 42
     }
@@ -112,7 +115,7 @@ Authorization: Bearer <jwt-token>
   "days": 7,
   "articles": [
     {
-      "slug": "hello-world",
+      "slug": "aB3dE9",
       "title": "Hello World",
       "todayViews": 12,
       "periodViews": 86,
@@ -151,7 +154,7 @@ Authorization: Bearer <jwt-token>
   "articles": [
     {
       "date": "2026-05-12",
-      "slug": "hello-world",
+      "slug": "aB3dE9",
       "title": "Hello World",
       "views": 12
     }

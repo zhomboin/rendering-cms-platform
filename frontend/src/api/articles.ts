@@ -5,6 +5,7 @@ export type ArticleStatus = 'draft' | 'published' | 'archived';
 export interface ArticleFormData {
   title: string;
   slug: string;
+  articleName: string;
   summary: string;
   tags: string[];
   bodyMdx: string;
@@ -18,7 +19,7 @@ export interface AdminArticleRecord extends ArticleFormData {
 }
 
 export interface AdminArticlePayload {
-  slug: string;
+  articleName: string;
   title: string;
   summary: string;
   bodyMdx: string;

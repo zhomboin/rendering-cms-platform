@@ -6,7 +6,7 @@
 
 - Rendering 静态博客继续负责公开站点渲染和内容访问。
 - Rendering CMS Platform 负责访问事件接收、PostgreSQL 聚合写入和后台统计展示。
-- 每篇文章按 `slug` 统计每日访问量。
+- 每篇文章按 CMS 6 位短链码 `slug` 统计每日访问量。
 - 整个 Rendering 博客按日期统计站点总访问量。
 - 统计上报失败不得影响静态博客页面访问。
 
@@ -65,6 +65,8 @@ Rendering 静态博客文章 URL 使用：
 
 CMS 统计接口按 `slug` 关联文章。因此，在 Rendering 静态博客开始上报文章访问前，必须先确保 CMS 数据库中存在相同 `slug` 的已发布文章记录。
 
+短链改造后，这里的 `<slug>` 必须是 CMS 返回的 6 位短链码，不再是旧 MDX 文件名。旧 MDX 文件名保存在 CMS `articleName` 字段中。兼容期内 CMS 可以识别 `articleName` 上报并映射到同一篇文章，但 Rendering 正式实现必须使用短链上报，避免浏览器地址和统计标识不一致。
+
 第一阶段通过 MDX 导入工具完成这件事：
 
 ```bash
@@ -84,7 +86,8 @@ bash scripts/ops/import-mdx.sh \
 
 导入工具需要把 Rendering 静态博客中的 `content/posts/*.mdx` 导入 CMS `articles` 表，并保证：
 
-- `slug` 与 MDX 文件名一致。
+- `slug` 是由 MDX 文件名稳定派生出的 6 位短链码。
+- `article_name` 保留 MDX 文件名。
 - `title`、`summary`、`tags`、`body_mdx` 来自 MDX front matter 和正文。
 - `status` 设置为 `published`。
 - `published_at` 使用原文章发布时间。
@@ -112,7 +115,7 @@ bash scripts/ops/import-mdx.sh \
 文章详情访问流程：
 
 ```text
-访客打开 Rendering /blog/<slug>
+访客打开 Rendering /blog/<slug>，slug 为 CMS 短链码
   -> Rendering 客户端 Tracker 静默上报
   -> POST /api/v1/articles/<slug>/views
   -> CMS 校验文章存在且已发布
@@ -391,7 +394,7 @@ referrer_view_daily(referrer_host, view_date, views)
 
 ### 阶段 1：打通文章统计
 
-- 完成 MDX 导入工具，使 Rendering 文章 slug 进入 CMS `articles` 表。
+- 完成 MDX 导入工具，使 Rendering 文章文件名进入 CMS `article_name`，并生成短链 `slug`。
 - 在 Rendering 文章详情页加入文章访问 Tracker。
 - 验证访问 `/blog/<slug>` 后，CMS `article_view_daily` 和 `site_view_daily` 同步增加。
 - 验证每日归档任务可把历史日期 daily 数据写入 `article_view_history` 和 `site_view_history`，并清理对应 daily 记录。
@@ -478,7 +481,7 @@ limit 20;
 
 ## 风险与处理
 
-- CMS 中缺少文章 slug：文章访问接口会返回 `404`，需要先跑 MDX 导入。
+- CMS 中缺少文章短链 slug：文章访问接口会返回 `404`，需要先跑 MDX 导入并确认 Rendering 使用 CMS 返回的短链。
 - CORS 配置不正确：浏览器上报会失败，生产推荐走同域反向代理。
 - 文章详情页重复上报：需要确保文章页只调用文章访问接口。
 - 机器人访问导致数据偏高：第一阶段接受该偏差，后续再加 user-agent 过滤或限频。

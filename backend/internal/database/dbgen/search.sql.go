@@ -15,6 +15,7 @@ const searchPublishedArticles = `-- name: SearchPublishedArticles :many
 select
   article_id,
   slug,
+  article_name,
   title,
   summary,
   published_at
@@ -27,6 +28,7 @@ order by ts_rank(search_vector, plainto_tsquery('simple', $1)) desc, published_a
 type SearchPublishedArticlesRow struct {
 	ArticleID   pgtype.UUID
 	Slug        string
+	ArticleName string
 	Title       string
 	Summary     string
 	PublishedAt pgtype.Timestamptz
@@ -44,6 +46,7 @@ func (q *Queries) SearchPublishedArticles(ctx context.Context, query string) ([]
 		if err := rows.Scan(
 			&i.ArticleID,
 			&i.Slug,
+			&i.ArticleName,
 			&i.Title,
 			&i.Summary,
 			&i.PublishedAt,

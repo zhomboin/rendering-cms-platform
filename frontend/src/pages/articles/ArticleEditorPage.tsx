@@ -22,6 +22,7 @@ const { TextArea } = Input;
 const initialFormData: ArticleFormData = {
   title: '',
   slug: '',
+  articleName: '',
   summary: '',
   tags: [],
   bodyMdx: '',
@@ -58,7 +59,7 @@ const markdownActions: MarkdownAction[] = [
 
 function toPayload(values: ArticleFormData): AdminArticlePayload {
   return {
-    slug: values.slug,
+    articleName: values.articleName,
     title: values.title,
     summary: values.summary ?? '',
     bodyMdx: values.bodyMdx,
@@ -81,6 +82,7 @@ function normalizeFormData(values: Partial<ArticleFormData>): ArticleFormData {
   return {
     title: values.title ?? '',
     slug: values.slug ?? '',
+    articleName: values.articleName ?? '',
     summary: values.summary ?? '',
     tags: Array.isArray(values.tags) ? values.tags : [],
     bodyMdx: values.bodyMdx ?? '',
@@ -91,7 +93,7 @@ function normalizeFormData(values: Partial<ArticleFormData>): ArticleFormData {
 function hasMeaningfulDraft(values: ArticleFormData) {
   return Boolean(
     values.title.trim()
-      || values.slug.trim()
+      || values.articleName.trim()
       || values.summary.trim()
       || values.bodyMdx.trim()
       || values.coverImageUrl.trim()
@@ -180,6 +182,7 @@ export default function ArticleEditorPage() {
       const articleValues = {
         title: currentArticle.title,
         slug: currentArticle.slug,
+        articleName: currentArticle.articleName,
         summary: currentArticle.summary,
         tags: currentArticle.tags,
         bodyMdx: currentArticle.bodyMdx,
@@ -189,6 +192,7 @@ export default function ArticleEditorPage() {
       form.setFieldsValue({
         ...articleValues,
         ...(draft?.values ?? {}),
+        slug: articleValues.slug,
       });
       if (draft) setRestoredDraftAt(draft.updatedAt);
     }
@@ -501,13 +505,20 @@ export default function ArticleEditorPage() {
 
             <Form.Item
               name="slug"
-              label="Slug"
+              label="短链"
+            >
+              <Input prefix="/articles/" placeholder="保存后生成" size="large" disabled />
+            </Form.Item>
+
+            <Form.Item
+              name="articleName"
+              label="英文名"
               rules={[
-                { required: true, message: '请输入 URL Slug' },
-                { pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/, message: 'Slug 只能使用小写字母、数字和中划线' },
+                { required: true, message: '请输入文章英文名' },
+                { pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/, message: '英文名只能使用小写字母、数字和中划线' },
               ]}
             >
-              <Input prefix="/articles/" placeholder="my-article-slug" size="large" />
+              <Input placeholder="my-article-name" size="large" />
             </Form.Item>
 
             <Form.Item name="summary" label="摘要">

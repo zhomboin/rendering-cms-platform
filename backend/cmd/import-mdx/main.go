@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"rendering-cms-platform/backend/internal/articles"
 	"rendering-cms-platform/backend/internal/database"
 	"rendering-cms-platform/backend/internal/database/dbgen"
 )
@@ -70,6 +71,7 @@ func main() {
 
 type ImportedPost struct {
 	Slug          string
+	ArticleName   string
 	Title         string
 	Summary       string
 	BodyMDX       string
@@ -117,6 +119,7 @@ func (s DatabaseImportStore) ResolveImportAuthor(ctx context.Context, email stri
 func (s DatabaseImportStore) UpsertPublishedArticle(ctx context.Context, post ImportedPost, authorID pgtype.UUID) (pgtype.UUID, error) {
 	article, err := s.queries.UpsertPublishedArticleFromImport(ctx, dbgen.UpsertPublishedArticleFromImportParams{
 		Slug:          post.Slug,
+		ArticleName:   post.ArticleName,
 		Title:         post.Title,
 		Summary:       post.Summary,
 		BodyMdx:       post.BodyMDX,
@@ -144,6 +147,11 @@ func ImportPosts(ctx context.Context, store ImportStore, posts []ImportedPost, a
 			result.SkippedDrafts++
 			continue
 		}
+		originalSlug := post.Slug
+		post.Slug = normalizeImportedSlug(post.Slug)
+		if strings.TrimSpace(post.ArticleName) == "" {
+			post.ArticleName = originalSlug
+		}
 
 		_, err := store.UpsertPublishedArticle(ctx, post, authorID)
 		if err != nil {
@@ -152,6 +160,13 @@ func ImportPosts(ctx context.Context, store ImportStore, posts []ImportedPost, a
 		result.Imported++
 	}
 	return result, nil
+}
+
+func normalizeImportedSlug(slug string) string {
+	if articles.ValidSlug(slug) {
+		return slug
+	}
+	return articles.StableShortSlugFromString(slug)
 }
 
 func ScanMDXPosts(source string) ([]ImportedPost, error) {
@@ -205,7 +220,8 @@ func ParseMDXPost(path string) (ImportedPost, error) {
 	}
 
 	post := ImportedPost{
-		Slug:          strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
+		Slug:          articles.StableShortSlugFromString(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))),
+		ArticleName:   strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
 		Title:         firstString(required(metadata, "title")),
 		Summary:       firstString(firstNonEmpty(metadata["description"], metadata["summary"])),
 		BodyMDX:       body,

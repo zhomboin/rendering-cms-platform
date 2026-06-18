@@ -48,7 +48,10 @@ export default function ArticleListPage() {
       data.filter((article) => {
         const matchStatus = !statusFilter || article.status === statusFilter;
         const keyword = searchText.trim().toLowerCase();
-        const matchTitle = !keyword || article.title.toLowerCase().includes(keyword) || article.slug.includes(keyword);
+        const matchTitle = !keyword
+          || article.title.toLowerCase().includes(keyword)
+          || article.slug.toLowerCase().includes(keyword)
+          || article.articleName.toLowerCase().includes(keyword);
         return matchStatus && matchTitle;
       }),
     [data, searchText, statusFilter],
@@ -64,6 +67,18 @@ export default function ArticleListPage() {
           {text}
         </a>
       ),
+    },
+    {
+      title: '英文名',
+      dataIndex: 'articleName',
+      key: 'articleName',
+      width: 220,
+    },
+    {
+      title: '短链',
+      dataIndex: 'slug',
+      key: 'slug',
+      width: 100,
     },
     {
       title: '状态',
@@ -136,7 +151,7 @@ export default function ArticleListPage() {
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <Select value={statusFilter} onChange={setStatusFilter} options={statusOptions} style={{ width: 140 }} placeholder="状态筛选" />
         <Search
-          placeholder="搜索文章标题或 slug"
+          placeholder="搜索标题、英文名或短链"
           allowClear
           onSearch={setSearchText}
           onChange={(e) => {

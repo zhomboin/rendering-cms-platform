@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"rendering-cms-platform/backend/internal/database/dbgen"
@@ -16,11 +17,13 @@ import (
 )
 
 type Handler struct {
-	queries articleStore
+	queries      articleStore
+	generateSlug func() (string, error)
 }
 
 type ArticlePayload struct {
 	Slug          string   `json:"slug"`
+	ArticleName   string   `json:"articleName"`
 	Title         string   `json:"title"`
 	Summary       string   `json:"summary"`
 	BodyMdx       string   `json:"bodyMdx"`
@@ -30,17 +33,23 @@ type ArticlePayload struct {
 }
 
 type articleStore interface {
-	ListPublishedArticles(ctx context.Context) ([]dbgen.Article, error)
-	GetArticleBySlug(ctx context.Context, slug string) (dbgen.Article, error)
-	ListAdminArticles(ctx context.Context) ([]dbgen.Article, error)
-	CreateDraftArticle(ctx context.Context, arg dbgen.CreateDraftArticleParams) (dbgen.Article, error)
-	UpdateDraftArticle(ctx context.Context, arg dbgen.UpdateDraftArticleParams) (dbgen.Article, error)
-	PublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.Article, error)
+	ListPublishedArticles(ctx context.Context) ([]dbgen.ListPublishedArticlesRow, error)
+	GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error)
+	GetArticleByArticleName(ctx context.Context, articleName string) (dbgen.GetArticleByArticleNameRow, error)
+	GetArticleByID(ctx context.Context, articleID pgtype.UUID) (dbgen.GetArticleByIDRow, error)
+	ListAdminArticles(ctx context.Context) ([]dbgen.ListAdminArticlesRow, error)
+	CreateDraftArticle(ctx context.Context, arg dbgen.CreateDraftArticleParams) (dbgen.CreateDraftArticleRow, error)
+	UpdateDraftArticle(ctx context.Context, arg dbgen.UpdateDraftArticleParams) (dbgen.UpdateDraftArticleRow, error)
+	PublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.PublishArticleRow, error)
 	SearchPublishedArticles(ctx context.Context, query string) ([]dbgen.SearchPublishedArticlesRow, error)
 }
 
 func NewHandler(queries articleStore) Handler {
-	return Handler{queries: queries}
+	return NewHandlerWithSlugGenerator(queries, GenerateShortSlug)
+}
+
+func NewHandlerWithSlugGenerator(queries articleStore, generateSlug func() (string, error)) Handler {
+	return Handler{queries: queries, generateSlug: generateSlug}
 }
 
 func (h Handler) RegisterPublicRoutes(router chi.Router) {
@@ -66,7 +75,7 @@ func (h Handler) listPublishedArticles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handler) getPublishedArticle(w http.ResponseWriter, r *http.Request) {
-	article, err := h.queries.GetArticleBySlug(r.Context(), chi.URLParam(r, "slug"))
+	article, resolvedBy, err := h.resolvePublishedArticle(r.Context(), chi.URLParam(r, "slug"))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "文章不存在")
@@ -75,7 +84,25 @@ func (h Handler) getPublishedArticle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "文章读取失败")
 		return
 	}
-	writeJSON(w, http.StatusOK, mapArticle(article))
+	response := mapArticle(article)
+	response["resolvedBy"] = resolvedBy
+	response["canonicalSlug"] = article.Slug
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h Handler) resolvePublishedArticle(ctx context.Context, identifier string) (articleView, string, error) {
+	if ValidSlug(identifier) {
+		article, err := h.queries.GetArticleBySlug(ctx, identifier)
+		if err != nil {
+			return articleView{}, "", err
+		}
+		return articleViewFromRow(article), "slug", nil
+	}
+	article, err := h.queries.GetArticleByArticleName(ctx, identifier)
+	if err != nil {
+		return articleView{}, "", err
+	}
+	return articleViewFromRow(article), "articleName", nil
 }
 
 func (h Handler) searchPublishedArticles(w http.ResponseWriter, r *http.Request) {
@@ -117,21 +144,38 @@ func (h Handler) createDraftArticle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	article, err := h.queries.CreateDraftArticle(r.Context(), dbgen.CreateDraftArticleParams{
-		Slug:          payload.Slug,
-		Title:         payload.Title,
-		Summary:       payload.Summary,
-		BodyMdx:       payload.BodyMdx,
-		Tags:          payload.Tags,
-		Featured:      payload.Featured,
-		CoverImageUrl: nullableText(payload.CoverImageURL),
-		AuthorID:      authorID,
-	})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "草稿创建失败")
-		return
+	for attempt := 0; attempt < 8; attempt++ {
+		slug, err := h.generateSlug()
+		if err != nil || !ValidSlug(slug) {
+			writeError(w, http.StatusInternalServerError, "短链生成失败")
+			return
+		}
+
+		article, err := h.queries.CreateDraftArticle(r.Context(), dbgen.CreateDraftArticleParams{
+			Slug:          slug,
+			ArticleName:   payload.ArticleName,
+			Title:         payload.Title,
+			Summary:       payload.Summary,
+			BodyMdx:       payload.BodyMdx,
+			Tags:          payload.Tags,
+			Featured:      payload.Featured,
+			CoverImageUrl: nullableText(payload.CoverImageURL),
+			AuthorID:      authorID,
+		})
+		if err == nil {
+			writeJSON(w, http.StatusCreated, mapArticle(article))
+			return
+		}
+		if isArticleNameUniqueViolation(err) {
+			writeError(w, http.StatusBadRequest, "文章英文名已存在")
+			return
+		}
+		if !isSlugUniqueViolation(err) {
+			writeError(w, http.StatusInternalServerError, "草稿创建失败")
+			return
+		}
 	}
-	writeJSON(w, http.StatusCreated, mapArticle(article))
+	writeError(w, http.StatusInternalServerError, "短链生成冲突过多")
 }
 
 func (h Handler) updateDraftArticle(w http.ResponseWriter, r *http.Request) {
@@ -153,10 +197,20 @@ func (h Handler) updateDraftArticle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "用户 ID 无效")
 		return
 	}
+	current, err := h.queries.GetArticleByID(r.Context(), articleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "文章不存在")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "文章读取失败")
+		return
+	}
 
 	article, err := h.queries.UpdateDraftArticle(r.Context(), dbgen.UpdateDraftArticleParams{
 		ArticleID:     articleID,
-		Slug:          payload.Slug,
+		Slug:          current.Slug,
+		ArticleName:   payload.ArticleName,
 		Title:         payload.Title,
 		Summary:       payload.Summary,
 		BodyMdx:       payload.BodyMdx,
@@ -165,6 +219,10 @@ func (h Handler) updateDraftArticle(w http.ResponseWriter, r *http.Request) {
 		CoverImageUrl: nullableText(payload.CoverImageURL),
 	})
 	if err != nil {
+		if isArticleNameUniqueViolation(err) {
+			writeError(w, http.StatusBadRequest, "文章英文名已存在")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "草稿更新失败")
 		return
 	}
@@ -201,15 +259,31 @@ func decodeArticlePayload(w http.ResponseWriter, r *http.Request) (ArticlePayloa
 		writeError(w, http.StatusBadRequest, "请求体格式不正确")
 		return ArticlePayload{}, false
 	}
-	if payload.Title == "" || payload.Slug == "" || payload.BodyMdx == "" {
-		writeError(w, http.StatusBadRequest, "标题、slug 和正文不能为空")
+	if payload.ArticleName == "" || payload.Title == "" || payload.BodyMdx == "" {
+		writeError(w, http.StatusBadRequest, "英文名、标题和正文不能为空")
 		return ArticlePayload{}, false
 	}
-	if !ValidSlug(payload.Slug) {
-		writeError(w, http.StatusBadRequest, "slug 格式不正确")
+	if !ValidArticleName(payload.ArticleName) {
+		writeError(w, http.StatusBadRequest, "英文名只能使用小写字母、数字和中划线")
 		return ArticlePayload{}, false
 	}
 	return payload, true
+}
+
+func isSlugUniqueViolation(err error) bool {
+	return isUniqueViolation(err, "articles_slug")
+}
+
+func isArticleNameUniqueViolation(err error) bool {
+	return isUniqueViolation(err, "articles_article_name")
+}
+
+func isUniqueViolation(err error, constraintPrefix string) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return false
+	}
+	return pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, constraintPrefix)
 }
 
 func uuidFromString(value string) (pgtype.UUID, error) {
@@ -224,7 +298,7 @@ func nullableText(value string) pgtype.Text {
 	return pgtype.Text{String: value, Valid: value != ""}
 }
 
-func mapArticles(articles []dbgen.Article) []map[string]interface{} {
+func mapArticles[T articleRow](articles []T) []map[string]interface{} {
 	response := make([]map[string]interface{}, 0, len(articles))
 	for _, article := range articles {
 		response = append(response, mapArticle(article))
@@ -232,10 +306,42 @@ func mapArticles(articles []dbgen.Article) []map[string]interface{} {
 	return response
 }
 
-func mapArticle(article dbgen.Article) map[string]interface{} {
+type articleRow interface {
+	dbgen.CreateDraftArticleRow |
+		dbgen.GetArticleByIDRow |
+		dbgen.GetArticleByArticleNameRow |
+		dbgen.GetArticleBySlugRow |
+		dbgen.ListAdminArticlesRow |
+		dbgen.ListPublishedArticlesRow |
+		dbgen.PublishArticleRow |
+		dbgen.UpdateDraftArticleRow |
+		articleView
+}
+
+type articleView struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        dbgen.ArticleStatus
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+}
+
+func mapArticle[T articleRow](row T) map[string]interface{} {
+	article := articleViewFromRow(row)
 	return map[string]interface{}{
 		"articleId":     article.ArticleID.String(),
 		"slug":          article.Slug,
+		"articleName":   article.ArticleName,
 		"title":         article.Title,
 		"summary":       article.Summary,
 		"bodyMdx":       article.BodyMdx,
@@ -248,6 +354,87 @@ func mapArticle(article dbgen.Article) map[string]interface{} {
 		"authorId":      article.AuthorID.String(),
 		"createdAt":     timestamptzValue(article.CreatedAt),
 		"updatedAt":     timestamptzValue(article.UpdatedAt),
+	}
+}
+
+func articleViewFromRow[T articleRow](row T) articleView {
+	switch article := any(row).(type) {
+	case dbgen.CreateDraftArticleRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case dbgen.GetArticleByIDRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case dbgen.GetArticleByArticleNameRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case dbgen.GetArticleBySlugRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case dbgen.ListAdminArticlesRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case dbgen.ListPublishedArticlesRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case dbgen.PublishArticleRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case dbgen.UpdateDraftArticleRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case articleView:
+		return article
+	default:
+		panic("unsupported article row type")
 	}
 }
 

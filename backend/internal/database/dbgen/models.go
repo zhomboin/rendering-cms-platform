@@ -207,6 +207,7 @@ type Article struct {
 	UpdatedAt     pgtype.Timestamptz
 	Version       int32
 	SearchVector  interface{}
+	ArticleName   string
 }
 
 type ArticleLog struct {
@@ -224,6 +225,12 @@ type ArticleLog struct {
 	CreatedAt     pgtype.Timestamptz
 	UpdatedAt     pgtype.Timestamptz
 	Version       int32
+	ArticleName   string
+}
+
+type ArticleShortSlugMapping struct {
+	ArticleID pgtype.UUID
+	ShortSlug string
 }
 
 type ArticleViewDaily struct {

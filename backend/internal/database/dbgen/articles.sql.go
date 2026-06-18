@@ -14,6 +14,7 @@ import (
 const createDraftArticle = `-- name: CreateDraftArticle :one
 insert into articles (
   slug,
+  article_name,
   title,
   summary,
   body_mdx,
@@ -22,11 +23,12 @@ insert into articles (
   cover_image_url,
   author_id
 ) values (
-  $1, $2, $3, $4, $5, $6, $7, $8
+  $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
 returning
   article_id,
   slug,
+  article_name,
   title,
   summary,
   body_mdx,
@@ -44,6 +46,7 @@ returning
 
 type CreateDraftArticleParams struct {
 	Slug          string
+	ArticleName   string
 	Title         string
 	Summary       string
 	BodyMdx       string
@@ -53,9 +56,29 @@ type CreateDraftArticleParams struct {
 	AuthorID      pgtype.UUID
 }
 
-func (q *Queries) CreateDraftArticle(ctx context.Context, arg CreateDraftArticleParams) (Article, error) {
+type CreateDraftArticleRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) CreateDraftArticle(ctx context.Context, arg CreateDraftArticleParams) (CreateDraftArticleRow, error) {
 	row := q.db.QueryRow(ctx, createDraftArticle,
 		arg.Slug,
+		arg.ArticleName,
 		arg.Title,
 		arg.Summary,
 		arg.BodyMdx,
@@ -64,10 +87,76 @@ func (q *Queries) CreateDraftArticle(ctx context.Context, arg CreateDraftArticle
 		arg.CoverImageUrl,
 		arg.AuthorID,
 	)
-	var i Article
+	var i CreateDraftArticleRow
 	err := row.Scan(
 		&i.ArticleID,
 		&i.Slug,
+		&i.ArticleName,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.Tags,
+		&i.Featured,
+		&i.CoverImageUrl,
+		&i.PublishedAt,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Version,
+		&i.SearchVector,
+	)
+	return i, err
+}
+
+const getArticleByArticleName = `-- name: GetArticleByArticleName :one
+select
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at,
+  version,
+  search_vector
+from articles
+where article_name = $1 and status = 'published'
+`
+
+type GetArticleByArticleNameRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) GetArticleByArticleName(ctx context.Context, articleName string) (GetArticleByArticleNameRow, error) {
+	row := q.db.QueryRow(ctx, getArticleByArticleName, articleName)
+	var i GetArticleByArticleNameRow
+	err := row.Scan(
+		&i.ArticleID,
+		&i.Slug,
+		&i.ArticleName,
 		&i.Title,
 		&i.Summary,
 		&i.BodyMdx,
@@ -89,6 +178,7 @@ const getArticleByID = `-- name: GetArticleByID :one
 select
   article_id,
   slug,
+  article_name,
   title,
   summary,
   body_mdx,
@@ -106,12 +196,32 @@ from articles
 where article_id = $1
 `
 
-func (q *Queries) GetArticleByID(ctx context.Context, articleID pgtype.UUID) (Article, error) {
+type GetArticleByIDRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) GetArticleByID(ctx context.Context, articleID pgtype.UUID) (GetArticleByIDRow, error) {
 	row := q.db.QueryRow(ctx, getArticleByID, articleID)
-	var i Article
+	var i GetArticleByIDRow
 	err := row.Scan(
 		&i.ArticleID,
 		&i.Slug,
+		&i.ArticleName,
 		&i.Title,
 		&i.Summary,
 		&i.BodyMdx,
@@ -133,6 +243,7 @@ const getArticleBySlug = `-- name: GetArticleBySlug :one
 select
   article_id,
   slug,
+  article_name,
   title,
   summary,
   body_mdx,
@@ -150,12 +261,32 @@ from articles
 where slug = $1 and status = 'published'
 `
 
-func (q *Queries) GetArticleBySlug(ctx context.Context, slug string) (Article, error) {
+type GetArticleBySlugRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) GetArticleBySlug(ctx context.Context, slug string) (GetArticleBySlugRow, error) {
 	row := q.db.QueryRow(ctx, getArticleBySlug, slug)
-	var i Article
+	var i GetArticleBySlugRow
 	err := row.Scan(
 		&i.ArticleID,
 		&i.Slug,
+		&i.ArticleName,
 		&i.Title,
 		&i.Summary,
 		&i.BodyMdx,
@@ -177,6 +308,7 @@ const listAdminArticles = `-- name: ListAdminArticles :many
 select
   article_id,
   slug,
+  article_name,
   title,
   summary,
   body_mdx,
@@ -194,18 +326,38 @@ from articles
 order by updated_at desc, created_at desc
 `
 
-func (q *Queries) ListAdminArticles(ctx context.Context) ([]Article, error) {
+type ListAdminArticlesRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) ListAdminArticles(ctx context.Context) ([]ListAdminArticlesRow, error) {
 	rows, err := q.db.Query(ctx, listAdminArticles)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Article
+	var items []ListAdminArticlesRow
 	for rows.Next() {
-		var i Article
+		var i ListAdminArticlesRow
 		if err := rows.Scan(
 			&i.ArticleID,
 			&i.Slug,
+			&i.ArticleName,
 			&i.Title,
 			&i.Summary,
 			&i.BodyMdx,
@@ -234,6 +386,7 @@ const listPublishedArticles = `-- name: ListPublishedArticles :many
 select
   article_id,
   slug,
+  article_name,
   title,
   summary,
   body_mdx,
@@ -252,18 +405,38 @@ where status = 'published'
 order by published_at desc nulls last, created_at desc
 `
 
-func (q *Queries) ListPublishedArticles(ctx context.Context) ([]Article, error) {
+type ListPublishedArticlesRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) ListPublishedArticles(ctx context.Context) ([]ListPublishedArticlesRow, error) {
 	rows, err := q.db.Query(ctx, listPublishedArticles)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Article
+	var items []ListPublishedArticlesRow
 	for rows.Next() {
-		var i Article
+		var i ListPublishedArticlesRow
 		if err := rows.Scan(
 			&i.ArticleID,
 			&i.Slug,
+			&i.ArticleName,
 			&i.Title,
 			&i.Summary,
 			&i.BodyMdx,
@@ -298,6 +471,7 @@ where article_id = $1
 returning
   article_id,
   slug,
+  article_name,
   title,
   summary,
   body_mdx,
@@ -313,12 +487,32 @@ returning
   search_vector
 `
 
-func (q *Queries) PublishArticle(ctx context.Context, articleID pgtype.UUID) (Article, error) {
+type PublishArticleRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) PublishArticle(ctx context.Context, articleID pgtype.UUID) (PublishArticleRow, error) {
 	row := q.db.QueryRow(ctx, publishArticle, articleID)
-	var i Article
+	var i PublishArticleRow
 	err := row.Scan(
 		&i.ArticleID,
 		&i.Slug,
+		&i.ArticleName,
 		&i.Title,
 		&i.Summary,
 		&i.BodyMdx,
@@ -340,17 +534,19 @@ const updateDraftArticle = `-- name: UpdateDraftArticle :one
 update articles
 set
   slug = $2,
-  title = $3,
-  summary = $4,
-  body_mdx = $5,
-  tags = $6,
-  featured = $7,
-  cover_image_url = $8,
+  article_name = $3,
+  title = $4,
+  summary = $5,
+  body_mdx = $6,
+  tags = $7,
+  featured = $8,
+  cover_image_url = $9,
   updated_at = now()
 where article_id = $1
 returning
   article_id,
   slug,
+  article_name,
   title,
   summary,
   body_mdx,
@@ -369,6 +565,7 @@ returning
 type UpdateDraftArticleParams struct {
 	ArticleID     pgtype.UUID
 	Slug          string
+	ArticleName   string
 	Title         string
 	Summary       string
 	BodyMdx       string
@@ -377,10 +574,30 @@ type UpdateDraftArticleParams struct {
 	CoverImageUrl pgtype.Text
 }
 
-func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticleParams) (Article, error) {
+type UpdateDraftArticleRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticleParams) (UpdateDraftArticleRow, error) {
 	row := q.db.QueryRow(ctx, updateDraftArticle,
 		arg.ArticleID,
 		arg.Slug,
+		arg.ArticleName,
 		arg.Title,
 		arg.Summary,
 		arg.BodyMdx,
@@ -388,10 +605,11 @@ func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticle
 		arg.Featured,
 		arg.CoverImageUrl,
 	)
-	var i Article
+	var i UpdateDraftArticleRow
 	err := row.Scan(
 		&i.ArticleID,
 		&i.Slug,
+		&i.ArticleName,
 		&i.Title,
 		&i.Summary,
 		&i.BodyMdx,
@@ -412,6 +630,7 @@ func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticle
 const upsertPublishedArticleFromImport = `-- name: UpsertPublishedArticleFromImport :one
 insert into articles (
   slug,
+  article_name,
   title,
   summary,
   body_mdx,
@@ -422,10 +641,11 @@ insert into articles (
   published_at,
   author_id
 ) values (
-  $1, $2, $3, $4, 'published', $5, $6, $7, $8, $9
+  $1, $2, $3, $4, $5, 'published', $6, $7, $8, $9, $10
 )
 on conflict (slug)
 do update set
+  article_name = excluded.article_name,
   title = excluded.title,
   summary = excluded.summary,
   body_mdx = excluded.body_mdx,
@@ -439,6 +659,7 @@ do update set
 returning
   article_id,
   slug,
+  article_name,
   title,
   summary,
   body_mdx,
@@ -456,6 +677,7 @@ returning
 
 type UpsertPublishedArticleFromImportParams struct {
 	Slug          string
+	ArticleName   string
 	Title         string
 	Summary       string
 	BodyMdx       string
@@ -466,9 +688,29 @@ type UpsertPublishedArticleFromImportParams struct {
 	AuthorID      pgtype.UUID
 }
 
-func (q *Queries) UpsertPublishedArticleFromImport(ctx context.Context, arg UpsertPublishedArticleFromImportParams) (Article, error) {
+type UpsertPublishedArticleFromImportRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) UpsertPublishedArticleFromImport(ctx context.Context, arg UpsertPublishedArticleFromImportParams) (UpsertPublishedArticleFromImportRow, error) {
 	row := q.db.QueryRow(ctx, upsertPublishedArticleFromImport,
 		arg.Slug,
+		arg.ArticleName,
 		arg.Title,
 		arg.Summary,
 		arg.BodyMdx,
@@ -478,10 +720,11 @@ func (q *Queries) UpsertPublishedArticleFromImport(ctx context.Context, arg Upse
 		arg.PublishedAt,
 		arg.AuthorID,
 	)
-	var i Article
+	var i UpsertPublishedArticleFromImportRow
 	err := row.Scan(
 		&i.ArticleID,
 		&i.Slug,
+		&i.ArticleName,
 		&i.Title,
 		&i.Summary,
 		&i.BodyMdx,

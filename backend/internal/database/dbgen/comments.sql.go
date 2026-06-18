@@ -28,7 +28,11 @@ select
   $4,
   $5
 from articles
-where slug = $6 and status = 'published'
+where (
+    ($6::boolean and slug = $7)
+    or (not $6::boolean and article_name = $7)
+  )
+  and status = 'published'
 returning
   comment_id,
   article_id,
@@ -48,6 +52,7 @@ type CreateCommentParams struct {
 	Body        string
 	IpHash      string
 	UserAgent   pgtype.Text
+	IsSlug      bool
 	Slug        string
 }
 
@@ -58,6 +63,7 @@ func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (C
 		arg.Body,
 		arg.IpHash,
 		arg.UserAgent,
+		arg.IsSlug,
 		arg.Slug,
 	)
 	var i Comment
@@ -196,11 +202,19 @@ select
   c.created_at
 from comments c
 join articles a on a.article_id = c.article_id
-where a.slug = $1
+where (
+    ($1::boolean and a.slug = $2)
+    or (not $1::boolean and a.article_name = $2)
+  )
   and a.status = 'published'
   and c.status = 'approved'
 order by c.created_at asc
 `
+
+type ListApprovedCommentsByArticleSlugParams struct {
+	IsSlug bool
+	Slug   string
+}
 
 type ListApprovedCommentsByArticleSlugRow struct {
 	CommentID  pgtype.UUID
@@ -209,8 +223,8 @@ type ListApprovedCommentsByArticleSlugRow struct {
 	CreatedAt  pgtype.Timestamptz
 }
 
-func (q *Queries) ListApprovedCommentsByArticleSlug(ctx context.Context, slug string) ([]ListApprovedCommentsByArticleSlugRow, error) {
-	rows, err := q.db.Query(ctx, listApprovedCommentsByArticleSlug, slug)
+func (q *Queries) ListApprovedCommentsByArticleSlug(ctx context.Context, arg ListApprovedCommentsByArticleSlugParams) ([]ListApprovedCommentsByArticleSlugRow, error) {
+	rows, err := q.db.Query(ctx, listApprovedCommentsByArticleSlug, arg.IsSlug, arg.Slug)
 	if err != nil {
 		return nil, err
 	}
