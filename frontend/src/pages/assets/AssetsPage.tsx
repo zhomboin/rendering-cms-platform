@@ -205,6 +205,7 @@ function AssetsPage() {
           rowKey="assetId"
           loading={isLoading}
           pagination={{ pageSize: 10 }}
+          scroll={{ x: 680 }}
           style={{ borderRadius: 8 }}
           onRow={() => ({ style: { height: 48 } })}
         />

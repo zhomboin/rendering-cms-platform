@@ -171,6 +171,7 @@ export default function ArticleListPage() {
           showSizeChanger: false,
           showTotal: (total) => `共 ${total} 篇文章`,
         }}
+        scroll={{ x: 980 }}
         onRow={(record) => ({
           onClick: () => navigate(`/admin/articles/${record.articleId}/edit`),
           style: { cursor: 'pointer', height: 48 },

@@ -95,8 +95,9 @@ Content-Type: application/json
 
 - 后端先校验文件名、类型和大小，再写入 `assets` 记录。
 - 客户端使用返回的 `uploadUrl` 和 `headers` 直接上传到对象存储。
+- 预签名 PUT URL 绑定 `Content-Type` 和 `Content-Length`；客户端上传的实际内容长度必须与申请 URL 时的 `byteSize` 一致，否则对象存储应拒绝请求。
 - 生产环境对象存储为 Cloudflare R2，`uploadUrl` 会指向 R2 S3 API 端点；前端无需感知具体供应商。
-- R2 bucket 必须配置 CORS，允许后台前端来源使用 `PUT` 并携带 `Content-Type`。
+- R2 bucket 必须配置 CORS，允许后台前端来源使用 `PUT` 并携带 `Content-Type` 和浏览器自动发送的 `Content-Length`。
 - `usage` 可选，默认为 `asset-file`；文章编辑器上传正文图片时传 `blog-image`。
 - `blog-image` 会按 `S3_BLOG_IMAGE_PREFIX/YYYY/MM/<uuid>.<ext>` 生成对象 key，并返回 `publicUrl`。
 - 普通资源上传按 `S3_ASSET_FILE_PREFIX/YYYY/MM/<uuid>.<ext>` 生成对象 key，默认不返回公开 URL，通过下载预签名 URL 访问。

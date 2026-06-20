@@ -223,6 +223,38 @@ func TestUpdateDraftArticlePreservesExistingShortSlug(t *testing.T) {
 	}
 }
 
+func TestUpdateDraftArticleRejectsPublishedArticle(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	published := articleByIDForTest(articleID, "Z9yX8w", "线上标题")
+	published.Status = dbgen.ArticleStatusPublished
+	store := &articleStoreStub{
+		getByIDArticle: published,
+	}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPatch, "/articles/11111111-1111-1111-1111-111111111111", strings.NewReader(`{
+		"articleName": "updated-english-name",
+		"title": "更新标题",
+		"summary": "更新摘要",
+		"bodyMdx": "更新正文",
+		"tags": ["go"],
+		"featured": false,
+		"coverImageUrl": ""
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if len(store.updateArgs) != 0 {
+		t.Fatalf("update calls = %d, want 0", len(store.updateArgs))
+	}
+}
+
 func TestGetPublishedArticleFallsBackFromArticleNameToShortSlug(t *testing.T) {
 	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
 	store := &articleStoreStub{

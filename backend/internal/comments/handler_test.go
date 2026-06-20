@@ -100,7 +100,7 @@ func (s *commentStoreStub) ReviewComment(ctx context.Context, arg dbgen.ReviewCo
 	return dbgen.Comment{}, nil
 }
 
-func TestCreateCommentRateLimitUsesForwardedClientIPHash(t *testing.T) {
+func TestCreateCommentRateLimitIgnoresSpoofedForwardedFor(t *testing.T) {
 	store := &commentStoreStub{}
 	handler := NewHandler(store)
 	router := chi.NewRouter()
@@ -109,14 +109,14 @@ func TestCreateCommentRateLimitUsesForwardedClientIPHash(t *testing.T) {
 		"authorName": "Alice",
 		"body": "hello"
 	}`))
-	req.RemoteAddr = "10.0.0.10:12345"
-	req.Header.Set("X-Forwarded-For", "203.0.113.10, 10.0.0.10")
+	req.RemoteAddr = "192.0.2.10:12345"
+	req.Header.Set("X-Forwarded-For", "203.0.113.10")
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
 
-	want := sha256.Sum256([]byte("203.0.113.10"))
+	want := sha256.Sum256([]byte("192.0.2.10"))
 	if store.recentIPHashArg != hex.EncodeToString(want[:]) {
-		t.Fatalf("ip hash = %q, want forwarded client hash", store.recentIPHashArg)
+		t.Fatalf("ip hash = %q, want remote address hash", store.recentIPHashArg)
 	}
 }

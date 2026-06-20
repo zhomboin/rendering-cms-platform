@@ -6,14 +6,17 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	articleutil "rendering-cms-platform/backend/internal/articles"
 	"rendering-cms-platform/backend/internal/database/dbgen"
+	httpapi "rendering-cms-platform/backend/internal/http"
 )
 
 type Handler struct {
@@ -23,6 +26,7 @@ type Handler struct {
 type analyticsStore interface {
 	GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error)
 	GetArticleByArticleName(ctx context.Context, articleName string) (dbgen.GetArticleByArticleNameRow, error)
+	CreateAnalyticsEvent(ctx context.Context, arg dbgen.CreateAnalyticsEventParams) (dbgen.AnalyticsEvent, error)
 	UpsertArticleViewDaily(ctx context.Context, arg dbgen.UpsertArticleViewDailyParams) error
 	UpsertSiteViewDaily(ctx context.Context, arg dbgen.UpsertSiteViewDailyParams) error
 	GetTodaySiteViews(ctx context.Context) (int32, error)
@@ -32,6 +36,11 @@ type analyticsStore interface {
 	ListSiteViewTrend(ctx context.Context, days int32) ([]dbgen.ListSiteViewTrendRow, error)
 	ListArticleViewTrend(ctx context.Context, days int32) ([]dbgen.ListArticleViewTrendRow, error)
 }
+
+const (
+	analyticsEventArticleView = "article_view"
+	analyticsEventSiteView    = "site_view"
+)
 
 func NewHandler(queries analyticsStore) Handler {
 	return Handler{queries: queries}
@@ -56,6 +65,15 @@ func (h Handler) recordArticleView(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "文章读取失败")
+		return
+	}
+	counted, err := h.recordAnalyticsEvent(r, analyticsEventArticleView, articleID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "访问事件记录失败")
+		return
+	}
+	if !counted {
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
@@ -102,6 +120,15 @@ func (h Handler) recordSiteView(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil && !errors.Is(err, io.EOF) {
 		// Rendering 静态站上报失败不应影响访问；扩展字段无效时仍记录一次站点 PV。
 	}
+	counted, err := h.recordAnalyticsEvent(r, analyticsEventSiteView, pgtype.UUID{})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "访问事件记录失败")
+		return
+	}
+	if !counted {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 
 	today := pgtype.Date{Time: time.Now(), Valid: true}
 	if err := h.queries.UpsertSiteViewDaily(r.Context(), dbgen.UpsertSiteViewDailyParams{
@@ -113,6 +140,22 @@ func (h Handler) recordSiteView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h Handler) recordAnalyticsEvent(r *http.Request, eventType string, articleID pgtype.UUID) (bool, error) {
+	_, err := h.queries.CreateAnalyticsEvent(r.Context(), dbgen.CreateAnalyticsEventParams{
+		ArticleID: articleID,
+		EventType: eventType,
+		IpHash:    httpapi.ClientIPHash(r),
+		UserAgent: nullableText(r.UserAgent()),
+	})
+	if err == nil {
+		return true, nil
+	}
+	if isUniqueViolation(err, "analytics_events_unique") {
+		return false, nil
+	}
+	return false, err
 }
 
 func (h Handler) summary(w http.ResponseWriter, r *http.Request) {
@@ -186,6 +229,18 @@ func mapDailyViews(days []dbgen.ListSiteViewsLast7DaysRow) []map[string]interfac
 		})
 	}
 	return result
+}
+
+func isUniqueViolation(err error, constraintPrefix string) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return false
+	}
+	return pgErr.Code == "23505" && strings.HasPrefix(pgErr.ConstraintName, constraintPrefix)
+}
+
+func nullableText(value string) pgtype.Text {
+	return pgtype.Text{String: value, Valid: value != ""}
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {

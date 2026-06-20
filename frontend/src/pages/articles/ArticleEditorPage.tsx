@@ -180,6 +180,7 @@ export default function ArticleEditorPage() {
     () => articlesQuery.data?.find((article) => article.articleId === id),
     [articlesQuery.data, id],
   );
+  const isPublishedArticle = currentArticle?.status === 'published';
 
   useEffect(() => {
     setRestoredDraftAt(null);
@@ -251,11 +252,19 @@ export default function ArticleEditorPage() {
   });
 
   const handleSaveDraft = async () => {
+    if (isPublishedArticle) {
+      message.warning('已发布文章暂不支持直接保存草稿，请先建立修订流程');
+      return;
+    }
     const values = await form.validateFields();
     saveMutation.mutate(values);
   };
 
   const handlePublish = async () => {
+    if (isPublishedArticle) {
+      message.warning('已发布文章暂不支持直接覆盖发布，请先建立修订流程');
+      return;
+    }
     const values = await form.validateFields();
     publishMutation.mutate(values);
   };
@@ -485,6 +494,16 @@ export default function ArticleEditorPage() {
         />
       )}
 
+      {isPublishedArticle && (
+        <Alert
+          type="warning"
+          showIcon
+          title="已发布文章当前为只读编辑态"
+          description="为避免直接覆盖线上内容，请先补充修订草稿和发布更新流程后再修改已发布文章。"
+          style={{ marginBottom: 20 }}
+        />
+      )}
+
       <Card className="article-editor__card" styles={{ body: { padding: 0 } }}>
         <div className="article-editor__mobile-tabs">
           <Button
@@ -611,13 +630,19 @@ export default function ArticleEditorPage() {
       >
         <Button onClick={() => navigate('/admin/articles')}>取消</Button>
         <Space className="article-editor__actions-main" size={12}>
-          <Button onClick={handleSaveDraft} loading={saveMutation.isPending} style={{ borderColor: '#4F46E5', color: '#4F46E5' }}>
+          <Button
+            onClick={handleSaveDraft}
+            loading={saveMutation.isPending}
+            disabled={isPublishedArticle}
+            style={{ borderColor: '#4F46E5', color: '#4F46E5' }}
+          >
             保存草稿
           </Button>
           <Button
             type="primary"
             size="large"
             loading={publishMutation.isPending}
+            disabled={isPublishedArticle}
             style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5', fontWeight: 600 }}
             onClick={() => setPublishModalOpen(true)}
           >

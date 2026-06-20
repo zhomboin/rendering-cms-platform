@@ -12,7 +12,7 @@ const themeTokens = {
   colorTextSecondary: '#64748B',
   colorTextTertiary: '#64748B',
   borderRadius: 8,
-  borderRadiusLG: 24,
+  borderRadiusLG: 8,
   borderRadiusSM: 6,
   fontSize: 14,
   fontSizeHeading1: 24,
@@ -36,7 +36,7 @@ export const appTheme = {
   token: themeTokens,
   components: {
     Card: {
-      borderRadiusLG: 24,
+      borderRadiusLG: 8,
       paddingLG: 20,
     },
     Button: {

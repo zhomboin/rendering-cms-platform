@@ -154,6 +154,7 @@ Content-Type: application/json
 
 - 更新草稿不会修改已有短链码。
 - 更新草稿可以修改 `articleName`。
+- 只允许更新 `draft` 状态文章；如果文章已发布或归档，返回 `409`，避免通过“保存草稿”直接覆盖线上内容。
 - 更新成功后 `articles.version` 自动加 `1`。
 - 更新成功后由数据库触发器自动写入 `article_logs`。
 

@@ -185,10 +185,6 @@ func UserFromContext(ctx context.Context) (AuthenticatedUser, bool) {
 }
 
 func clientIP(r *http.Request) string {
-	if forwardedFor := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwardedFor != "" {
-		first, _, _ := strings.Cut(forwardedFor, ",")
-		return strings.TrimSpace(first)
-	}
 	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
 		return realIP
 	}

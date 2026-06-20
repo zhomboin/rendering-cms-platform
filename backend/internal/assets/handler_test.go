@@ -102,11 +102,13 @@ func (s *assetStoreStub) UpdateAssetStatus(ctx context.Context, arg dbgen.Update
 type urlSignerStub struct {
 	uploadKey         string
 	uploadContentType string
+	uploadByteSize    int64
 }
 
-func (s *urlSignerStub) PresignUploadURL(ctx context.Context, key string, contentType string, expires time.Duration) (string, error) {
+func (s *urlSignerStub) PresignUploadURL(ctx context.Context, key string, contentType string, byteSize int64, expires time.Duration) (string, error) {
 	s.uploadKey = key
 	s.uploadContentType = contentType
+	s.uploadByteSize = byteSize
 	return "https://example.com/upload", nil
 }
 
@@ -161,6 +163,9 @@ func TestCreateUploadURLUsesBlogImagePublicURLAndDatedStorageKey(t *testing.T) {
 	if signer.uploadKey != store.createAssetArg.StorageKey {
 		t.Fatalf("signed key = %q, want storage key %q", signer.uploadKey, store.createAssetArg.StorageKey)
 	}
+	if signer.uploadByteSize != 2048 {
+		t.Fatalf("signed byte size = %d, want 2048", signer.uploadByteSize)
+	}
 	var body map[string]interface{}
 	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -212,14 +217,14 @@ func TestCreateUploadURLUsesAssetPrefixAndNoPublicURLByDefault(t *testing.T) {
 	}
 }
 
-func TestCreateDownloadURLUsesForwardedClientIPHash(t *testing.T) {
+func TestCreateDownloadURLIgnoresSpoofedForwardedFor(t *testing.T) {
 	store := &assetStoreStub{}
 	handler := NewHandler(store, &urlSignerStub{})
 	router := chi.NewRouter()
 	handler.RegisterAdminRoutes(router)
 	req := httptest.NewRequest(http.MethodGet, "/assets/11111111-1111-1111-1111-111111111111/download-url", nil)
-	req.RemoteAddr = "10.0.0.10:12345"
-	req.Header.Set("X-Forwarded-For", "203.0.113.10, 10.0.0.10")
+	req.RemoteAddr = "192.0.2.10:12345"
+	req.Header.Set("X-Forwarded-For", "203.0.113.10")
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
@@ -227,8 +232,8 @@ func TestCreateDownloadURLUsesForwardedClientIPHash(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
 	}
-	want := sha256.Sum256([]byte("203.0.113.10"))
+	want := sha256.Sum256([]byte("192.0.2.10"))
 	if store.downloadEventIPHash != hex.EncodeToString(want[:]) {
-		t.Fatalf("ip hash = %q, want forwarded client hash", store.downloadEventIPHash)
+		t.Fatalf("ip hash = %q, want remote address hash", store.downloadEventIPHash)
 	}
 }

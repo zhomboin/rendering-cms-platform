@@ -17,6 +17,7 @@ POST /api/v1/articles/{slug}/views
 - 仅对已发布文章写入访问统计。
 - 每次调用使 `article_view_daily` 中当日文章访问量加 `1`。
 - 同时使 `site_view_daily` 中当日站点访问量加 `1`。
+- 后端会先写入 `analytics_events`，并按 `event_type + ip_hash + article_id + event_date` 做每日去重；重复事件返回 `204`，但不重复累加 daily 统计。
 - `article_view_daily` 只保存当天实时计数，历史日期统计应在每日归档后进入 `article_view_history`。
 - Rendering 静态博客文章详情页接入时，必须使用 CMS 返回的短链码上报文章访问。
 
@@ -38,6 +39,7 @@ POST /api/v1/analytics/site-views
 - 用于 Rendering 首页、文章列表页、关于页等非文章页面访问统计。
 - 每次调用使 `site_view_daily` 中当日站点访问量加 `1`。
 - 不关联具体文章，不写入 `article_view_daily`。
+- 后端会先写入 `analytics_events`，并按 `event_type + ip_hash + event_date` 做每日去重；重复事件返回 `204`，但不重复累加 daily 统计。
 - `site_view_daily` 只保存当天实时计数，历史日期统计应在每日归档后进入 `site_view_history`。
 - 请求体扩展字段暂不持久化；字段无效时仍按一次站点访问计数并返回 `204`。
 
@@ -174,7 +176,8 @@ Authorization: Bearer <jwt-token>
 - 归档 SQL 必须使用 `DELETE ... RETURNING` 把 daily 数据原子搬迁到 history 表，并在冲突时累加到已有 history 记录。
 - 如果归档过程中仍有延迟访问写入旧日期 daily 表，该记录不会被本次删除；下一次归档会继续累加到 history 表，避免计数丢失。
 - MVP 不保存原始 IP 地址。
-- 增强阶段新增 `analytics_events` 作为可选访问事件明细表，当前趋势接口仍优先读取 daily/history 聚合表。
+- 增强阶段新增 `analytics_events` 作为访问事件明细表，并用于公开统计接口去重；当前趋势接口仍优先读取 daily/history 聚合表。
+- `analytics_events` 通过唯一索引限制同一 `event_type + ip_hash + article_id + event_date` 重复计数；站点访问使用空文章 ID 参与同一规则。
 
 ## Rendering 博客对接
 

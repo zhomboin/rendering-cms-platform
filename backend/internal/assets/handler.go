@@ -27,7 +27,7 @@ const (
 )
 
 type URLSigner interface {
-	PresignUploadURL(ctx context.Context, key string, contentType string, expires time.Duration) (string, error)
+	PresignUploadURL(ctx context.Context, key string, contentType string, byteSize int64, expires time.Duration) (string, error)
 	PresignDownloadURL(ctx context.Context, key string, expires time.Duration) (string, error)
 }
 
@@ -147,7 +147,7 @@ func (h Handler) createUploadURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 返回给浏览器的是短期 PUT URL，不包含 R2 密钥；实际上传由前端直接 PUT 到该 URL。
-	uploadURL, err := h.signer.PresignUploadURL(r.Context(), storageKey, payload.ContentType, presignExpiry)
+	uploadURL, err := h.signer.PresignUploadURL(r.Context(), storageKey, payload.ContentType, int64(payload.ByteSize), presignExpiry)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "上传 URL 生成失败")
 		return

@@ -52,22 +52,22 @@ func TestAdminAuthMiddlewareAcceptsAdminToken(t *testing.T) {
 	}
 }
 
-func TestClientIPHashUsesForwardedHeaders(t *testing.T) {
+func TestClientIPHashIgnoresSpoofedForwardedFor(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
 	req.RemoteAddr = "10.0.0.10:12345"
 	req.Header.Set("X-Forwarded-For", "203.0.113.10, 10.0.0.10")
 
-	forwardedHash := ClientIPHash(req)
+	spoofedHash := ClientIPHash(req)
 
 	req.Header.Del("X-Forwarded-For")
 	req.Header.Set("X-Real-IP", "203.0.113.10")
-	if realIPHash := ClientIPHash(req); realIPHash != forwardedHash {
-		t.Fatalf("X-Real-IP hash = %q, want forwarded hash %q", realIPHash, forwardedHash)
+	if realIPHash := ClientIPHash(req); realIPHash == spoofedHash {
+		t.Fatalf("spoofed X-Forwarded-For hash %q should not match trusted X-Real-IP hash", spoofedHash)
 	}
 
 	req.Header.Del("X-Real-IP")
-	if remoteHash := ClientIPHash(req); remoteHash == forwardedHash {
-		t.Fatal("remote address hash should differ from forwarded client hash")
+	if remoteHash := ClientIPHash(req); remoteHash != spoofedHash {
+		t.Fatalf("remote address hash = %q, want spoofed X-Forwarded-For to be ignored", remoteHash)
 	}
 }
 

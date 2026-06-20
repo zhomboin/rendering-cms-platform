@@ -159,7 +159,7 @@ function DashboardPage() {
           <Col key={s.key} xs={24} sm={12} lg={8}>
             <Card
               style={{
-                borderRadius: 24,
+                borderRadius: 8,
                 padding: 24,
                 background: '#FFFFFF',
                 boxShadow: '0 1px 3px 0 rgba(0,0,0,0.06)',
@@ -216,7 +216,7 @@ function DashboardPage() {
         }
         style={{
           marginTop: 24,
-          borderRadius: 24,
+          borderRadius: 8,
           border: '1px solid #E2E8F0',
           boxShadow: '0 1px 3px 0 rgba(0,0,0,0.06)',
         }}
@@ -265,7 +265,7 @@ function DashboardPage() {
         }
         style={{
           marginTop: 24,
-          borderRadius: 24,
+          borderRadius: 8,
           border: '1px solid #E2E8F0',
           boxShadow: '0 1px 3px 0 rgba(0,0,0,0.06)',
         }}
@@ -301,7 +301,7 @@ function DashboardPage() {
         }
         style={{
           marginTop: 24,
-          borderRadius: 24,
+          borderRadius: 8,
           border: '1px solid #E2E8F0',
           boxShadow: '0 1px 3px 0 rgba(0,0,0,0.06)',
         }}

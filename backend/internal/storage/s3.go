@@ -47,12 +47,13 @@ func NewS3Client(cfg config.S3Config) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) PresignUploadURL(ctx context.Context, key string, contentType string, expires time.Duration) (string, error) {
-	// 预签名 PUT URL 只允许上传指定 key 和 Content-Type，前端需要原样携带该 Content-Type。
+func (c *Client) PresignUploadURL(ctx context.Context, key string, contentType string, byteSize int64, expires time.Duration) (string, error) {
+	// 预签名 PUT URL 只允许上传指定 key、Content-Type 和 Content-Length。
 	request, err := c.presigner.PresignPutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(c.bucket),
-		Key:         aws.String(key),
-		ContentType: aws.String(contentType),
+		Bucket:        aws.String(c.bucket),
+		Key:           aws.String(key),
+		ContentType:   aws.String(contentType),
+		ContentLength: aws.Int64(byteSize),
 	}, s3.WithPresignExpires(expires))
 	if err != nil {
 		return "", err

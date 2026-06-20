@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -170,6 +172,28 @@ func TestLoginHandlerRecordsFailedAttempt(t *testing.T) {
 	}
 }
 
+func TestLoginHandlerIgnoresSpoofedForwardedFor(t *testing.T) {
+	store := &loginAttemptStoreStub{}
+	finder := &userFinderStub{returnErr: ErrUserNotFound}
+	handler := NewLoginHandlerWithClock("secret-32-characters-minimum-value", finder, store, func() time.Time {
+		return time.Date(2026, 5, 12, 12, 0, 0, 0, time.UTC)
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{
+		"email": "missing@example.com",
+		"password": "wrong-password"
+	}`))
+	req.RemoteAddr = "192.0.2.10:12345"
+	req.Header.Set("X-Forwarded-For", "203.0.113.10")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	want := sha256String("192.0.2.10")
+	if store.createdAttempt.IpHash != want {
+		t.Fatalf("ip hash = %q, want remote address hash %q", store.createdAttempt.IpHash, want)
+	}
+}
+
 func TestLoginHandlerDoesNotCombineEmailAndIPFailures(t *testing.T) {
 	now := time.Date(2026, 5, 12, 12, 0, 0, 0, time.UTC)
 	store := &loginAttemptStoreStub{
@@ -202,6 +226,11 @@ func TestLoginHandlerDoesNotCombineEmailAndIPFailures(t *testing.T) {
 	if !finder.called {
 		t.Fatal("user finder should be called when neither independent lockout threshold is reached")
 	}
+}
+
+func sha256String(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:])
 }
 
 type userFinderStub struct {

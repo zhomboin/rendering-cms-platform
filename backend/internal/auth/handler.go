@@ -243,10 +243,7 @@ func loginAttemptTimes(values []pgtype.Timestamptz) []time.Time {
 
 func ipHashFromRequest(r *http.Request) string {
 	host := r.RemoteAddr
-	if forwardedFor := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwardedFor != "" {
-		host, _, _ = strings.Cut(forwardedFor, ",")
-		host = strings.TrimSpace(host)
-	} else if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
+	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
 		host = realIP
 	} else if parsedHost, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		host = parsedHost

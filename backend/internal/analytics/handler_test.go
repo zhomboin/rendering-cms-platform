@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"rendering-cms-platform/backend/internal/database/dbgen"
@@ -41,6 +42,34 @@ func TestRecordArticleViewFallsBackFromArticleNameToShortSlugMapping(t *testing.
 	}
 	if store.lastArticleViewID != articleID {
 		t.Fatalf("article view id = %v, want mapped article id", store.lastArticleViewID)
+	}
+}
+
+func TestRecordArticleViewSkipsIncrementWhenAnalyticsEventIsDuplicate(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	store := &analyticsStoreStub{
+		byArticleNameArticle: dbgen.GetArticleByArticleNameRow{
+			ArticleID:   articleID,
+			Slug:        "aB3dE9",
+			ArticleName: "redis-sentinel-with-docker",
+			Status:      dbgen.ArticleStatusPublished,
+		},
+		createEventErr: &pgconn.PgError{Code: "23505", ConstraintName: "analytics_events_unique_bucket_idx"},
+	}
+	handler := NewHandler(store)
+	router := chi.NewRouter()
+	handler.RegisterPublicRoutes(router)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/articles/redis-sentinel-with-docker/views", nil)
+	req.RemoteAddr = "192.0.2.10:12345"
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusNoContent, rec.Body.String())
+	}
+	if store.articleViewCalls != 0 || store.siteViewCalls != 0 {
+		t.Fatalf("view increments = article:%d site:%d, want none for duplicate event", store.articleViewCalls, store.siteViewCalls)
 	}
 }
 
@@ -91,19 +120,33 @@ type analyticsStoreStub struct {
 	siteTrendRows         []dbgen.ListSiteViewTrendRow
 	articleTrendRows      []dbgen.ListArticleViewTrendRow
 	byArticleNameArticle  dbgen.GetArticleByArticleNameRow
+	createEventErr        error
+	createdEvents         []dbgen.CreateAnalyticsEventParams
 	lastArticleNameLookup string
 	lastArticleViewID     pgtype.UUID
+	articleViewCalls      int
+	siteViewCalls         int
 	lastSiteTrendDays     int32
 	lastArticleTrendDays  int32
 }
 
 func (s *analyticsStoreStub) UpsertArticleViewDaily(ctx context.Context, arg dbgen.UpsertArticleViewDailyParams) error {
 	s.lastArticleViewID = arg.ArticleID
+	s.articleViewCalls++
 	return nil
 }
 
 func (s *analyticsStoreStub) UpsertSiteViewDaily(ctx context.Context, arg dbgen.UpsertSiteViewDailyParams) error {
+	s.siteViewCalls++
 	return nil
+}
+
+func (s *analyticsStoreStub) CreateAnalyticsEvent(ctx context.Context, arg dbgen.CreateAnalyticsEventParams) (dbgen.AnalyticsEvent, error) {
+	s.createdEvents = append(s.createdEvents, arg)
+	if s.createEventErr != nil {
+		return dbgen.AnalyticsEvent{}, s.createEventErr
+	}
+	return dbgen.AnalyticsEvent{}, nil
 }
 
 func (s *analyticsStoreStub) GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error) {

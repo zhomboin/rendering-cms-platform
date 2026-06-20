@@ -211,6 +211,10 @@ func (h Handler) updateDraftArticle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "文章读取失败")
 		return
 	}
+	if current.Status != dbgen.ArticleStatusDraft {
+		writeError(w, http.StatusConflict, "已发布文章不能通过保存草稿直接修改")
+		return
+	}
 
 	article, err := h.queries.UpdateDraftArticle(r.Context(), dbgen.UpdateDraftArticleParams{
 		ArticleID:     articleID,
