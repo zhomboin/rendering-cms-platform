@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -94,7 +95,7 @@ func positiveIntEnv(key string, fallback int) int {
 
 func positiveFloatEnv(key string, fallback float64) float64 {
 	value, err := strconv.ParseFloat(strings.TrimSpace(os.Getenv(key)), 64)
-	if err != nil || value <= 0 {
+	if err != nil || value <= 0 || math.IsNaN(value) || math.IsInf(value, 0) {
 		return fallback
 	}
 	return value

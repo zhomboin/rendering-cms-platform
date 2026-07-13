@@ -57,6 +57,23 @@ func TestLoadReadsPublicRateLimitSettings(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsNonFinitePublicRateLimitSettings(t *testing.T) {
+	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
+	t.Setenv("PUBLIC_READ_RATE_PER_SECOND", "NaN")
+	t.Setenv("PUBLIC_SEARCH_RATE_PER_SECOND", "+Inf")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.PublicReadRatePerSecond != 20 {
+		t.Fatalf("PublicReadRatePerSecond = %v, want safe default 20", cfg.PublicReadRatePerSecond)
+	}
+	if cfg.PublicSearchRatePerSecond != 5 {
+		t.Fatalf("PublicSearchRatePerSecond = %v, want safe default 5", cfg.PublicSearchRatePerSecond)
+	}
+}
+
 func TestLoadRequiresJWTSecret(t *testing.T) {
 	t.Setenv("JWT_SECRET", "")
 

@@ -56,6 +56,7 @@ func TestNewRouterAppliesSeparatePublicReadAndSearchLimits(t *testing.T) {
 		}),
 		WithPublicArticleReadRoutes(func(router chi.Router) {
 			router.Get("/api/v1/articles", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
+			router.Get("/api/v1/articles/{slug}", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusAccepted) })
 		}),
 		WithPublicArticleSearchRoutes(func(router chi.Router) {
 			router.Get("/api/v1/articles/search", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
