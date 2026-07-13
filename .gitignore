@@ -69,3 +69,6 @@ deploy/production.env
 .parcel-cache/
 .turbo/
 .next/
+
+# Git 隔离工作区
+.worktrees/
