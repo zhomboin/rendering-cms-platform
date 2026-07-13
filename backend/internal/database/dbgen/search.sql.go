@@ -23,6 +23,7 @@ from articles
 where status = 'published'
   and search_vector @@ plainto_tsquery('simple', $1)
 order by ts_rank(search_vector, plainto_tsquery('simple', $1)) desc, published_at desc
+limit 20
 `
 
 type SearchPublishedArticlesRow struct {

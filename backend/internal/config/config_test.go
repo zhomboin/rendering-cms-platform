@@ -28,6 +28,33 @@ func TestLoadUsesDefaultsForOptionalRuntimeValues(t *testing.T) {
 	if cfg.DevBootstrapAdmin {
 		t.Fatal("DevBootstrapAdmin = true, want false by default")
 	}
+	if cfg.PublicReadRatePerSecond != 20 || cfg.PublicReadBurst != 40 || cfg.PublicSearchRatePerSecond != 5 || cfg.PublicSearchBurst != 10 {
+		t.Fatalf("unexpected public rate defaults: %#v", cfg)
+	}
+	if cfg.PublicMaxInFlight != 128 || cfg.PublicRateLimitMaxClients != 10000 {
+		t.Fatalf("unexpected public capacity defaults: %#v", cfg)
+	}
+}
+
+func TestLoadReadsPublicRateLimitSettings(t *testing.T) {
+	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
+	t.Setenv("PUBLIC_READ_RATE_PER_SECOND", "12.5")
+	t.Setenv("PUBLIC_READ_BURST", "25")
+	t.Setenv("PUBLIC_SEARCH_RATE_PER_SECOND", "3")
+	t.Setenv("PUBLIC_SEARCH_BURST", "6")
+	t.Setenv("PUBLIC_MAX_IN_FLIGHT", "64")
+	t.Setenv("PUBLIC_RATE_LIMIT_MAX_CLIENTS", "5000")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.PublicReadRatePerSecond != 12.5 || cfg.PublicReadBurst != 25 || cfg.PublicSearchRatePerSecond != 3 || cfg.PublicSearchBurst != 6 {
+		t.Fatalf("unexpected public rate config: %#v", cfg)
+	}
+	if cfg.PublicMaxInFlight != 64 || cfg.PublicRateLimitMaxClients != 5000 {
+		t.Fatalf("unexpected public capacity config: %#v", cfg)
+	}
 }
 
 func TestLoadRequiresJWTSecret(t *testing.T) {

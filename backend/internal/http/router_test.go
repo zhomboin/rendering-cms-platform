@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -43,6 +44,42 @@ func TestNewRouterExposesRefreshEndpoint(t *testing.T) {
 
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("status code = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+}
+
+func TestNewRouterAppliesSeparatePublicReadAndSearchLimits(t *testing.T) {
+	router := NewRouter(
+		WithPublicTrafficLimits(PublicTrafficLimits{
+			ReadRatePerSecond: 1, ReadBurst: 1,
+			SearchRatePerSecond: 1, SearchBurst: 1,
+			MaxInFlight: 4, MaxClients: 10, ClientTTL: time.Minute,
+		}),
+		WithPublicArticleReadRoutes(func(router chi.Router) {
+			router.Get("/api/v1/articles", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
+		}),
+		WithPublicArticleSearchRoutes(func(router chi.Router) {
+			router.Get("/api/v1/articles/search", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
+		}),
+	)
+
+	request := func(path string) int {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.RemoteAddr = "192.0.2.1:1234"
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if got := request("/api/v1/articles"); got != http.StatusNoContent {
+		t.Fatalf("first read status = %d", got)
+	}
+	if got := request("/api/v1/articles"); got != http.StatusTooManyRequests {
+		t.Fatalf("second read status = %d, want 429", got)
+	}
+	if got := request("/api/v1/articles/search"); got != http.StatusNoContent {
+		t.Fatalf("search should use an independent bucket; status = %d", got)
+	}
+	if got := request("/api/v1/health"); got != http.StatusOK {
+		t.Fatalf("health must not use public limiter; status = %d", got)
 	}
 }
 

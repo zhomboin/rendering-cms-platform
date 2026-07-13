@@ -4,20 +4,34 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
 
 type RouterConfig struct {
-	LoginHandler     http.HandlerFunc
-	RefreshHandler   http.HandlerFunc
-	JWTSecret        string
-	FrontendOrigin   string
-	FrontendOrigins  []string
-	Logger           *slog.Logger
-	RequestBodyLimit int64
-	PublicRoutes     []RouteRegistrar
-	AdminRoutes      []RouteRegistrar
+	LoginHandler              http.HandlerFunc
+	RefreshHandler            http.HandlerFunc
+	JWTSecret                 string
+	FrontendOrigin            string
+	FrontendOrigins           []string
+	Logger                    *slog.Logger
+	RequestBodyLimit          int64
+	PublicRoutes              []RouteRegistrar
+	PublicArticleReadRoutes   []RouteRegistrar
+	PublicArticleSearchRoutes []RouteRegistrar
+	PublicTrafficLimits       PublicTrafficLimits
+	AdminRoutes               []RouteRegistrar
+}
+
+type PublicTrafficLimits struct {
+	ReadRatePerSecond   float64
+	ReadBurst           int
+	SearchRatePerSecond float64
+	SearchBurst         int
+	MaxInFlight         int
+	MaxClients          int
+	ClientTTL           time.Duration
 }
 
 type RouterOption func(*RouterConfig)
@@ -72,6 +86,24 @@ func WithPublicRoutes(registrar RouteRegistrar) RouterOption {
 	}
 }
 
+func WithPublicArticleReadRoutes(registrar RouteRegistrar) RouterOption {
+	return func(config *RouterConfig) {
+		config.PublicArticleReadRoutes = append(config.PublicArticleReadRoutes, registrar)
+	}
+}
+
+func WithPublicArticleSearchRoutes(registrar RouteRegistrar) RouterOption {
+	return func(config *RouterConfig) {
+		config.PublicArticleSearchRoutes = append(config.PublicArticleSearchRoutes, registrar)
+	}
+}
+
+func WithPublicTrafficLimits(limits PublicTrafficLimits) RouterOption {
+	return func(config *RouterConfig) {
+		config.PublicTrafficLimits = limits
+	}
+}
+
 func WithAdminRoutes(registrar RouteRegistrar) RouterOption {
 	return func(config *RouterConfig) {
 		config.AdminRoutes = append(config.AdminRoutes, registrar)
@@ -105,6 +137,7 @@ func NewRouter(options ...RouterOption) http.Handler {
 	for _, registrar := range config.PublicRoutes {
 		registrar(router)
 	}
+	registerLimitedPublicRoutes(router, config)
 	if config.JWTSecret != "" && len(config.AdminRoutes) > 0 {
 		router.Route("/api/v1/admin", func(admin chi.Router) {
 			admin.Use(AdminAuthMiddleware(config.JWTSecret))
@@ -123,4 +156,61 @@ func NewRouter(options ...RouterOption) http.Handler {
 	}
 
 	return handler
+}
+
+func registerLimitedPublicRoutes(router chi.Router, config RouterConfig) {
+	if len(config.PublicArticleReadRoutes) == 0 && len(config.PublicArticleSearchRoutes) == 0 {
+		return
+	}
+	limits := config.PublicTrafficLimits
+	if limits.ReadRatePerSecond <= 0 {
+		limits.ReadRatePerSecond = 20
+	}
+	if limits.ReadBurst <= 0 {
+		limits.ReadBurst = 40
+	}
+	if limits.SearchRatePerSecond <= 0 {
+		limits.SearchRatePerSecond = 5
+	}
+	if limits.SearchBurst <= 0 {
+		limits.SearchBurst = 10
+	}
+	if limits.MaxInFlight <= 0 {
+		limits.MaxInFlight = 128
+	}
+	if limits.MaxClients <= 0 {
+		limits.MaxClients = 10000
+	}
+	if limits.ClientTTL <= 0 {
+		limits.ClientTTL = 10 * time.Minute
+	}
+
+	readLimiter := NewClientRateLimiter(ClientRateLimitOptions{
+		RatePerSecond: limits.ReadRatePerSecond, Burst: limits.ReadBurst,
+		MaxClients: limits.MaxClients, ClientTTL: limits.ClientTTL,
+	})
+	searchLimiter := NewClientRateLimiter(ClientRateLimitOptions{
+		RatePerSecond: limits.SearchRatePerSecond, Burst: limits.SearchBurst,
+		MaxClients: limits.MaxClients, ClientTTL: limits.ClientTTL,
+	})
+	concurrencyLimit := ConcurrencyLimitMiddleware(limits.MaxInFlight)
+
+	if len(config.PublicArticleReadRoutes) > 0 {
+		router.Group(func(public chi.Router) {
+			public.Use(concurrencyLimit)
+			public.Use(RateLimitMiddleware(readLimiter))
+			for _, registrar := range config.PublicArticleReadRoutes {
+				registrar(public)
+			}
+		})
+	}
+	if len(config.PublicArticleSearchRoutes) > 0 {
+		router.Group(func(public chi.Router) {
+			public.Use(concurrencyLimit)
+			public.Use(RateLimitMiddleware(searchLimiter))
+			for _, registrar := range config.PublicArticleSearchRoutes {
+				registrar(public)
+			}
+		})
+	}
 }

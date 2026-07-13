@@ -4,7 +4,7 @@
 
 ## 数据模型
 
-文章基础响应字段：
+以下完整模型只用于后台文章管理接口，公开接口使用后续章节定义的最小字段集合：
 
 ```json
 {
@@ -63,6 +63,23 @@ GET /api/v1/articles
 - 该接口由 Rendering 博客服务端或前台读取，CMS 前端自身不提供公开文章列表页面。
 - 返回 `isFeatured`、`featuredRank`、`featuredAt`，供 Rendering 首页拆分“精选文章”和“最近更新”。
 - 首页精选应优先取 `isFeatured=true`，按 `featuredRank` 升序排列；最近更新可按 `publishedAt` 倒序并排除已进入精选的文章。
+- 列表不返回正文和后台管理字段，Rendering 不得依赖列表响应中的 `bodyMdx`。
+
+公开列表字段：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `slug` / `canonicalSlug` | string | 6 位 canonical 短链码 |
+| `articleName` | string | 兼容期文章英文名 |
+| `title` / `summary` | string | 标题与摘要 |
+| `tags` | string[] | 标签 |
+| `publishedAt` / `updatedAt` | string/null | 发布时间与更新时间 |
+| `isFeatured` | boolean | 是否精选 |
+| `featuredRank` | number | 精选排序 |
+| `featuredAt` | string/null | 精选设置时间 |
+| `coverImageUrl` | string/null | 封面地址 |
+
+列表明确不返回 `bodyMdx`、`articleId`、`authorId`、`version` 和其他后台字段。
 
 ## Rendering 博客文章详情
 
@@ -79,6 +96,8 @@ GET /api/v1/articles/{slug}
 - 兼容期内，如果 `{slug}` 不是 6 位短链码，后端会尝试按 `articleName` 查找并返回对应文章。
 - 响应中的 `canonicalSlug` 永远是实际短链；`resolvedBy` 取值为 `slug` 或 `articleName`。
 - Rendering 博客如果收到 `resolvedBy: "articleName"`，必须把浏览器地址重定向或替换为 `/blog/<canonicalSlug>`。
+- 非法标识符、未发布文章和不存在文章统一返回 `404`；标识符最多 128 个 Unicode 字符。
+- 详情返回列表摘要字段，并额外返回完整 `bodyMdx` 和 `resolvedBy`。
 
 ## Rendering 博客文章搜索
 
@@ -91,8 +110,31 @@ GET /api/v1/articles/search?q=keyword
 - 基于 PostgreSQL full text search 搜索已发布文章。
 - 搜索范围包含标题、摘要和 MDX 正文。
 - 搜索关键词为空时返回 `400`。
+- 去除首尾空白后，搜索关键词长度必须为 1–100 个 Unicode 字符；超出范围返回 `400` 且不查询数据库。
 - 返回字段包含 `articleId`、`slug`、`articleName`、`title`、`summary` 和 `publishedAt`，不返回完整 `bodyMdx`。
 - 搜索排序优先使用 `ts_rank` 相关度，其次按发布时间倒序排列。
+- 搜索最多返回 20 条结果。Rendering 当前继续使用构建期 Pagefind，不直接调用该接口。
+
+## 公开读取缓存与限流
+
+列表和详情的成功响应包含：
+
+```http
+Cache-Control: public, max-age=60, stale-while-revalidate=300
+Vary: Accept-Encoding
+ETag: "<sha256>"
+```
+
+客户端再次请求时可发送 `If-None-Match`。ETag 与最终 JSON 内容匹配时返回 `304 Not Modified`，响应体为空。公开详情 `404` 使用 `Cache-Control: public, max-age=15`；服务端 `5xx` 使用 `Cache-Control: no-store`。
+
+应用层和 Nginx 会分别限制公开读取与搜索压力。超过速率返回 `429 Too Many Requests` 并携带 `Retry-After`；超过应用并发上限时返回 `503 Service Unavailable` 和 `Retry-After: 1`。后台、登录和写入接口不使用公开读取桶，但在 Nginx 边界有独立额度。
+
+| 状态码 | 语义 |
+|---|---|
+| `400` | 搜索词为空或超过 100 个 Unicode 字符 |
+| `404` | 标识符非法、文章不存在或未发布 |
+| `429` | 触发边界或应用速率限制 |
+| `500` | 数据库或服务内部错误，不允许缓存 |
 
 ## 后台文章列表
 

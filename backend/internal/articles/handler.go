@@ -2,11 +2,14 @@ package articles
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -21,6 +24,8 @@ type Handler struct {
 	queries      articleStore
 	generateSlug func() (string, error)
 }
+
+var errInvalidArticleIdentifier = errors.New("invalid article identifier")
 
 type ArticlePayload struct {
 	Slug          string   `json:"slug"`
@@ -56,9 +61,17 @@ func NewHandlerWithSlugGenerator(queries articleStore, generateSlug func() (stri
 }
 
 func (h Handler) RegisterPublicRoutes(router chi.Router) {
+	h.RegisterPublicReadRoutes(router)
+	h.RegisterPublicSearchRoutes(router)
+}
+
+func (h Handler) RegisterPublicReadRoutes(router chi.Router) {
 	router.Get("/api/v1/articles", h.listPublishedArticles)
-	router.Get("/api/v1/articles/search", h.searchPublishedArticles)
 	router.Get("/api/v1/articles/{slug}", h.getPublishedArticle)
+}
+
+func (h Handler) RegisterPublicSearchRoutes(router chi.Router) {
+	router.Get("/api/v1/articles/search", h.searchPublishedArticles)
 }
 
 func (h Handler) RegisterAdminRoutes(router chi.Router) {
@@ -71,35 +84,40 @@ func (h Handler) RegisterAdminRoutes(router chi.Router) {
 func (h Handler) listPublishedArticles(w http.ResponseWriter, r *http.Request) {
 	articles, err := h.queries.ListPublishedArticles(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "文章列表读取失败")
+		writePublicArticleError(w, http.StatusInternalServerError, "文章列表读取失败")
 		return
 	}
-	writeJSON(w, http.StatusOK, mapArticles(articles))
+	writePublicArticleJSON(w, r, mapPublicArticleSummaries(articles))
 }
 
 func (h Handler) getPublishedArticle(w http.ResponseWriter, r *http.Request) {
 	article, resolvedBy, err := h.resolvePublishedArticle(r.Context(), chi.URLParam(r, "slug"))
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "文章不存在")
+		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, errInvalidArticleIdentifier) {
+			writePublicArticleError(w, http.StatusNotFound, "文章不存在")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "文章读取失败")
+		writePublicArticleError(w, http.StatusInternalServerError, "文章读取失败")
 		return
 	}
-	response := mapArticle(article)
+	response := mapPublicArticleDetail(article)
 	response["resolvedBy"] = resolvedBy
-	response["canonicalSlug"] = article.Slug
-	writeJSON(w, http.StatusOK, response)
+	writePublicArticleJSON(w, r, response)
 }
 
 func (h Handler) resolvePublishedArticle(ctx context.Context, identifier string) (articleView, string, error) {
+	if identifier == "" || utf8.RuneCountInString(identifier) > 128 {
+		return articleView{}, "", errInvalidArticleIdentifier
+	}
 	if ValidSlug(identifier) {
 		article, err := h.queries.GetArticleBySlug(ctx, identifier)
 		if err != nil {
 			return articleView{}, "", err
 		}
 		return articleViewFromRow(article), "slug", nil
+	}
+	if !ValidArticleName(identifier) {
+		return articleView{}, "", errInvalidArticleIdentifier
 	}
 	article, err := h.queries.GetArticleByArticleName(ctx, identifier)
 	if err != nil {
@@ -112,6 +130,10 @@ func (h Handler) searchPublishedArticles(w http.ResponseWriter, r *http.Request)
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {
 		writeError(w, http.StatusBadRequest, "搜索关键词不能为空")
+		return
+	}
+	if utf8.RuneCountInString(query) > 100 {
+		writeError(w, http.StatusBadRequest, "搜索关键词不能超过 100 个字符")
 		return
 	}
 	articles, err := h.queries.SearchPublishedArticles(r.Context(), query)
@@ -335,6 +357,37 @@ func mapArticles[T articleRow](articles []T) []map[string]interface{} {
 	return response
 }
 
+func mapPublicArticleSummaries[T articleRow](articles []T) []map[string]interface{} {
+	response := make([]map[string]interface{}, 0, len(articles))
+	for _, article := range articles {
+		response = append(response, mapPublicArticleSummary(articleViewFromRow(article)))
+	}
+	return response
+}
+
+func mapPublicArticleSummary(article articleView) map[string]interface{} {
+	return map[string]interface{}{
+		"slug":          article.Slug,
+		"canonicalSlug": article.Slug,
+		"articleName":   article.ArticleName,
+		"title":         article.Title,
+		"summary":       article.Summary,
+		"tags":          article.Tags,
+		"publishedAt":   timestamptzValue(article.PublishedAt),
+		"updatedAt":     timestamptzValue(article.UpdatedAt),
+		"isFeatured":    article.Featured,
+		"featuredRank":  article.FeaturedRank,
+		"featuredAt":    timestamptzValue(article.FeaturedAt),
+		"coverImageUrl": textValue(article.CoverImageUrl),
+	}
+}
+
+func mapPublicArticleDetail(article articleView) map[string]interface{} {
+	response := mapPublicArticleSummary(article)
+	response["bodyMdx"] = article.BodyMdx
+	return response
+}
+
 type articleRow interface {
 	dbgen.CreateDraftArticleRow |
 		dbgen.GetArticleByIDRow |
@@ -503,4 +556,45 @@ func writeJSON(w http.ResponseWriter, status int, body interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
+}
+
+func writePublicArticleJSON(w http.ResponseWriter, r *http.Request, body interface{}) {
+	payload, err := json.Marshal(body)
+	if err != nil {
+		writePublicArticleError(w, http.StatusInternalServerError, "响应序列化失败")
+		return
+	}
+
+	sum := sha256.Sum256(payload)
+	etag := fmt.Sprintf(`"%x"`, sum)
+	w.Header().Set("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
+	w.Header().Add("Vary", "Accept-Encoding")
+	w.Header().Set("ETag", etag)
+	if requestETagMatches(r.Header.Get("If-None-Match"), etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(append(payload, '\n'))
+}
+
+func requestETagMatches(header string, etag string) bool {
+	for _, candidate := range strings.Split(header, ",") {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "*" || candidate == etag {
+			return true
+		}
+	}
+	return false
+}
+
+func writePublicArticleError(w http.ResponseWriter, status int, message string) {
+	if status == http.StatusNotFound {
+		w.Header().Set("Cache-Control", "public, max-age=15")
+	} else if status >= http.StatusInternalServerError {
+		w.Header().Set("Cache-Control", "no-store")
+	}
+	writeJSON(w, status, map[string]string{"error": message})
 }

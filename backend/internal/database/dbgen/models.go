@@ -189,6 +189,7 @@ type AnalyticsEvent struct {
 	IpHash    string
 	UserAgent pgtype.Text
 	CreatedAt pgtype.Timestamptz
+	EventDate pgtype.Date
 }
 
 type Article struct {
@@ -200,8 +201,6 @@ type Article struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
-	FeaturedRank  int32
-	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -210,6 +209,8 @@ type Article struct {
 	Version       int32
 	SearchVector  interface{}
 	ArticleName   string
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 }
 
 type ArticleLog struct {
@@ -221,8 +222,6 @@ type ArticleLog struct {
 	Status        ArticleStatus
 	Tags          []string
 	Featured      bool
-	FeaturedRank  int32
-	FeaturedAt    pgtype.Timestamptz
 	CoverImageUrl pgtype.Text
 	PublishedAt   pgtype.Timestamptz
 	AuthorID      pgtype.UUID
@@ -230,6 +229,8 @@ type ArticleLog struct {
 	UpdatedAt     pgtype.Timestamptz
 	Version       int32
 	ArticleName   string
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 }
 
 type ArticleShortSlugMapping struct {

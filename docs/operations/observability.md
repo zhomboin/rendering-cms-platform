@@ -32,10 +32,22 @@ export BACKEND_LOG_HOST_DIR=/var/log/rendering-cms-platform
 - `status`：响应状态码。
 - `bytes`：响应体字节数。
 - `duration_ms`：请求处理耗时，单位为毫秒。
-- `remote_ip_hash`：优先从 `X-Forwarded-For`、`X-Real-IP`、`RemoteAddr` 提取客户端地址后计算得到的 SHA-256 哈希。
+- `remote_ip_hash`：只从可信代理重写的 `X-Real-IP` 或 `RemoteAddr` 提取客户端地址后计算 SHA-256 哈希；不信任客户端可伪造的 `X-Forwarded-For` 链。
 - `user_agent`：请求 `User-Agent`。
 
 请求日志不记录原始 IP 地址、不记录请求体、不记录原始 query string，不在日志中写入密码、token、Cookie 或上传文件内容。
+
+## 抗滥用监控
+
+生产告警至少覆盖：
+
+- Nginx `429`、应用 `429/503` 和后端 `5xx` 的速率与突增。
+- Nginx `$upstream_cache_status` 中 `MISS`、`BYPASS`、`EXPIRED` 的比例；热点文章持续 MISS 时检查 cache key 和权限。
+- Go goroutine、RSS、请求耗时和 PostgreSQL 连接池使用率。
+- 搜索接口 P95、数据库慢查询和超时数量。
+- CMS 发布成功但 Rendering Pagefind 构建触发失败的告警。
+
+不得在日志或指标标签中记录原始 IP、Authorization、Cookie 或完整搜索词。
 
 ## 日志失败策略
 

@@ -19,6 +19,15 @@
 - 自动触发 Rendering 博客重新构建或部署。
 - 自动让文章出现在 `https://rendering.me/blog/<slug>`，其中 `<slug>` 是 CMS 返回的 6 位短链码。
 
+## Pagefind 搜索索引更新边界
+
+Rendering 当前搜索使用构建期 Pagefind，不直接调用 CMS 搜索接口。因此 CMS 发布成功不等于搜索索引已经包含新文章。发布成功后必须触发 Rendering 的构建/部署 webhook 或 CI workflow，使 Pagefind 重新生成索引。
+
+- 跨仓库触发凭据只能放在 CI/CD secrets 中，不得写入数据库、环境示例或 Git。
+- 触发接口必须有认证；如果当前没有安全机制，应另建实施任务，不能临时开放无认证 webhook。
+- 触发失败不得回滚已经发布的 CMS 文章，但必须告警“文章已发布、搜索索引未更新”，并提供人工重试入口。
+- Rendering 构建完成后，应验收文章详情、站点地图、RSS 和 Pagefind 搜索结果均使用 `canonicalSlug`。
+
 ## 目标
 
 - CMS 发布文章后，Rendering 博客平台可以通过 `/blog/<slug>` 访问该文章，`slug` 使用 CMS 生成的 6 位短链码。

@@ -3,22 +3,29 @@ package config
 import (
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 )
 
 type Config struct {
-	HTTPAddr          string
-	DatabaseURL       string
-	JWTSecret         string
-	FrontendOrigin    string
-	FrontendOrigins   []string
-	LogDir            string
-	AppEnv            string
-	DevBootstrapAdmin bool
-	DevAdminEmail     string
-	DevAdminName      string
-	DevAdminPassword  string
-	S3                S3Config
+	HTTPAddr                  string
+	DatabaseURL               string
+	JWTSecret                 string
+	FrontendOrigin            string
+	FrontendOrigins           []string
+	LogDir                    string
+	AppEnv                    string
+	DevBootstrapAdmin         bool
+	DevAdminEmail             string
+	DevAdminName              string
+	DevAdminPassword          string
+	PublicReadRatePerSecond   float64
+	PublicReadBurst           int
+	PublicSearchRatePerSecond float64
+	PublicSearchBurst         int
+	PublicMaxInFlight         int
+	PublicRateLimitMaxClients int
+	S3                        S3Config
 }
 
 type S3Config struct {
@@ -43,12 +50,18 @@ func Load() (Config, error) {
 			"FRONTEND_ORIGINS",
 			envOrDefault("FRONTEND_ORIGIN", "http://127.0.0.1:5173"),
 		),
-		LogDir:            envOrDefault("LOG_DIR", "logs"),
-		AppEnv:            envOrDefault("APP_ENV", "production"),
-		DevBootstrapAdmin: parseBoolEnv("DEV_BOOTSTRAP_ADMIN"),
-		DevAdminEmail:     envOrDefault("DEV_ADMIN_EMAIL", "admin@rendering.me"),
-		DevAdminName:      envOrDefault("DEV_ADMIN_NAME", "Dev Admin"),
-		DevAdminPassword:  os.Getenv("DEV_ADMIN_PASSWORD"),
+		LogDir:                    envOrDefault("LOG_DIR", "logs"),
+		AppEnv:                    envOrDefault("APP_ENV", "production"),
+		DevBootstrapAdmin:         parseBoolEnv("DEV_BOOTSTRAP_ADMIN"),
+		DevAdminEmail:             envOrDefault("DEV_ADMIN_EMAIL", "admin@rendering.me"),
+		DevAdminName:              envOrDefault("DEV_ADMIN_NAME", "Dev Admin"),
+		DevAdminPassword:          os.Getenv("DEV_ADMIN_PASSWORD"),
+		PublicReadRatePerSecond:   positiveFloatEnv("PUBLIC_READ_RATE_PER_SECOND", 20),
+		PublicReadBurst:           positiveIntEnv("PUBLIC_READ_BURST", 40),
+		PublicSearchRatePerSecond: positiveFloatEnv("PUBLIC_SEARCH_RATE_PER_SECOND", 5),
+		PublicSearchBurst:         positiveIntEnv("PUBLIC_SEARCH_BURST", 10),
+		PublicMaxInFlight:         positiveIntEnv("PUBLIC_MAX_IN_FLIGHT", 128),
+		PublicRateLimitMaxClients: positiveIntEnv("PUBLIC_RATE_LIMIT_MAX_CLIENTS", 10000),
 		S3: S3Config{
 			// S3_* 同时兼容本地 MinIO 和生产 Cloudflare R2，生产环境由 deploy/production.env 提供。
 			Endpoint:        os.Getenv("S3_ENDPOINT"),
@@ -69,6 +82,22 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func positiveIntEnv(key string, fallback int) int {
+	value, err := strconv.Atoi(strings.TrimSpace(os.Getenv(key)))
+	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
+}
+
+func positiveFloatEnv(key string, fallback float64) float64 {
+	value, err := strconv.ParseFloat(strings.TrimSpace(os.Getenv(key)), 64)
+	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
 }
 
 func envOrDefault(key string, fallback string) string {

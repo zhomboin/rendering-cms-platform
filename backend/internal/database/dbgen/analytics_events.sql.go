@@ -33,14 +33,23 @@ type CreateAnalyticsEventParams struct {
 	UserAgent pgtype.Text
 }
 
-func (q *Queries) CreateAnalyticsEvent(ctx context.Context, arg CreateAnalyticsEventParams) (AnalyticsEvent, error) {
+type CreateAnalyticsEventRow struct {
+	EventID   pgtype.UUID
+	ArticleID pgtype.UUID
+	EventType string
+	IpHash    string
+	UserAgent pgtype.Text
+	CreatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) CreateAnalyticsEvent(ctx context.Context, arg CreateAnalyticsEventParams) (CreateAnalyticsEventRow, error) {
 	row := q.db.QueryRow(ctx, createAnalyticsEvent,
 		arg.ArticleID,
 		arg.EventType,
 		arg.IpHash,
 		arg.UserAgent,
 	)
-	var i AnalyticsEvent
+	var i CreateAnalyticsEventRow
 	err := row.Scan(
 		&i.EventID,
 		&i.ArticleID,

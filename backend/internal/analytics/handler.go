@@ -26,7 +26,7 @@ type Handler struct {
 type analyticsStore interface {
 	GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error)
 	GetArticleByArticleName(ctx context.Context, articleName string) (dbgen.GetArticleByArticleNameRow, error)
-	CreateAnalyticsEvent(ctx context.Context, arg dbgen.CreateAnalyticsEventParams) (dbgen.AnalyticsEvent, error)
+	CreateAnalyticsEvent(ctx context.Context, arg dbgen.CreateAnalyticsEventParams) (dbgen.CreateAnalyticsEventRow, error)
 	UpsertArticleViewDaily(ctx context.Context, arg dbgen.UpsertArticleViewDailyParams) error
 	UpsertSiteViewDaily(ctx context.Context, arg dbgen.UpsertSiteViewDailyParams) error
 	GetTodaySiteViews(ctx context.Context) (int32, error)

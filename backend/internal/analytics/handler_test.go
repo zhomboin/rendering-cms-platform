@@ -141,12 +141,12 @@ func (s *analyticsStoreStub) UpsertSiteViewDaily(ctx context.Context, arg dbgen.
 	return nil
 }
 
-func (s *analyticsStoreStub) CreateAnalyticsEvent(ctx context.Context, arg dbgen.CreateAnalyticsEventParams) (dbgen.AnalyticsEvent, error) {
+func (s *analyticsStoreStub) CreateAnalyticsEvent(ctx context.Context, arg dbgen.CreateAnalyticsEventParams) (dbgen.CreateAnalyticsEventRow, error) {
 	s.createdEvents = append(s.createdEvents, arg)
 	if s.createEventErr != nil {
-		return dbgen.AnalyticsEvent{}, s.createEventErr
+		return dbgen.CreateAnalyticsEventRow{}, s.createEventErr
 	}
-	return dbgen.AnalyticsEvent{}, nil
+	return dbgen.CreateAnalyticsEventRow{}, nil
 }
 
 func (s *analyticsStoreStub) GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error) {

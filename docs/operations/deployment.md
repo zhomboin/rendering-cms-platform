@@ -36,6 +36,7 @@
 - `deploy/production.env.example`：生产环境变量模板。
 - `deploy/nginx/frontend.conf`：前端 Nginx 容器配置。
 - `deploy/nginx/rendering.me.conf`：服务器宿主机 Nginx 完整反向代理配置。
+- `deploy/nginx/rendering-cms-proxy-headers.conf`：CMS 各 location 共用的可信代理头、超时和缓冲配置。
 - `backend/Dockerfile`：后端生产镜像。
 - `frontend/Dockerfile`：前端生产镜像。
 - `docs/operations/runbook.md`：固定运维 SOP。
@@ -107,6 +108,12 @@ JWT_SECRET=replace-with-32-plus-character-secret
 FRONTEND_ORIGIN=https://cms.rendering.me
 FRONTEND_ORIGINS=https://cms.rendering.me,https://rendering.me,https://www.rendering.me
 VITE_API_BASE=/api/v1
+PUBLIC_READ_RATE_PER_SECOND=20
+PUBLIC_READ_BURST=40
+PUBLIC_SEARCH_RATE_PER_SECOND=5
+PUBLIC_SEARCH_BURST=10
+PUBLIC_MAX_IN_FLIGHT=128
+PUBLIC_RATE_LIMIT_MAX_CLIENTS=10000
 ```
 
 Cloudflare R2 对象存储配置：
@@ -132,6 +139,7 @@ S3_ASSET_FILE_PREFIX=assets
 - `JWT_SECRET` 至少 32 字符，生产环境不得使用示例值。
 - `FRONTEND_ORIGINS` 使用生产访问域名；多个来源使用英文逗号分隔。
 - `VITE_API_BASE` 保持 `/api/v1`，让浏览器走同域 API 反代。
+- `PUBLIC_*` 是 Go 服务的第二层保护。搜索默认额度低于普通文章读取；调整时应结合 Nginx `429`、应用 `429/503`、数据库 P95 和连接池使用率，不得直接取消硬客户端状态上限。
 - `S3_ENDPOINT` 使用 R2 S3 API 端点，不要填写 R2 公开访问自定义域名。
 - `S3_PUBLIC_BASE_URL` 使用图片公开访问域名，和 `S3_ENDPOINT` 分开配置；文章正文图片会使用该 URL。
 - `S3_REGION` 使用 `auto`。
@@ -240,9 +248,30 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 ```bash
 cd /opt/rendering-cms-platform
 sudo cp deploy/nginx/rendering.me.conf /etc/nginx/conf.d/rendering.me.conf
+sudo cp deploy/nginx/rendering-cms-proxy-headers.conf /etc/nginx/snippets/rendering-cms-proxy-headers.conf
+sudo install -d -m 0755 /var/cache/nginx/rendering-cms
+sudo chown www-data:www-data /var/cache/nginx/rendering-cms
 sudo nginx -t
 sudo systemctl reload nginx
 ```
+
+执行 `nginx -t` 前，Rendering 仓库必须把博客 location snippet 安装到：
+
+```text
+/etc/nginx/snippets/rendering-locations.conf
+```
+
+该 snippet 负责博客 HTTPS server 内的 `/blog/`、`/en/blog/` 和唯一默认 `location /`，并分别使用 `rendering_article`、`rendering_general` 限流区。Rendering 仓库不得再安装声明相同 `listen` 或 `server_name` 的完整虚拟主机。安装后使用 `sudo nginx -T | grep -n 'server_name rendering.me'` 确认 HTTPS server 只有一个有效定义。
+
+公开文章缓存只覆盖无 Authorization/Cookie 的列表和详情 GET。搜索、登录、统计、评论、后台和写入请求不进入公共缓存。发布后可用以下命令检查缓存头与状态：
+
+```bash
+curl -sSI https://cms.rendering.me/api/v1/articles
+curl -sSI https://cms.rendering.me/api/v1/articles/aB3dE9
+curl -sSI -H 'Authorization: Bearer invalid-test-token' https://cms.rendering.me/api/v1/articles
+```
+
+前两次连续请求应能观察到 `X-Cache-Status` 从 `MISS` 变为 `HIT`；带 Authorization 的请求必须为 `BYPASS` 或不命中缓存。
 
 配置中的证书路径默认写成：
 
@@ -310,3 +339,6 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 - 如果 migration 已经执行，不能直接删除数据库 volume；先按 `docs/operations/restore.md` 评估恢复或补丁 migration。
 - 如果对象存储写入异常，先停止后台上传入口，再检查 R2 bucket、CORS、S3 endpoint 和 R2 凭据。
 - 回滚前必须保留当前容器日志和数据库备份。
+- Nginx 限流误伤时，优先提高对应 location 的 `burst` 或临时移除单个 `limit_req`，不要回滚可信代理头。
+- 条件请求兼容异常时可临时关闭后端 ETag 判断，但保留输入限制、列表瘦身和 `Cache-Control`。
+- 应用层限流异常时可暂时停止向 Router 传入限流配置并依赖 Nginx，修复后恢复；不得删除 Nginx/CDN 第一层保护。

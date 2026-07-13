@@ -8,6 +8,19 @@
 
 **技术栈：** Go、Chi、pgx/sqlc、PostgreSQL、Nginx、Docker Compose。
 
+## 执行状态（2026-07-13）
+
+- [x] 公开列表摘要与详情 DTO 已拆分，列表不再返回正文和后台字段。
+- [x] 标识符、搜索字符数和 SQL 结果数已设置硬边界。
+- [x] 公开列表/详情已实现 Cache-Control、ETag、If-None-Match、304、404 负缓存和 5xx no-store。
+- [x] 应用层令牌桶、并发限制、客户端状态 TTL、硬容量和共享溢出桶已实现并测试。
+- [x] Go Server 已增加 `ReadHeaderTimeout`，生产环境变量与 Compose 传递已同步。
+- [x] Nginx 公网限流、公开文章缓存、可信代理头、超时和缓冲配置已完成容器语法检查。
+- [x] API、部署、可观测性和 Rendering Pagefind 发布触发责任已同步到中文文档。
+- [ ] 待预发布环境执行高并发、高基数随机标识符、数据库 P95、goroutine 和 RSS 容量验收。
+- [ ] 待生产机安装真实 Rendering location snippet 后执行 `sudo nginx -t`、`nginx -T` 和真实 `curl -I` 缓存验收。
+- [ ] 待 Rendering 仓库安全的 CI/webhook 机制就绪后执行 Pagefind 构建联调；本任务未新增无认证 webhook。
+
 ---
 
 ## 一、现状证据与必须保持的契约

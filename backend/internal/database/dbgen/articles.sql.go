@@ -510,7 +510,6 @@ set
   published_at = coalesce(published_at, now()),
   updated_at = now()
 where article_id = $1
-  and status = 'draft'
 returning
   article_id,
   slug,
@@ -594,6 +593,7 @@ set
   cover_image_url = $11,
   updated_at = now()
 where article_id = $1
+  and status = 'draft'
 returning
   article_id,
   slug,
