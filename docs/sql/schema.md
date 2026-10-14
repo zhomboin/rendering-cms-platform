@@ -65,6 +65,8 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - 每次插入 `articles` 时自动写入一条 `article_logs`。
 - 每次更新文章内容字段、状态字段或发布字段时，`articles.version` 自动加 `1`，并写入对应版本的 `article_logs`。
 - `article_logs` 不再使用独立日志主键，必须使用 `article_id + version` 唯一定位一条文章历史记录。
+- 状态变更必须由后台接口驱动：发布接口只允许 `draft -> published`，下架接口只允许 `published -> draft`，两条 SQL 都在 `where` 中校验前置状态；`archived` 为保留值，没有接口可以写入。
+- 发布接口每次执行都会把 `published_at` 设置为当前时间；下架接口不修改 `published_at`，保留最后一次发布时间供后台查看。
 
 ## 文章搜索规则
 

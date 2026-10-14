@@ -136,6 +136,18 @@ ETag: "<sha256>"
 | `429` | 触发边界或应用速率限制 |
 | `500` | 数据库或服务内部错误，不允许缓存 |
 
+## 文章状态流转
+
+`article_status` 当前包含 `draft`、`published`、`archived` 三个合法值，但后台接口只落地以下流转：
+
+```text
+draft --发布 publish--> published
+published --下架 unpublish--> draft（可修改后再次发布）
+```
+
+- `archived` 是保留值，当前没有任何接口可以进入或离开该状态。
+- 已发布文章在后台编辑器中为只读；修改内容必须先下架恢复为草稿。
+
 ## 后台文章列表
 
 ```http
@@ -210,9 +222,28 @@ Authorization: Bearer <jwt-token>
 说明：
 
 - 将文章状态设置为 `published`。
-- 首次发布时设置 `published_at`。
+- 只允许发布 `draft` 状态文章；文章已发布、已归档时返回 `409`，文章不存在时返回 `404`。
+- 每次发布都会把 `published_at` 设置为本次发布时间。文章下架后再次发布时，`published_at` 会重置为再次发布的时间，文章按新发布时间参与公开列表排序（行为变更：此前首次发布后的重复发布会保留最早的 `published_at`）。
 - 发布成功后 `articles.version` 自动加 `1`。
 - 发布成功后由数据库触发器自动写入 `article_logs`。
+
+## 下架文章
+
+```http
+POST /api/v1/admin/articles/{id}/unpublish
+Authorization: Bearer <jwt-token>
+```
+
+说明：
+
+- 将已发布文章恢复为 `draft` 状态，即“下架并恢复草稿”。
+- 只允许下架 `published` 状态文章；文章是草稿或已归档时返回 `409`，文章不存在时返回 `404`。
+- 下架后文章立即从公开列表、详情和搜索中消失，公开详情返回 `404`（带 15 秒负缓存）。
+- 下架不会清除 `published_at`，后台仍可查看文章最后一次发布时间。
+- 已审核评论和历史访问统计保留；评论随文章下架对公众不可见，再次发布后自动恢复展示。
+- 下架成功后 `articles.version` 自动加 `1`，并由数据库触发器自动写入 `article_logs`。
+- 下架后可在后台修改文章并再次调用发布接口；再次发布会把 `published_at` 重置为新发布时间。
+- 静态博客侧的页面需要在下架后触发 Rendering 重建才会从站点移除，详见 `docs/operations/rendering-blog-publishing-integration.md`。
 
 ## MDX 导入工具
 

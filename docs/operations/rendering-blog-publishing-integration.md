@@ -307,6 +307,16 @@ npm run check
 - 确认页面源代码中包含文章正文，避免正文只在客户端加载。
 - 等待 `revalidate` 时间后，确认 CMS 修改能反映到 Rendering 页面。
 
+## 文章下架与再次发布
+
+CMS 支持“下架”已发布文章：`POST /api/v1/admin/articles/{id}/unpublish` 把文章从 `published` 恢复为 `draft`，之后可以在后台修改并再次发布。Rendering 侧需要注意：
+
+- 下架后 CMS 公开接口立即返回 `404`（详情带 15 秒负缓存，成功响应的边缘缓存最多 60 秒后过期）。
+- Rendering 文章详情页读取 CMS API 得到 `404` 时应渲染 404 页面，不应继续展示缓存正文。
+- 使用 ISR 的页面会在下一次 `revalidate` 或重新生成时自然移除；构建期产物（静态页面、Pagefind 索引、RSS）需要触发 Rendering 重建后才会消失，触发路径与发布一致。
+- 再次发布会把 `published_at` 重置为新的发布时间，文章会按新时间回到列表、首页“最近更新”和 RSS 顶部，短链 `slug` 与 `articleName` 保持不变。
+- 下架不影响 CMS 内已审核评论和历史访问统计；再次发布后评论自动恢复公开展示。
+
 ## 风险与处理
 
 - CMS API 不可用：保留 MDX 回退，或让 Rendering 错误页明确提示。
