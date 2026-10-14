@@ -382,6 +382,153 @@ func TestUpdateDraftArticleRejectsPublishedArticle(t *testing.T) {
 	}
 }
 
+func TestPublishArticlePublishesDraft(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	store := &articleStoreStub{}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/publish", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if len(store.publishArgs) != 1 || store.publishArgs[0] != articleID {
+		t.Fatalf("publish args = %v, want [%s]", store.publishArgs, articleID)
+	}
+	var body map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["status"] != "published" {
+		t.Fatalf("status = %#v, want published", body["status"])
+	}
+}
+
+func TestPublishArticleRejectsPublishedArticle(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	published := articleByIDForTest(articleID, "aB3dE9", "线上标题")
+	published.Status = dbgen.ArticleStatusPublished
+	store := &articleStoreStub{getByIDArticle: published}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/publish", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if len(store.publishArgs) != 0 {
+		t.Fatalf("publish calls = %d, want 0", len(store.publishArgs))
+	}
+}
+
+func TestPublishArticleReturnsNotFoundForMissingArticle(t *testing.T) {
+	store := &articleStoreStub{getByIDErr: pgx.ErrNoRows}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/publish", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+	if len(store.publishArgs) != 0 {
+		t.Fatalf("publish calls = %d, want 0", len(store.publishArgs))
+	}
+}
+
+func TestUnpublishArticleRestoresDraft(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	published := articleByIDForTest(articleID, "aB3dE9", "线上标题")
+	published.Status = dbgen.ArticleStatusPublished
+	store := &articleStoreStub{getByIDArticle: published}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/unpublish", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if len(store.unpublishArgs) != 1 || store.unpublishArgs[0] != articleID {
+		t.Fatalf("unpublish args = %v, want [%s]", store.unpublishArgs, articleID)
+	}
+	var body map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["status"] != "draft" {
+		t.Fatalf("status = %#v, want draft", body["status"])
+	}
+}
+
+func TestUnpublishArticleRejectsDraftArticle(t *testing.T) {
+	store := &articleStoreStub{}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/unpublish", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if len(store.unpublishArgs) != 0 {
+		t.Fatalf("unpublish calls = %d, want 0", len(store.unpublishArgs))
+	}
+}
+
+func TestUnpublishArticleReturnsNotFoundForMissingArticle(t *testing.T) {
+	store := &articleStoreStub{getByIDErr: pgx.ErrNoRows}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/unpublish", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+	if len(store.unpublishArgs) != 0 {
+		t.Fatalf("unpublish calls = %d, want 0", len(store.unpublishArgs))
+	}
+}
+
+func TestUnpublishArticleMapsConcurrentStatusChangeToConflict(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	published := articleByIDForTest(articleID, "aB3dE9", "线上标题")
+	published.Status = dbgen.ArticleStatusPublished
+	store := &articleStoreStub{getByIDArticle: published, unpublishErr: pgx.ErrNoRows}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/unpublish", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+}
+
 func TestGetPublishedArticleFallsBackFromArticleNameToShortSlug(t *testing.T) {
 	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
 	store := &articleStoreStub{
@@ -455,7 +602,12 @@ type articleStoreStub struct {
 	lastArticleNameLookup  string
 	createArgs             []dbgen.CreateDraftArticleParams
 	updateArgs             []dbgen.UpdateDraftArticleParams
+	publishArgs            []pgtype.UUID
+	unpublishArgs          []pgtype.UUID
 	getByIDArticle         dbgen.GetArticleByIDRow
+	getByIDErr             error
+	publishErr             error
+	unpublishErr           error
 	byArticleNameArticle   dbgen.GetArticleByArticleNameRow
 	searchCalls            int
 	slugLookupCalls        int
@@ -491,6 +643,9 @@ func (s *articleStoreStub) GetArticleByArticleName(ctx context.Context, articleN
 }
 
 func (s *articleStoreStub) GetArticleByID(ctx context.Context, articleID pgtype.UUID) (dbgen.GetArticleByIDRow, error) {
+	if s.getByIDErr != nil {
+		return dbgen.GetArticleByIDRow{}, s.getByIDErr
+	}
 	if s.getByIDArticle.ArticleID.Valid {
 		return s.getByIDArticle, nil
 	}
@@ -512,7 +667,49 @@ func (s *articleStoreStub) UpdateDraftArticle(ctx context.Context, arg dbgen.Upd
 }
 
 func (s *articleStoreStub) PublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.PublishArticleRow, error) {
-	return dbgen.PublishArticleRow{}, nil
+	if s.publishErr != nil {
+		return dbgen.PublishArticleRow{}, s.publishErr
+	}
+	s.publishArgs = append(s.publishArgs, articleID)
+	return publishArticleForTest(articleID, "aB3dE9"), nil
+}
+
+func (s *articleStoreStub) UnpublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.UnpublishArticleRow, error) {
+	if s.unpublishErr != nil {
+		return dbgen.UnpublishArticleRow{}, s.unpublishErr
+	}
+	s.unpublishArgs = append(s.unpublishArgs, articleID)
+	return unpublishArticleForTest(articleID, "aB3dE9"), nil
+}
+
+func publishArticleForTest(articleID pgtype.UUID, slug string) dbgen.PublishArticleRow {
+	return dbgen.PublishArticleRow{
+		ArticleID:   articleID,
+		Slug:        slug,
+		ArticleName: "redis-sentinel-with-docker",
+		Title:       "短链文章",
+		Summary:     "摘要",
+		BodyMdx:     "正文",
+		Status:      dbgen.ArticleStatusPublished,
+		Tags:        []string{"go"},
+		AuthorID:    uuidForTest("22222222-2222-2222-2222-222222222222"),
+		Version:     1,
+	}
+}
+
+func unpublishArticleForTest(articleID pgtype.UUID, slug string) dbgen.UnpublishArticleRow {
+	return dbgen.UnpublishArticleRow{
+		ArticleID:   articleID,
+		Slug:        slug,
+		ArticleName: "redis-sentinel-with-docker",
+		Title:       "短链文章",
+		Summary:     "摘要",
+		BodyMdx:     "正文",
+		Status:      dbgen.ArticleStatusDraft,
+		Tags:        []string{"go"},
+		AuthorID:    uuidForTest("22222222-2222-2222-2222-222222222222"),
+		Version:     1,
+	}
 }
 
 func uuidForTest(value string) pgtype.UUID {

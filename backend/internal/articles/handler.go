@@ -49,6 +49,7 @@ type articleStore interface {
 	CreateDraftArticle(ctx context.Context, arg dbgen.CreateDraftArticleParams) (dbgen.CreateDraftArticleRow, error)
 	UpdateDraftArticle(ctx context.Context, arg dbgen.UpdateDraftArticleParams) (dbgen.UpdateDraftArticleRow, error)
 	PublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.PublishArticleRow, error)
+	UnpublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.UnpublishArticleRow, error)
 	SearchPublishedArticles(ctx context.Context, query string) ([]dbgen.SearchPublishedArticlesRow, error)
 }
 
@@ -79,6 +80,7 @@ func (h Handler) RegisterAdminRoutes(router chi.Router) {
 	router.Post("/articles", h.createDraftArticle)
 	router.Patch("/articles/{id}", h.updateDraftArticle)
 	router.Post("/articles/{id}/publish", h.publishArticle)
+	router.Post("/articles/{id}/unpublish", h.unpublishArticle)
 }
 
 func (h Handler) listPublishedArticles(w http.ResponseWriter, r *http.Request) {
@@ -277,10 +279,68 @@ func (h Handler) publishArticle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "用户 ID 无效")
 		return
 	}
+	current, err := h.queries.GetArticleByID(r.Context(), articleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "文章不存在")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "文章读取失败")
+		return
+	}
+	if current.Status != dbgen.ArticleStatusDraft {
+		writeError(w, http.StatusConflict, "仅草稿状态的文章可以发布")
+		return
+	}
 
 	article, err := h.queries.PublishArticle(r.Context(), articleID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusConflict, "仅草稿状态的文章可以发布")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "文章发布失败")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapArticle(article))
+}
+
+func (h Handler) unpublishArticle(w http.ResponseWriter, r *http.Request) {
+	user, ok := httpapi.UserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "未登录")
+		return
+	}
+	articleID, err := uuidFromString(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "文章 ID 无效")
+		return
+	}
+	if _, err := uuidFromString(user.UserID); err != nil {
+		writeError(w, http.StatusUnauthorized, "用户 ID 无效")
+		return
+	}
+	current, err := h.queries.GetArticleByID(r.Context(), articleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "文章不存在")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "文章读取失败")
+		return
+	}
+	if current.Status != dbgen.ArticleStatusPublished {
+		writeError(w, http.StatusConflict, "仅已发布的文章可以下架")
+		return
+	}
+
+	article, err := h.queries.UnpublishArticle(r.Context(), articleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusConflict, "仅已发布的文章可以下架")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "文章下架失败")
 		return
 	}
 	writeJSON(w, http.StatusOK, mapArticle(article))
@@ -396,6 +456,7 @@ type articleRow interface {
 		dbgen.ListAdminArticlesRow |
 		dbgen.ListPublishedArticlesRow |
 		dbgen.PublishArticleRow |
+		dbgen.UnpublishArticleRow |
 		dbgen.UpdateDraftArticleRow |
 		articleView
 }
@@ -508,6 +569,16 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			Version: article.Version,
 		}
 	case dbgen.PublishArticleRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case dbgen.UnpublishArticleRow:
 		return articleView{
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
 			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,

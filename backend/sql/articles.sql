@@ -190,9 +190,37 @@ returning
 update articles
 set
   status = 'published',
-  published_at = coalesce(published_at, now()),
+  published_at = now(),
   updated_at = now()
 where article_id = $1
+  and status = 'draft'
+returning
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at,
+  version,
+  search_vector;
+
+-- name: UnpublishArticle :one
+update articles
+set
+  status = 'draft',
+  updated_at = now()
+where article_id = $1
+  and status = 'published'
 returning
   article_id,
   slug,

@@ -507,9 +507,10 @@ const publishArticle = `-- name: PublishArticle :one
 update articles
 set
   status = 'published',
-  published_at = coalesce(published_at, now()),
+  published_at = now(),
   updated_at = now()
 where article_id = $1
+  and status = 'draft'
 returning
   article_id,
   slug,
@@ -555,6 +556,81 @@ type PublishArticleRow struct {
 func (q *Queries) PublishArticle(ctx context.Context, articleID pgtype.UUID) (PublishArticleRow, error) {
 	row := q.db.QueryRow(ctx, publishArticle, articleID)
 	var i PublishArticleRow
+	err := row.Scan(
+		&i.ArticleID,
+		&i.Slug,
+		&i.ArticleName,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.Tags,
+		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
+		&i.CoverImageUrl,
+		&i.PublishedAt,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Version,
+		&i.SearchVector,
+	)
+	return i, err
+}
+
+const unpublishArticle = `-- name: UnpublishArticle :one
+update articles
+set
+  status = 'draft',
+  updated_at = now()
+where article_id = $1
+  and status = 'published'
+returning
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at,
+  version,
+  search_vector
+`
+
+type UnpublishArticleRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) UnpublishArticle(ctx context.Context, articleID pgtype.UUID) (UnpublishArticleRow, error) {
+	row := q.db.QueryRow(ctx, unpublishArticle, articleID)
+	var i UnpublishArticleRow
 	err := row.Scan(
 		&i.ArticleID,
 		&i.Slug,
