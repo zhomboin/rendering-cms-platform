@@ -48,3 +48,7 @@ export function updateAdminArticle(articleId: string, payload: AdminArticlePaylo
 export function publishAdminArticle(articleId: string) {
   return apiPost<AdminArticleRecord>(`/admin/articles/${articleId}/publish`);
 }
+
+export function unpublishAdminArticle(articleId: string) {
+  return apiPost<AdminArticleRecord>(`/admin/articles/${articleId}/unpublish`);
+}

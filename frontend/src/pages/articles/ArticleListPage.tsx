@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Button, Tag, Input, Select, Space, Typography, Alert } from 'antd';
-import { PlusOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Table, Button, Tag, Input, Select, Space, Typography, Alert, Popconfirm, message } from 'antd';
+import { PlusOutlined, EditOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { useQuery } from '@tanstack/react-query';
-import { listAdminArticles } from '../../api/articles';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { listAdminArticles, unpublishAdminArticle } from '../../api/articles';
 import type { AdminArticleRecord } from '../../api/articles';
 
 const { Title } = Typography;
@@ -36,11 +36,23 @@ function formatDate(value: string | null) {
 
 export default function ArticleListPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
   const { data = [], isLoading, error, refetch } = useQuery({
     queryKey: ['admin-articles'],
     queryFn: listAdminArticles,
+  });
+
+  const unpublishMutation = useMutation({
+    mutationFn: unpublishAdminArticle,
+    onSuccess: () => {
+      message.success('文章已下架并恢复为草稿');
+      void queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
+    },
+    onError: (mutationError) => {
+      message.error(mutationError instanceof Error ? mutationError.message : '文章下架失败');
+    },
   });
 
   const filteredArticles = useMemo(
@@ -114,11 +126,31 @@ export default function ArticleListPage() {
     {
       title: '操作',
       key: 'action',
-      width: 100,
+      width: 140,
       render: (_: unknown, record: AdminArticleRecord) => (
-        <Button type="link" size="small" icon={<EditOutlined />} onClick={() => navigate(`/admin/articles/${record.articleId}/edit`)}>
-          编辑
-        </Button>
+        <Space size={0}>
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/articles/${record.articleId}/edit`); }}>
+            编辑
+          </Button>
+          {record.status === 'published' && (
+            <Popconfirm
+              title="确认下架这篇文章？"
+              description="下架后立即对公众不可见，文章恢复为草稿，可修改后再次发布。"
+              okText="下架"
+              okButtonProps={{ danger: true }}
+              cancelText="取消"
+              onConfirm={(e) => {
+                e?.stopPropagation();
+                unpublishMutation.mutate(record.articleId);
+              }}
+              onCancel={(e) => e?.stopPropagation()}
+            >
+              <Button type="link" size="small" danger icon={<StopOutlined />} onClick={(e) => e.stopPropagation()}>
+                下架
+              </Button>
+            </Popconfirm>
+          )}
+        </Space>
       ),
     },
   ];

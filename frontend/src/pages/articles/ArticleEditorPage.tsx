@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Upload, Switch, InputNumber } from 'antd';
+import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Upload, Switch, InputNumber, Popconfirm } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd/es/upload/interface';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import {
   createAdminArticle,
   listAdminArticles,
   publishAdminArticle,
+  unpublishAdminArticle,
   updateAdminArticle,
 } from '../../api/articles';
 import type { AdminArticlePayload, ArticleFormData } from '../../api/articles';
@@ -181,6 +182,7 @@ export default function ArticleEditorPage() {
     [articlesQuery.data, id],
   );
   const isPublishedArticle = currentArticle?.status === 'published';
+  const isLockedArticle = Boolean(currentArticle) && currentArticle?.status !== 'draft';
 
   useEffect(() => {
     setRestoredDraftAt(null);
@@ -251,9 +253,20 @@ export default function ArticleEditorPage() {
     },
   });
 
+  const unpublishMutation = useMutation({
+    mutationFn: () => unpublishAdminArticle(id as string),
+    onSuccess: async () => {
+      message.success('文章已下架并恢复为草稿，修改后可再次发布');
+      await queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
+    },
+    onError: (error) => {
+      message.error(error instanceof Error ? error.message : '文章下架失败');
+    },
+  });
+
   const handleSaveDraft = async () => {
-    if (isPublishedArticle) {
-      message.warning('已发布文章暂不支持直接保存草稿，请先建立修订流程');
+    if (isLockedArticle) {
+      message.warning('请先下架文章恢复为草稿，再修改内容');
       return;
     }
     const values = await form.validateFields();
@@ -261,8 +274,8 @@ export default function ArticleEditorPage() {
   };
 
   const handlePublish = async () => {
-    if (isPublishedArticle) {
-      message.warning('已发布文章暂不支持直接覆盖发布，请先建立修订流程');
+    if (isLockedArticle) {
+      message.warning('请先下架文章恢复为草稿，修改后再发布');
       return;
     }
     const values = await form.validateFields();
@@ -499,7 +512,31 @@ export default function ArticleEditorPage() {
           type="warning"
           showIcon
           title="已发布文章当前为只读编辑态"
-          description="为避免直接覆盖线上内容，请先补充修订草稿和发布更新流程后再修改已发布文章。"
+          description="为避免直接覆盖线上内容，请先下架文章恢复为草稿，修改后再次发布。"
+          action={
+            <Popconfirm
+              title="确认下架这篇文章？"
+              description="下架后立即对公众不可见，文章恢复为草稿。"
+              okText="下架"
+              okButtonProps={{ danger: true }}
+              cancelText="取消"
+              onConfirm={() => unpublishMutation.mutate()}
+            >
+              <Button danger loading={unpublishMutation.isPending}>
+                下架为草稿
+              </Button>
+            </Popconfirm>
+          }
+          style={{ marginBottom: 20 }}
+        />
+      )}
+
+      {currentArticle?.status === 'archived' && (
+        <Alert
+          type="warning"
+          showIcon
+          title="已归档文章为只读状态"
+          description="归档文章暂不支持在后台修改。"
           style={{ marginBottom: 20 }}
         />
       )}
@@ -633,7 +670,7 @@ export default function ArticleEditorPage() {
           <Button
             onClick={handleSaveDraft}
             loading={saveMutation.isPending}
-            disabled={isPublishedArticle}
+            disabled={isLockedArticle}
             style={{ borderColor: '#4F46E5', color: '#4F46E5' }}
           >
             保存草稿
@@ -642,7 +679,7 @@ export default function ArticleEditorPage() {
             type="primary"
             size="large"
             loading={publishMutation.isPending}
-            disabled={isPublishedArticle}
+            disabled={isLockedArticle}
             style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5', fontWeight: 600 }}
             onClick={() => setPublishModalOpen(true)}
           >
