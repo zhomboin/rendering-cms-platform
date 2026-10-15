@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Upload, Switch, InputNumber, Popconfirm } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Upload, Switch, InputNumber, Popconfirm, Drawer, Table, Tag } from 'antd';
+import { HistoryOutlined, UploadOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd/es/upload/interface';
+import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createAdminArticle,
+  getArticleRevision,
   listAdminArticles,
+  listArticleRevisions,
   publishAdminArticle,
   unpublishAdminArticle,
   updateAdminArticle,
 } from '../../api/articles';
-import type { AdminArticlePayload, ArticleFormData } from '../../api/articles';
+import type { AdminArticlePayload, ArticleFormData, ArticleRevisionSummary } from '../../api/articles';
+import { diffLines } from './revisionDiff';
 import { uploadAdminAsset } from '../../api/assets';
 import { MdxPreview } from './MdxPreview';
 import './ArticleEditorPage.css';
@@ -155,6 +159,54 @@ function clearArticleDraft(key: string) {
   }
 }
 
+const revisionStatusConfig: Record<string, { color: string; label: string }> = {
+  draft: { color: 'default', label: '草稿' },
+  published: { color: 'success', label: '已发布' },
+  archived: { color: 'warning', label: '已归档' },
+};
+
+function formatRevisionTime(value: string | null) {
+  if (!value) return '-';
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function revisionListColumns(currentVersion?: number): ColumnsType<ArticleRevisionSummary> {
+  return [
+    {
+      title: '版本',
+      dataIndex: 'version',
+      key: 'version',
+      width: 110,
+      render: (version: number) =>
+        version === currentVersion ? <Tag color="processing">v{version} 当前</Tag> : `v${version}`,
+    },
+    { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 90,
+      render: (status: string) => {
+        const config = revisionStatusConfig[status];
+        return <Tag color={config?.color}>{config?.label ?? status}</Tag>;
+      },
+    },
+    {
+      title: '更新时间',
+      dataIndex: 'updatedAt',
+      key: 'updatedAt',
+      width: 150,
+      render: (value: string | null) => formatRevisionTime(value),
+    },
+  ];
+}
+
 export default function ArticleEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -168,6 +220,8 @@ export default function ArticleEditorPage() {
   const [writerFullscreen, setWriterFullscreen] = useState(false);
   const [mobilePane, setMobilePane] = useState<'edit' | 'preview'>('edit');
   const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null);
+  const [revisionDrawerOpen, setRevisionDrawerOpen] = useState(false);
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const isEdit = Boolean(id);
   const draftKey = useMemo(() => getArticleDraftKey(id), [id]);
 
@@ -175,6 +229,18 @@ export default function ArticleEditorPage() {
     queryKey: ['admin-articles'],
     queryFn: listAdminArticles,
     enabled: isEdit,
+  });
+
+  const revisionsQuery = useQuery({
+    queryKey: ['article-revisions', id],
+    queryFn: () => listArticleRevisions(id as string),
+    enabled: revisionDrawerOpen && isEdit,
+  });
+
+  const revisionDetailQuery = useQuery({
+    queryKey: ['article-revision', id, selectedVersion],
+    queryFn: () => getArticleRevision(id as string, selectedVersion as number),
+    enabled: revisionDrawerOpen && selectedVersion !== null,
   });
 
   const currentArticle = useMemo(
@@ -226,6 +292,7 @@ export default function ArticleEditorPage() {
       clearArticleDraft(draftKey);
       message.success('草稿已保存');
       await queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
+      await queryClient.invalidateQueries({ queryKey: ['article-revisions', id] });
       if (!isEdit) navigate(`/admin/articles/${article.articleId}/edit`, { replace: true });
     },
     onError: (error) => {
@@ -245,6 +312,7 @@ export default function ArticleEditorPage() {
       message.success('文章已发布');
       setPublishModalOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
+      await queryClient.invalidateQueries({ queryKey: ['article-revisions', id] });
       navigate('/admin/articles');
     },
     onError: (error) => {
@@ -258,11 +326,65 @@ export default function ArticleEditorPage() {
     onSuccess: async () => {
       message.success('文章已下架并恢复为草稿，修改后可再次发布');
       await queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
+      await queryClient.invalidateQueries({ queryKey: ['article-revisions', id] });
     },
     onError: (error) => {
       message.error(error instanceof Error ? error.message : '文章下架失败');
     },
   });
+
+  const revisionDetail = revisionDetailQuery.data;
+  const revisionMetaChanges = useMemo(() => {
+    if (!currentArticle || !revisionDetail) return [];
+    const changes: Array<{ label: string; current: string; revision: string }> = [];
+    const compare = (label: string, currentValue: string, revisionValue: string) => {
+      if (currentValue !== revisionValue) {
+        changes.push({ label, current: currentValue || '（空）', revision: revisionValue || '（空）' });
+      }
+    };
+    compare('标题', currentArticle.title, revisionDetail.title);
+    compare('英文名', currentArticle.articleName, revisionDetail.articleName);
+    compare('摘要', currentArticle.summary ?? '', revisionDetail.summary ?? '');
+    compare('标签', (currentArticle.tags ?? []).join('、'), (revisionDetail.tags ?? []).join('、'));
+    compare('首页精选', currentArticle.featured ? '是' : '否', revisionDetail.featured ? '是' : '否');
+    compare('精选排序', String(currentArticle.featuredRank ?? 100), String(revisionDetail.featuredRank ?? 100));
+    compare('封面图片', currentArticle.coverImageUrl ?? '', revisionDetail.coverImageUrl ?? '');
+    return changes;
+  }, [currentArticle, revisionDetail]);
+
+  const revisionBodyDiff = useMemo(() => {
+    if (!revisionDetail) return [];
+    return diffLines(currentArticle?.bodyMdx ?? '', revisionDetail.bodyMdx ?? '');
+  }, [currentArticle, revisionDetail]);
+
+  const handleRestoreRevision = () => {
+    if (!revisionDetail || !currentArticle) return;
+    Modal.confirm({
+      title: `恢复到 v${revisionDetail.version}？`,
+      content: '该版本内容会载入编辑器并暂存为本地草稿，不会自动保存；请检查内容后手动保存草稿。',
+      okText: '载入版本',
+      cancelText: '取消',
+      onOk: () => {
+        const restoredValues: ArticleFormData = {
+          title: revisionDetail.title,
+          slug: currentArticle.slug,
+          articleName: revisionDetail.articleName,
+          summary: revisionDetail.summary ?? '',
+          tags: revisionDetail.tags ?? [],
+          bodyMdx: revisionDetail.bodyMdx ?? '',
+          featured: revisionDetail.featured ?? false,
+          featuredRank: revisionDetail.featuredRank ?? 100,
+          featuredAt: revisionDetail.featuredAt ?? null,
+          coverImageUrl: revisionDetail.coverImageUrl ?? '',
+        };
+        form.setFieldsValue(restoredValues);
+        saveArticleDraft(draftKey, restoredValues);
+        setSelectedVersion(null);
+        setRevisionDrawerOpen(false);
+        message.success('已载入历史版本内容，确认后保存草稿');
+      },
+    });
+  };
 
   const handleSaveDraft = async () => {
     if (isLockedArticle) {
@@ -489,9 +611,22 @@ export default function ArticleEditorPage() {
 
   return (
     <div className="article-editor">
-      <Title level={1} className="article-editor__title">
-        {isEdit ? '编辑文章' : '新建文章'}
-      </Title>
+      <div className="article-editor__header">
+        <Title level={1} className="article-editor__title">
+          {isEdit ? '编辑文章' : '新建文章'}
+        </Title>
+        {isEdit && (
+          <Button
+            icon={<HistoryOutlined />}
+            onClick={() => {
+              setSelectedVersion(null);
+              setRevisionDrawerOpen(true);
+            }}
+          >
+            历史版本
+          </Button>
+        )}
+      </div>
 
       {articlesQuery.error && (
         <Alert type="error" showIcon title={articlesQuery.error instanceof Error ? articlesQuery.error.message : '文章读取失败'} style={{ marginBottom: 20 }} />
@@ -738,6 +873,106 @@ export default function ArticleEditorPage() {
           </Upload>
         </Form>
       </Modal>
+
+      <Drawer
+        title="历史版本"
+        placement="right"
+        size={560}
+        open={revisionDrawerOpen}
+        onClose={() => {
+          setRevisionDrawerOpen(false);
+          setSelectedVersion(null);
+        }}
+      >
+        {selectedVersion === null ? (
+          <Table<ArticleRevisionSummary>
+            size="small"
+            rowKey="version"
+            loading={revisionsQuery.isLoading}
+            dataSource={revisionsQuery.data ?? []}
+            pagination={{ pageSize: 8, showSizeChanger: false }}
+            onRow={(record) => ({
+              onClick: () => setSelectedVersion(record.version),
+              style: { cursor: 'pointer' },
+            })}
+            columns={revisionListColumns(currentArticle?.version)}
+          />
+        ) : (
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <div className="revision-drawer__toolbar">
+              <Button size="small" onClick={() => setSelectedVersion(null)}>
+                ← 返回版本列表
+              </Button>
+              <Tooltip
+                title={currentArticle?.status === 'draft' ? '' : '请先下架文章恢复为草稿，再载入历史版本'}
+              >
+                <span>
+                  <Button
+                    type="primary"
+                    size="small"
+                    style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5' }}
+                    disabled={currentArticle?.status !== 'draft' || !revisionDetail}
+                    onClick={handleRestoreRevision}
+                  >
+                    恢复此版本
+                  </Button>
+                </span>
+              </Tooltip>
+            </div>
+
+            {revisionDetailQuery.isLoading && <Skeleton active paragraph={{ rows: 6 }} />}
+            {revisionDetailQuery.error && (
+              <Alert
+                type="error"
+                showIcon
+                title={revisionDetailQuery.error instanceof Error ? revisionDetailQuery.error.message : '修订版本读取失败'}
+              />
+            )}
+            {revisionDetail && (
+              <>
+                <div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    对比方向：当前内容 → v{revisionDetail.version}（{formatRevisionTime(revisionDetail.updatedAt)} 的快照）。
+                  </Text>
+                </div>
+
+                {revisionMetaChanges.length > 0 ? (
+                  <div className="revision-meta">
+                    {revisionMetaChanges.map((change) => (
+                      <div className="revision-meta__row" key={change.label}>
+                        <span className="revision-meta__label">{change.label}</span>
+                        <span className="revision-meta__value revision-meta__value--current">{change.current}</span>
+                        <span className="revision-meta__arrow">→</span>
+                        <span className="revision-meta__value revision-meta__value--target">{change.revision}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Text type="secondary">元数据无差异。</Text>
+                )}
+
+                <div>
+                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+                    正文差异：绿色为 v{revisionDetail.version} 内容（恢复后生效），红色为当前内容（恢复后移除）。
+                  </Text>
+                  {revisionBodyDiff.every((line) => line.type === 'same') ? (
+                    <Alert type="info" showIcon title="正文无差异" />
+                  ) : (
+                    <div className="revision-diff">
+                      {revisionBodyDiff.map((line, index) => (
+                        <div key={index} className={`revision-diff__line revision-diff__line--${line.type}`}>
+                          {line.type === 'add' ? '+ ' : line.type === 'remove' ? '− ' : '  '}
+                          {line.text || ' '}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </Space>
+        )}
+      </Drawer>
     </div>
   );
 }
