@@ -26,7 +26,9 @@ type Config struct {
 	PublicSearchBurst         int
 	PublicMaxInFlight         int
 	PublicRateLimitMaxClients int
-	S3                        S3Config
+	// ArticleLogRetention 每篇文章保留的修订快照数量（不含首版），0 或非法值时使用后端默认 20。
+	ArticleLogRetention int32
+	S3                  S3Config
 }
 
 type S3Config struct {
@@ -63,6 +65,7 @@ func Load() (Config, error) {
 		PublicSearchBurst:         positiveIntEnv("PUBLIC_SEARCH_BURST", 10),
 		PublicMaxInFlight:         positiveIntEnv("PUBLIC_MAX_IN_FLIGHT", 128),
 		PublicRateLimitMaxClients: positiveIntEnv("PUBLIC_RATE_LIMIT_MAX_CLIENTS", 10000),
+		ArticleLogRetention:       int32(positiveIntEnv("ARTICLE_LOG_RETENTION_LIMIT", 20)),
 		S3: S3Config{
 			// S3_* 同时兼容本地 MinIO 和生产 Cloudflare R2，生产环境由 deploy/production.env 提供。
 			Endpoint:        os.Getenv("S3_ENDPOINT"),

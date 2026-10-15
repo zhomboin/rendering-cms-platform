@@ -61,6 +61,7 @@ func main() {
 	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
 	defer stopScheduler()
 	analytics.StartDailyViewArchiveScheduler(schedulerCtx, queries, logger)
+	articles.StartDailyArticleLogPruneScheduler(schedulerCtx, queries, cfg.ArticleLogRetention, logger)
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,

@@ -503,6 +503,24 @@ func (q *Queries) ListPublishedArticles(ctx context.Context) ([]ListPublishedArt
 	return items, nil
 }
 
+const pruneArticleLogs = `-- name: PruneArticleLogs :execrows
+delete from article_logs log
+using articles art
+where log.article_id = art.article_id
+  and log.version > 1
+  and log.version <= art.version - $1
+`
+
+// 每篇文章保留最近 @keep_revisions 个修订快照和首版（version = 1），删除更早的快照。
+// articles.version 是触发器维护的当前版本号，等价于该文章最大的 log version。
+func (q *Queries) PruneArticleLogs(ctx context.Context, keepRevisions int32) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneArticleLogs, keepRevisions)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const publishArticle = `-- name: PublishArticle :one
 update articles
 set

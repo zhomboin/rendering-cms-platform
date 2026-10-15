@@ -241,6 +241,15 @@ returning
   version,
   search_vector;
 
+-- name: PruneArticleLogs :execrows
+-- 每篇文章保留最近 @keep_revisions 个修订快照和首版（version = 1），删除更早的快照。
+-- articles.version 是触发器维护的当前版本号，等价于该文章最大的 log version。
+delete from article_logs log
+using articles art
+where log.article_id = art.article_id
+  and log.version > 1
+  and log.version <= art.version - @keep_revisions;
+
 -- name: UpsertPublishedArticleFromImport :one
 insert into articles (
   slug,

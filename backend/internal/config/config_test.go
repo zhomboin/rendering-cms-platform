@@ -34,6 +34,31 @@ func TestLoadUsesDefaultsForOptionalRuntimeValues(t *testing.T) {
 	if cfg.PublicMaxInFlight != 128 || cfg.PublicRateLimitMaxClients != 10000 {
 		t.Fatalf("unexpected public capacity defaults: %#v", cfg)
 	}
+	if cfg.ArticleLogRetention != 20 {
+		t.Fatalf("ArticleLogRetention = %d, want 20", cfg.ArticleLogRetention)
+	}
+}
+
+func TestLoadReadsArticleLogRetentionSettings(t *testing.T) {
+	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
+	t.Setenv("ARTICLE_LOG_RETENTION_LIMIT", "50")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ArticleLogRetention != 50 {
+		t.Fatalf("ArticleLogRetention = %d, want 50", cfg.ArticleLogRetention)
+	}
+
+	t.Setenv("ARTICLE_LOG_RETENTION_LIMIT", "0")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ArticleLogRetention != 20 {
+		t.Fatalf("ArticleLogRetention fallback = %d, want 20", cfg.ArticleLogRetention)
+	}
 }
 
 func TestLoadReadsPublicRateLimitSettings(t *testing.T) {
