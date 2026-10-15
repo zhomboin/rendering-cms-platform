@@ -9,8 +9,8 @@
 - `docs/operations/development-environment.md`：WSL2 Ubuntu 24.04 本地开发环境。
 - `docs/operations/deployment.md`：生产 Docker 部署入口。
 - `docs/operations/runbook.md`：生产固定运维 SOP。
-- `docs/operations/production-access.md`：生产登录、后台用户、PostgreSQL 和 MinIO 访问 SOP。
-- `docs/operations/backup.md`：PostgreSQL 和 MinIO 备份要求。
+- `docs/operations/production-access.md`：生产登录、后台用户、PostgreSQL 和 Cloudflare R2 访问 SOP。
+- `docs/operations/backup.md`：PostgreSQL 备份与 Cloudflare R2 对象备份要求。
 - `docs/operations/restore.md`：恢复流程。
 - `docs/operations/observability.md`：日志与可观测性约定。
 - `docs/operations/rendering-blog-publishing-integration.md`：Rendering 博客读取 CMS 已发布内容的对接方案。

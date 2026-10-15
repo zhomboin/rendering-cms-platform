@@ -34,7 +34,7 @@
 
 - S3 兼容对象存储
 - 本地开发使用 MinIO
-- 当前生产 Docker 方案暂时使用服务器本机 MinIO，后续可迁移到 Cloudflare R2、AWS S3 或同类服务
+- 生产环境使用 Cloudflare R2（公开访问域名 `assets.rendering.me`），早期生产曾使用服务器本机 MinIO，已于 2026-06 迁移到 R2
 
 ## 本地开发环境
 
