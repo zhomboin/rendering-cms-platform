@@ -328,4 +328,4 @@ CMS 支持“下架”已发布文章：`POST /api/v1/admin/articles/{id}/unpubl
 
 ## 当前结论
 
-当前 CMS 发布功能尚不会自动把文章发布到 Rendering 博客平台。后续应通过 Rendering 前台读取 CMS 公开 API 的方式打通 `/blog/<slug>` 访问链路，并优先采用 ISR 保持 SSR 能力和较好的发布时效。
+Rendering 博客已切换为通过 CMS 公开 API 获取已发布文章（2026-10 确认实际使用中）。公开接口的缓存、ETag、限流与字段契约以 `docs/apis/articles.md` 为准继续维护；发布与下架后博客侧的页面、Pagefind 索引更新依赖 Rendering 自身的构建/ISR 机制，跨仓库自动构建触发（webhook）尚未建立，发布重要内容后需手动触发 Rendering 重建。

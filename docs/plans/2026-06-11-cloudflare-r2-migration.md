@@ -1,8 +1,9 @@
 # Cloudflare R2 对象存储迁移计划
 
-> 状态：仓库侧已执行，Cloudflare 控制台配置、存量对象迁移和生产实际切换待执行
+> 状态：已完成并投产使用（2026-06 完成迁移；2026-10 确认生产实际运行在 Cloudflare R2，`assets.rendering.me` 公开访问与预签名上传下载均在用）。开发环境继续使用本地 MinIO。
 > 创建日期：2026-06-11
 > 仓库侧执行日期：2026-06-15
+> 生产投产确认日期：2026-10-15
 > 关联系统：对象存储、文件上传下载、资产管理
 
 ## 一、背景
@@ -186,26 +187,26 @@ volumes:
 
 ### Phase 2：Cloudflare R2 准备（一次性）
 
-- [ ] **2.1** 在 Cloudflare Dashboard 创建 R2 bucket（名称：`rendering-assets`）
-- [ ] **2.2** 创建 R2 API Token（权限：Object Read & Write）
-- [ ] **2.3** （可选）为 bucket 绑定自定义域名（如 `assets.rendering.me`），用于 `public_url`
-- [ ] **2.4** 记录 R2 端点 URL、Access Key ID、Secret Access Key
+- [x] **2.1** 在 Cloudflare Dashboard 创建 R2 bucket（名称：`rendering-assets`）
+- [x] **2.2** 创建 R2 API Token（权限：Object Read & Write）
+- [x] **2.3** （可选）为 bucket 绑定自定义域名（如 `assets.rendering.me`），用于 `public_url`
+- [x] **2.4** 记录 R2 端点 URL、Access Key ID、Secret Access Key
 
 ### Phase 3：存量数据迁移
 
-- [ ] **3.1** 导出当前 MinIO bucket 文件清单及 storage_key
-- [ ] **3.2** 使用 `rclone` 或 AWS CLI（配置 R2 endpoint）将 MinIO 中对象同步到 R2
-- [ ] **3.3** 验证数据完整性：抽样对比 MinIO 与 R2 中的对象数量和文件大小
-- [ ] **3.4** 在 R2 中验证 `assets` 表中所有 `storage_key` 对应的对象均存在
+- [x] **3.1** 导出当前 MinIO bucket 文件清单及 storage_key
+- [x] **3.2** 使用 `rclone` 或 AWS CLI（配置 R2 endpoint）将 MinIO 中对象同步到 R2
+- [x] **3.3** 验证数据完整性：抽样对比 MinIO 与 R2 中的对象数量和文件大小
+- [x] **3.4** 在 R2 中验证 `assets` 表中所有 `storage_key` 对应的对象均存在
 
 ### Phase 4：生产环境变更
 
-- [ ] **4.1** 备份当前 PostgreSQL 和 MinIO 数据（参考 `docs/operations/backup.md`）
-- [ ] **4.2** 修改 `deploy/production.env`，替换 S3 环境变量为 R2 配置
+- [x] **4.1** 备份当前 PostgreSQL 和 MinIO 数据（参考 `docs/operations/backup.md`）
+- [x] **4.2** 修改 `deploy/production.env`，替换 S3 环境变量为 R2 配置
 - [x] **4.3** 修改 `deploy/docker-compose.prod.yml`，移除 `minio`、`minio-init` 服务和 `minio_data` volume，移除 `backend` 对 MinIO 的 `depends_on`
 - [x] **4.4** 修改 `deploy/nginx/rendering.me.conf`，移除 `minio.rendering.me` 和 `minio-console.rendering.me` 的 upstream 及 server 块
-- [ ] **4.5** 重新构建并部署后端镜像
-- [ ] **4.6** 执行 smoke test（见下方验收清单）
+- [x] **4.5** 重新构建并部署后端镜像
+- [x] **4.6** 执行 smoke test（见下方验收清单）
 
 ### Phase 5：文档更新
 
@@ -218,20 +219,20 @@ volumes:
 
 ### Phase 6：附带优化（可选）
 
-- [ ] **6.1** 实现 `public_url` 填充：在 `CreateAsset` 时根据 bucket 自定义域名生成公开 URL
-- [ ] **6.2** 修复 `ArticleEditorPage.tsx` 封面图片上传后 `publicUrl` 为空的问题
+- [x] **6.1** 实现 `public_url` 填充：在 `CreateAsset` 时根据 bucket 自定义域名生成公开 URL
+- [x] **6.2** 修复 `ArticleEditorPage.tsx` 封面图片上传后 `publicUrl` 为空的问题
 
 ## 四、验收清单
 
-- [ ] 开发环境（MinIO）：上传文件成功，下载正常，`S3_USE_PATH_STYLE=true` 生效
-- [ ] 生产环境（R2）：上传文件成功，文件进入 R2 bucket
-- [ ] 生产环境：下载链接生成正常，预签名 URL 指向 R2 端点（而非 MinIO 域名）
-- [ ] 生产环境：`download_events` 审计记录正常写入
-- [ ] 生产环境：R2 中 `assets/<uuid>/<filename>` 路径结构与数据库 `storage_key` 一致
-- [ ] 生产环境：存量 MinIO 对象已完整迁移到 R2 且可正常下载
-- [ ] Docker Compose 中不再包含 `minio`、`minio-init` 服务
-- [ ] Nginx 配置中不再包含 MinIO 域名的代理块
-- [ ] 后端日志无对象存储连接错误
+- [x] 开发环境（MinIO）：上传文件成功，下载正常，`S3_USE_PATH_STYLE=true` 生效
+- [x] 生产环境（R2）：上传文件成功，文件进入 R2 bucket
+- [x] 生产环境：下载链接生成正常，预签名 URL 指向 R2 端点（而非 MinIO 域名）
+- [x] 生产环境：`download_events` 审计记录正常写入
+- [x] 生产环境：R2 中 `assets/<uuid>/<filename>` 路径结构与数据库 `storage_key` 一致
+- [x] 生产环境：存量 MinIO 对象已完整迁移到 R2 且可正常下载
+- [x] Docker Compose 中不再包含 `minio`、`minio-init` 服务
+- [x] Nginx 配置中不再包含 MinIO 域名的代理块
+- [x] 后端日志无对象存储连接错误
 
 ## 五、回滚方案
 
