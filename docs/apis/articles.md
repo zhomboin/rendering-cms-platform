@@ -245,6 +245,40 @@ Authorization: Bearer <jwt-token>
 - 下架后可在后台修改文章并再次调用发布接口；再次发布会把 `published_at` 重置为新发布时间。
 - 静态博客侧的页面需要在下架后触发 Rendering 重建才会从站点移除，详见 `docs/operations/rendering-blog-publishing-integration.md`。
 
+## 文章修订历史
+
+### 版本列表
+
+```http
+GET /api/v1/admin/articles/{id}/revisions
+Authorization: Bearer <jwt-token>
+```
+
+说明：
+
+- 返回该文章全部修订快照的摘要，按 `version` 倒序排列。
+- 需要 `admin` 或 `editor` 角色。
+- 列表不返回 `bodyMdx`，保持响应瘦身。
+- 返回字段：`articleId`、`slug`、`canonicalSlug`、`articleName`、`title`、`summary`、`status`（该快照时刻的状态）、`tags`、`featured`、`isFeatured`、`featuredRank`、`featuredAt`、`coverImageUrl`、`publishedAt`、`version`、`updatedAt`。
+- 文章没有修订记录时返回空数组。
+- 快照受保留策略约束：每篇保留最近 `ARTICLE_LOG_RETENTION_LIMIT`（默认 20）个快照和首版，更早快照已被每日清理任务删除。
+
+### 版本详情
+
+```http
+GET /api/v1/admin/articles/{id}/revisions/{version}
+Authorization: Bearer <jwt-token>
+```
+
+说明：
+
+- 返回指定版本的完整快照，包含 `bodyMdx` 和 `authorId`、`createdAt` 等完整字段。
+- `version` 必须为正整数，否则返回 `400`；版本不存在返回 `404`。
+
+### 恢复语义
+
+系统不提供专用的“恢复/回滚”写接口。恢复历史版本由后台前端完成：读取版本详情 → 将快照字段载入编辑器表单 → 用户确认后调用现有 `PATCH /api/v1/admin/articles/{id}` 保存草稿。恢复只允许在 `draft` 状态下操作；已发布文章需先下架。恢复产生的变更与普通编辑一致：`version` 自动加 `1` 并由数据库触发器写入新的修订快照，全程可审计。
+
 ## MDX 导入工具
 
 导入工具用于把 Rendering 静态博客中的 `content/posts/*.mdx` 导入 CMS `articles` 表。
@@ -300,5 +334,6 @@ bash scripts/ops/import-mdx.sh \
 
 - `article_logs` 字段与 `articles` 一致。
 - `article_logs` 使用 `article_id + version` 作为联合主键。
+- 修订快照可通过后台接口读取，见「文章修订历史」章节；应用层不直接生成或修改日志内容。
 - 应用层不直接生成日志主键，也不直接维护文章版本号。
 - 文章创建、后台更新、发布和 MDX 导入更新都必须通过 `articles` 表写入，由数据库触发器统一生成版本日志。
