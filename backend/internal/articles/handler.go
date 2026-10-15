@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -50,6 +51,8 @@ type articleStore interface {
 	UpdateDraftArticle(ctx context.Context, arg dbgen.UpdateDraftArticleParams) (dbgen.UpdateDraftArticleRow, error)
 	PublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.PublishArticleRow, error)
 	UnpublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.UnpublishArticleRow, error)
+	ListArticleRevisions(ctx context.Context, articleID pgtype.UUID) ([]dbgen.ListArticleRevisionsRow, error)
+	GetArticleRevision(ctx context.Context, arg dbgen.GetArticleRevisionParams) (dbgen.GetArticleRevisionRow, error)
 	SearchPublishedArticles(ctx context.Context, query string) ([]dbgen.SearchPublishedArticlesRow, error)
 }
 
@@ -81,6 +84,8 @@ func (h Handler) RegisterAdminRoutes(router chi.Router) {
 	router.Patch("/articles/{id}", h.updateDraftArticle)
 	router.Post("/articles/{id}/publish", h.publishArticle)
 	router.Post("/articles/{id}/unpublish", h.unpublishArticle)
+	router.Get("/articles/{id}/revisions", h.listArticleRevisions)
+	router.Get("/articles/{id}/revisions/{version}", h.getArticleRevision)
 }
 
 func (h Handler) listPublishedArticles(w http.ResponseWriter, r *http.Request) {
@@ -346,6 +351,75 @@ func (h Handler) unpublishArticle(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, mapArticle(article))
 }
 
+func (h Handler) listArticleRevisions(w http.ResponseWriter, r *http.Request) {
+	if _, ok := httpapi.UserFromContext(r.Context()); !ok {
+		writeError(w, http.StatusUnauthorized, "未登录")
+		return
+	}
+	articleID, err := uuidFromString(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "文章 ID 无效")
+		return
+	}
+	revisions, err := h.queries.ListArticleRevisions(r.Context(), articleID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "修订历史读取失败")
+		return
+	}
+	response := make([]map[string]interface{}, 0, len(revisions))
+	for _, revision := range revisions {
+		response = append(response, map[string]interface{}{
+			"articleId":     revision.ArticleID.String(),
+			"slug":          revision.Slug,
+			"canonicalSlug": revision.Slug,
+			"articleName":   revision.ArticleName,
+			"title":         revision.Title,
+			"summary":       revision.Summary,
+			"status":        string(revision.Status),
+			"tags":          revision.Tags,
+			"featured":      revision.Featured,
+			"isFeatured":    revision.Featured,
+			"featuredRank":  revision.FeaturedRank,
+			"featuredAt":    timestamptzValue(revision.FeaturedAt),
+			"coverImageUrl": textValue(revision.CoverImageUrl),
+			"publishedAt":   timestamptzValue(revision.PublishedAt),
+			"version":       revision.Version,
+			"updatedAt":     timestamptzValue(revision.UpdatedAt),
+		})
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (h Handler) getArticleRevision(w http.ResponseWriter, r *http.Request) {
+	if _, ok := httpapi.UserFromContext(r.Context()); !ok {
+		writeError(w, http.StatusUnauthorized, "未登录")
+		return
+	}
+	articleID, err := uuidFromString(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "文章 ID 无效")
+		return
+	}
+	versionValue, err := strconv.ParseInt(chi.URLParam(r, "version"), 10, 32)
+	if err != nil || versionValue < 1 {
+		writeError(w, http.StatusBadRequest, "版本号无效")
+		return
+	}
+	revision, err := h.queries.GetArticleRevision(r.Context(), dbgen.GetArticleRevisionParams{
+		ArticleID: articleID,
+		Version:   int32(versionValue),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "修订版本不存在")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "修订版本读取失败")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapArticle(revision))
+}
+
 func decodeArticlePayload(w http.ResponseWriter, r *http.Request) (ArticlePayload, bool) {
 	var payload ArticlePayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -453,6 +527,7 @@ type articleRow interface {
 		dbgen.GetArticleByIDRow |
 		dbgen.GetArticleByArticleNameRow |
 		dbgen.GetArticleBySlugRow |
+		dbgen.GetArticleRevisionRow |
 		dbgen.ListAdminArticlesRow |
 		dbgen.ListPublishedArticlesRow |
 		dbgen.PublishArticleRow |
@@ -539,6 +614,16 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			Version: article.Version,
 		}
 	case dbgen.GetArticleBySlugRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case dbgen.GetArticleRevisionRow:
 		return articleView{
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
 			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,

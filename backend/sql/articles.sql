@@ -250,6 +250,50 @@ where log.article_id = art.article_id
   and log.version > 1
   and log.version <= art.version - @keep_revisions;
 
+-- name: ListArticleRevisions :many
+-- 版本列表不取 body_mdx，保持响应瘦身；单版本详情单独查询。
+select
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  version,
+  updated_at
+from article_logs
+where article_id = $1
+order by version desc;
+
+-- name: GetArticleRevision :one
+select
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at,
+  version
+from article_logs
+where article_id = $1
+  and version = $2;
+
 -- name: UpsertPublishedArticleFromImport :one
 insert into articles (
   slug,

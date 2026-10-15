@@ -529,6 +529,117 @@ func TestUnpublishArticleMapsConcurrentStatusChangeToConflict(t *testing.T) {
 	}
 }
 
+func TestListArticleRevisionsReturnsSummariesWithoutBody(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	updatedAt := pgtype.Timestamptz{Time: time.Date(2026, 10, 15, 8, 0, 0, 0, time.UTC), Valid: true}
+	store := &articleStoreStub{revisionRows: []dbgen.ListArticleRevisionsRow{
+		{
+			ArticleID: articleID, Slug: "aB3dE9", ArticleName: "revision-article",
+			Title: "第二版", Summary: "摘要", Status: dbgen.ArticleStatusDraft,
+			Tags: []string{"go"}, Version: 2, UpdatedAt: updatedAt,
+		},
+		{
+			ArticleID: articleID, Slug: "aB3dE9", ArticleName: "revision-article",
+			Title: "第一版", Summary: "摘要", Status: dbgen.ArticleStatusPublished,
+			Tags: []string{"go"}, Version: 1, UpdatedAt: updatedAt,
+		},
+	}}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodGet, "/articles/11111111-1111-1111-1111-111111111111/revisions", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if store.revisionListCalls != 1 {
+		t.Fatalf("revision list calls = %d, want 1", store.revisionListCalls)
+	}
+	var body []map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(body) != 2 {
+		t.Fatalf("revision count = %d, want 2", len(body))
+	}
+	if body[0]["version"] != float64(2) || body[1]["version"] != float64(1) {
+		t.Fatalf("revisions must be ordered by version desc: %#v", body)
+	}
+	if _, exists := body[0]["bodyMdx"]; exists {
+		t.Fatalf("revision summary must not expose bodyMdx: %#v", body[0])
+	}
+	if body[0]["title"] != "第二版" || body[0]["status"] != "draft" {
+		t.Fatalf("unexpected revision summary: %#v", body[0])
+	}
+}
+
+func TestGetArticleRevisionReturnsFullSnapshot(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	store := &articleStoreStub{revisionDetail: dbgen.GetArticleRevisionRow{
+		ArticleID: articleID, Slug: "aB3dE9", ArticleName: "revision-article",
+		Title: "历史版本", Summary: "摘要", BodyMdx: "历史正文",
+		Status: dbgen.ArticleStatusPublished, Tags: []string{"go"},
+		AuthorID: uuidForTest("22222222-2222-2222-2222-222222222222"), Version: 3,
+	}}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodGet, "/articles/11111111-1111-1111-1111-111111111111/revisions/3", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if store.lastRevisionLookup.ArticleID != articleID || store.lastRevisionLookup.Version != 3 {
+		t.Fatalf("revision lookup = %#v, want article %s version 3", store.lastRevisionLookup, articleID)
+	}
+	var body map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["bodyMdx"] != "历史正文" || body["version"] != float64(3) {
+		t.Fatalf("unexpected revision detail: %#v", body)
+	}
+}
+
+func TestGetArticleRevisionReturnsNotFoundForMissingVersion(t *testing.T) {
+	store := &articleStoreStub{}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodGet, "/articles/11111111-1111-1111-1111-111111111111/revisions/99", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+func TestGetArticleRevisionRejectsInvalidVersionParam(t *testing.T) {
+	store := &articleStoreStub{}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodGet, "/articles/11111111-1111-1111-1111-111111111111/revisions/not-a-number", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	if store.lastRevisionLookup.ArticleID.Valid {
+		t.Fatal("invalid version param must not access store")
+	}
+}
+
 func TestGetPublishedArticleFallsBackFromArticleNameToShortSlug(t *testing.T) {
 	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
 	store := &articleStoreStub{
@@ -604,6 +715,10 @@ type articleStoreStub struct {
 	updateArgs             []dbgen.UpdateDraftArticleParams
 	publishArgs            []pgtype.UUID
 	unpublishArgs          []pgtype.UUID
+	revisionRows           []dbgen.ListArticleRevisionsRow
+	revisionDetail         dbgen.GetArticleRevisionRow
+	lastRevisionLookup     dbgen.GetArticleRevisionParams
+	revisionListCalls      int
 	getByIDArticle         dbgen.GetArticleByIDRow
 	getByIDErr             error
 	publishErr             error
@@ -680,6 +795,19 @@ func (s *articleStoreStub) UnpublishArticle(ctx context.Context, articleID pgtyp
 	}
 	s.unpublishArgs = append(s.unpublishArgs, articleID)
 	return unpublishArticleForTest(articleID, "aB3dE9"), nil
+}
+
+func (s *articleStoreStub) ListArticleRevisions(ctx context.Context, articleID pgtype.UUID) ([]dbgen.ListArticleRevisionsRow, error) {
+	s.revisionListCalls++
+	return s.revisionRows, nil
+}
+
+func (s *articleStoreStub) GetArticleRevision(ctx context.Context, arg dbgen.GetArticleRevisionParams) (dbgen.GetArticleRevisionRow, error) {
+	s.lastRevisionLookup = arg
+	if s.revisionDetail.ArticleID.Valid {
+		return s.revisionDetail, nil
+	}
+	return dbgen.GetArticleRevisionRow{}, pgx.ErrNoRows
 }
 
 func publishArticleForTest(articleID pgtype.UUID, slug string) dbgen.PublishArticleRow {

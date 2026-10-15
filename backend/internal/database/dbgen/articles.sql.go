@@ -334,6 +334,80 @@ func (q *Queries) GetArticleBySlug(ctx context.Context, slug string) (GetArticle
 	return i, err
 }
 
+const getArticleRevision = `-- name: GetArticleRevision :one
+select
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at,
+  version
+from article_logs
+where article_id = $1
+  and version = $2
+`
+
+type GetArticleRevisionParams struct {
+	ArticleID pgtype.UUID
+	Version   int32
+}
+
+type GetArticleRevisionRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+}
+
+func (q *Queries) GetArticleRevision(ctx context.Context, arg GetArticleRevisionParams) (GetArticleRevisionRow, error) {
+	row := q.db.QueryRow(ctx, getArticleRevision, arg.ArticleID, arg.Version)
+	var i GetArticleRevisionRow
+	err := row.Scan(
+		&i.ArticleID,
+		&i.Slug,
+		&i.ArticleName,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.Tags,
+		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
+		&i.CoverImageUrl,
+		&i.PublishedAt,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Version,
+	)
+	return i, err
+}
+
 const listAdminArticles = `-- name: ListAdminArticles :many
 select
   article_id,
@@ -407,6 +481,80 @@ func (q *Queries) ListAdminArticles(ctx context.Context) ([]ListAdminArticlesRow
 			&i.UpdatedAt,
 			&i.Version,
 			&i.SearchVector,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listArticleRevisions = `-- name: ListArticleRevisions :many
+select
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  version,
+  updated_at
+from article_logs
+where article_id = $1
+order by version desc
+`
+
+type ListArticleRevisionsRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	Version       int32
+	UpdatedAt     pgtype.Timestamptz
+}
+
+// 版本列表不取 body_mdx，保持响应瘦身；单版本详情单独查询。
+func (q *Queries) ListArticleRevisions(ctx context.Context, articleID pgtype.UUID) ([]ListArticleRevisionsRow, error) {
+	rows, err := q.db.Query(ctx, listArticleRevisions, articleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListArticleRevisionsRow
+	for rows.Next() {
+		var i ListArticleRevisionsRow
+		if err := rows.Scan(
+			&i.ArticleID,
+			&i.Slug,
+			&i.ArticleName,
+			&i.Title,
+			&i.Summary,
+			&i.Status,
+			&i.Tags,
+			&i.Featured,
+			&i.FeaturedRank,
+			&i.FeaturedAt,
+			&i.CoverImageUrl,
+			&i.PublishedAt,
+			&i.Version,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
