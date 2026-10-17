@@ -41,8 +41,7 @@ export function listAdminAssets() {
 }
 
 export async function getAdminAssetDownloadUrl(assetId: string) {
-  const response = await apiGet<DownloadURLResponse>(`/admin/assets/${assetId}/download-url`);
-  return response.downloadUrl;
+  return apiGet<DownloadURLResponse>(`/admin/assets/${assetId}/download-url`);
 }
 
 export async function uploadAdminAsset(file: File, usage: UploadAssetUsage = 'asset-file') {

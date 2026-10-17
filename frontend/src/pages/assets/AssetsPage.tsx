@@ -1,5 +1,6 @@
-import { Upload, Table, Button, Tag, Typography, message } from 'antd';
-import { InboxOutlined, DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import { Upload, Table, Button, Tag, Typography, message, Modal, Image } from 'antd';
+import { InboxOutlined, DownloadOutlined, ReloadOutlined, EyeOutlined, CopyOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps } from 'antd/es/upload/interface';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -48,16 +49,41 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+const imageContentTypes = ['image/png', 'image/jpeg', 'image/webp'];
+
+function isImageAsset(asset: AssetFile): boolean {
+  return imageContentTypes.includes(asset.contentType);
+}
+
+async function copyTextToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand('copy');
+  document.body.removeChild(textarea);
+  if (!copied) {
+    throw new Error('复制失败，请手动复制');
+  }
+}
+
 function AssetsPage() {
   const queryClient = useQueryClient();
   const { data = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-assets'],
     queryFn: listAdminAssets,
   });
+  const [preview, setPreview] = useState<{ asset: AssetFile; url: string } | null>(null);
 
   const handleDownload = async (asset: AssetFile) => {
     try {
-      const downloadUrl = await getAdminAssetDownloadUrl(asset.assetId);
+      const { downloadUrl } = await getAdminAssetDownloadUrl(asset.assetId);
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = asset.filename;
@@ -67,6 +93,36 @@ function AssetsPage() {
       document.body.removeChild(link);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '下载链接生成失败');
+    }
+  };
+
+  const handlePreview = async (asset: AssetFile) => {
+    try {
+      if (asset.publicUrl) {
+        setPreview({ asset, url: asset.publicUrl });
+        return;
+      }
+      const { downloadUrl } = await getAdminAssetDownloadUrl(asset.assetId);
+      setPreview({ asset, url: downloadUrl });
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '图片预览失败');
+    }
+  };
+
+  const handleCopyUrl = async (asset: AssetFile) => {
+    try {
+      let url = asset.publicUrl;
+      let notice = '已复制公开 URL，可长期直接使用';
+      if (!url) {
+        const detail = await getAdminAssetDownloadUrl(asset.assetId);
+        url = detail.downloadUrl;
+        const minutes = Math.max(1, Math.round(detail.expiresInSeconds / 60));
+        notice = `已复制临时链接，约 ${minutes} 分钟内有效`;
+      }
+      await copyTextToClipboard(url);
+      message.success(notice);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '复制链接失败');
     }
   };
 
@@ -81,11 +137,18 @@ function AssetsPage() {
       title: '类型',
       dataIndex: 'contentType',
       key: 'contentType',
-      width: 100,
-      render: (type: string) => (
-        <Tag color={contentTypeColor[type] || 'default'} style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px' }}>
-          {contentTypeMap[type] || type}
-        </Tag>
+      width: 150,
+      render: (type: string, record: AssetFile) => (
+        <>
+          <Tag color={contentTypeColor[type] || 'default'} style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px' }}>
+            {contentTypeMap[type] || type}
+          </Tag>
+          {record.publicUrl && (
+            <Tag color="green" style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px' }}>
+              公开
+            </Tag>
+          )}
+        </>
       ),
     },
     {
@@ -106,17 +169,39 @@ function AssetsPage() {
     {
       title: '操作',
       key: 'actions',
-      width: 120,
+      width: 220,
       render: (_: unknown, record: AssetFile) => (
-        <Button
-          type="text"
-          size="small"
-          icon={<DownloadOutlined />}
-          style={{ color: '#4F46E5', borderRadius: 8 }}
-          onClick={() => handleDownload(record)}
-        >
-          下载
-        </Button>
+        <>
+          {isImageAsset(record) && (
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined />}
+              style={{ color: '#4F46E5', borderRadius: 8 }}
+              onClick={() => handlePreview(record)}
+            >
+              预览
+            </Button>
+          )}
+          <Button
+            type="text"
+            size="small"
+            icon={<CopyOutlined />}
+            style={{ color: '#4F46E5', borderRadius: 8 }}
+            onClick={() => handleCopyUrl(record)}
+          >
+            复制链接
+          </Button>
+          <Button
+            type="text"
+            size="small"
+            icon={<DownloadOutlined />}
+            style={{ color: '#4F46E5', borderRadius: 8 }}
+            onClick={() => handleDownload(record)}
+          >
+            下载
+          </Button>
+        </>
       ),
     },
   ];
@@ -205,11 +290,38 @@ function AssetsPage() {
           rowKey="assetId"
           loading={isLoading}
           pagination={{ pageSize: 10 }}
-          scroll={{ x: 680 }}
+          scroll={{ x: 820 }}
           style={{ borderRadius: 8 }}
           onRow={() => ({ style: { height: 48 } })}
         />
       </div>
+
+      <Modal
+        open={Boolean(preview)}
+        title={preview?.asset.filename}
+        footer={null}
+        centered
+        width={720}
+        onCancel={() => setPreview(null)}
+      >
+        {preview && (
+          <div style={{ textAlign: 'center' }}>
+            <Image
+              src={preview.url}
+              alt={preview.asset.filename}
+              style={{ maxHeight: '70vh', objectFit: 'contain' }}
+            />
+            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+              <Text type="secondary">
+                {preview.asset.filename} · {formatBytes(preview.asset.byteSize)}
+              </Text>
+              <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => handleCopyUrl(preview.asset)}>
+                复制 URL
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
