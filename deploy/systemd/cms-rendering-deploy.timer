@@ -1,0 +1,13 @@
+[Unit]
+Description=Rendering CMS Platform 自动部署定时触发器
+
+[Timer]
+# 开机 3 分钟后做第一次检查
+OnBootSec=3min
+# 之后每 5 分钟检查一次远端是否有新提交（无更新时脚本秒退，开销极小）
+OnUnitActiveSec=5min
+AccuracySec=10s
+Unit=cms-rendering-deploy.service
+
+[Install]
+WantedBy=timers.target

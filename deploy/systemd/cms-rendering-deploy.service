@@ -1,0 +1,22 @@
+[Unit]
+Description=Rendering CMS Platform 自动部署（拉取代码并按需发布）
+Documentation=file:///opt/rendering-cms-platform/docs/operations/auto-deploy.md
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+ConditionPathIsDirectory=/opt/rendering-cms-platform
+
+[Service]
+Type=oneshot
+# 默认以 root 运行；Git 操作会自动降权到仓库属主执行。
+# 如需专用用户：修改 User/Group，并确保该用户已加入 docker 组，
+# 且 /opt/rendering-cms-platform 属主为该用户。可用 deploy/setup.sh --user 安装。
+User=root
+Group=root
+ExecStart=/opt/rendering-cms-platform/deploy/auto-deploy.sh
+# 单次部署（构建镜像 + migration + 健康检查）的最长允许时间
+TimeoutStartSec=30min
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

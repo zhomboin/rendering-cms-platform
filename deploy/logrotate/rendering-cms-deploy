@@ -1,0 +1,11 @@
+/var/log/rendering-cms/deploy-*.log
+/var/log/rendering-cms/rollback-*.log
+{
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    dateext
+}
