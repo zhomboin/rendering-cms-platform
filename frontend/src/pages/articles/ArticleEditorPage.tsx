@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Upload, Switch, InputNumber, Popconfirm, Drawer, Table, Tag } from 'antd';
-import { HistoryOutlined, UploadOutlined } from '@ant-design/icons';
+import { HistoryOutlined, UploadOutlined, LockOutlined, EyeOutlined, UnlockOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd/es/upload/interface';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -11,7 +11,9 @@ import {
   getArticleRevision,
   listAdminArticles,
   listArticleRevisions,
+  markAdminArticlePrivate,
   publishAdminArticle,
+  restoreAdminArticleToDraft,
   unpublishAdminArticle,
   updateAdminArticle,
 } from '../../api/articles';
@@ -162,6 +164,7 @@ function clearArticleDraft(key: string) {
 const revisionStatusConfig: Record<string, { color: string; label: string }> = {
   draft: { color: 'default', label: '草稿' },
   published: { color: 'success', label: '已发布' },
+  private: { color: 'purple', label: '私有' },
   archived: { color: 'warning', label: '已归档' },
 };
 
@@ -248,7 +251,9 @@ export default function ArticleEditorPage() {
     [articlesQuery.data, id],
   );
   const isPublishedArticle = currentArticle?.status === 'published';
-  const isLockedArticle = Boolean(currentArticle) && currentArticle?.status !== 'draft';
+  const isPrivateArticle = currentArticle?.status === 'private';
+  const isEditableArticle = currentArticle?.status === 'draft' || currentArticle?.status === 'private';
+  const isLockedArticle = Boolean(currentArticle) && !isEditableArticle;
 
   useEffect(() => {
     setRestoredDraftAt(null);
@@ -290,7 +295,7 @@ export default function ArticleEditorPage() {
     },
     onSuccess: async (article) => {
       clearArticleDraft(draftKey);
-      message.success('草稿已保存');
+      message.success(article.status === 'private' ? '私有文章已保存' : '草稿已保存');
       await queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
       await queryClient.invalidateQueries({ queryKey: ['article-revisions', id] });
       if (!isEdit) navigate(`/admin/articles/${article.articleId}/edit`, { replace: true });
@@ -330,6 +335,30 @@ export default function ArticleEditorPage() {
     },
     onError: (error) => {
       message.error(error instanceof Error ? error.message : '文章下架失败');
+    },
+  });
+
+  const markPrivateMutation = useMutation({
+    mutationFn: () => markAdminArticlePrivate(id as string),
+    onSuccess: async () => {
+      message.success('文章已设为私有，仅后台可见，可继续编辑');
+      await queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
+      await queryClient.invalidateQueries({ queryKey: ['article-revisions', id] });
+    },
+    onError: (error) => {
+      message.error(error instanceof Error ? error.message : '文章设为私有失败');
+    },
+  });
+
+  const restoreDraftMutation = useMutation({
+    mutationFn: () => restoreAdminArticleToDraft(id as string),
+    onSuccess: async () => {
+      message.success('私有文章已转为草稿，如需公开可点击发布');
+      await queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
+      await queryClient.invalidateQueries({ queryKey: ['article-revisions', id] });
+    },
+    onError: (error) => {
+      message.error(error instanceof Error ? error.message : '文章转为草稿失败');
     },
   });
 
@@ -616,15 +645,23 @@ export default function ArticleEditorPage() {
           {isEdit ? '编辑文章' : '新建文章'}
         </Title>
         {isEdit && (
-          <Button
-            icon={<HistoryOutlined />}
-            onClick={() => {
-              setSelectedVersion(null);
-              setRevisionDrawerOpen(true);
-            }}
-          >
-            历史版本
-          </Button>
+          <Space>
+            <Button
+              icon={<EyeOutlined />}
+              onClick={() => navigate(`/admin/articles/${id}/read`)}
+            >
+              阅读视图
+            </Button>
+            <Button
+              icon={<HistoryOutlined />}
+              onClick={() => {
+                setSelectedVersion(null);
+                setRevisionDrawerOpen(true);
+              }}
+            >
+              历史版本
+            </Button>
+          </Space>
         )}
       </div>
 
@@ -659,6 +696,29 @@ export default function ArticleEditorPage() {
             >
               <Button danger loading={unpublishMutation.isPending}>
                 下架为草稿
+              </Button>
+            </Popconfirm>
+          }
+          style={{ marginBottom: 20 }}
+        />
+      )}
+
+      {isPrivateArticle && (
+        <Alert
+          type="info"
+          showIcon
+          title="私有文章，仅后台可见"
+          description="这篇内容不会出现在公开站点；可直接编辑保存，每次保存都会记录历史版本。如需公开，请先转为草稿再发布。"
+          action={
+            <Popconfirm
+              title="确认转为草稿？"
+              description="转为草稿后仍不会自动公开，需要再执行发布才会出现在公开站点。"
+              okText="转为草稿"
+              cancelText="取消"
+              onConfirm={() => restoreDraftMutation.mutate()}
+            >
+              <Button icon={<UnlockOutlined />} loading={restoreDraftMutation.isPending}>
+                转为草稿
               </Button>
             </Popconfirm>
           }
@@ -808,18 +868,39 @@ export default function ArticleEditorPage() {
             disabled={isLockedArticle}
             style={{ borderColor: '#4F46E5', color: '#4F46E5' }}
           >
-            保存草稿
+            {isPrivateArticle ? '保存' : '保存草稿'}
           </Button>
-          <Button
-            type="primary"
-            size="large"
-            loading={publishMutation.isPending}
-            disabled={isLockedArticle}
-            style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5', fontWeight: 600 }}
-            onClick={() => setPublishModalOpen(true)}
-          >
-            发布
-          </Button>
+          {currentArticle?.status === 'draft' && (
+            <Popconfirm
+              title="确认设为私有？"
+              description="设为私有后仅在后台可见，公开站点不展示；之后仍可继续编辑。"
+              okText="设为私有"
+              cancelText="取消"
+              onConfirm={() => markPrivateMutation.mutate()}
+            >
+              <Button
+                icon={<LockOutlined />}
+                loading={markPrivateMutation.isPending}
+                style={{ borderColor: '#7C3AED', color: '#7C3AED' }}
+              >
+                设为私有
+              </Button>
+            </Popconfirm>
+          )}
+          <Tooltip title={isPrivateArticle ? '私有文章需先转为草稿，再执行发布' : ''}>
+            <span>
+              <Button
+                type="primary"
+                size="large"
+                loading={publishMutation.isPending}
+                disabled={isLockedArticle || isPrivateArticle}
+                style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5', fontWeight: 600 }}
+                onClick={() => setPublishModalOpen(true)}
+              >
+                发布
+              </Button>
+            </span>
+          </Tooltip>
         </Space>
       </div>
 
@@ -904,14 +985,14 @@ export default function ArticleEditorPage() {
                 ← 返回版本列表
               </Button>
               <Tooltip
-                title={currentArticle?.status === 'draft' ? '' : '请先下架文章恢复为草稿，再载入历史版本'}
+                title={isEditableArticle ? '' : '请先将文章恢复为可编辑状态（草稿或私有），再载入历史版本'}
               >
                 <span>
                   <Button
                     type="primary"
                     size="small"
                     style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5' }}
-                    disabled={currentArticle?.status !== 'draft' || !revisionDetail}
+                    disabled={!isEditableArticle || !revisionDetail}
                     onClick={handleRestoreRevision}
                   >
                     恢复此版本

@@ -6,7 +6,7 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 
 - `pgcrypto`：用于 `gen_random_uuid()` 生成 UUID 主键。
 - `user_role`：后台用户角色，当前包含 `admin`、`editor`。
-- `article_status`：文章状态，当前包含 `draft`、`published`、`archived`。
+- `article_status`：文章状态，当前包含 `draft`、`published`、`private`、`archived`；`private` 由 `000011_article_private_status` migration 加入，仅后台可见。
 - `comment_status`：评论审核状态，当前包含 `pending`、`approved`、`rejected`。
 - `asset_status`：资源生命周期状态，当前包含 `active`、`archived`、`deleted`。
 
@@ -45,6 +45,7 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - 如后续需要风控、限流或去重，必须在进入数据库前完成 IP 哈希处理。
 - `author_email` 属于评论提交者隐私信息，只用于后台审核和必要联系，不应在公开接口中默认返回。
 - 评论限流通过 `comments_ip_hash_created_at_idx` 按 `ip_hash` 和 `created_at` 查询最近提交记录，不需要保存原始 IP。
+- `private` 状态文章属于作者私有内容（日常记录、运维文档等），只允许出现在后台接口（登录态）中；公开读取 SQL 一律带 `status = 'published'` 过滤，私有文章的公开访问必须返回 `404`。
 
 ## 登录安全规则
 
@@ -65,7 +66,9 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - 每次插入 `articles` 时自动写入一条 `article_logs`。
 - 每次更新文章内容字段、状态字段或发布字段时，`articles.version` 自动加 `1`，并写入对应版本的 `article_logs`。
 - `article_logs` 不再使用独立日志主键，必须使用 `article_id + version` 唯一定位一条文章历史记录。
-- 状态变更必须由后台接口驱动：发布接口只允许 `draft -> published`，下架接口只允许 `published -> draft`，两条 SQL 都在 `where` 中校验前置状态；`archived` 为保留值，没有接口可以写入。
+- 状态变更必须由后台接口驱动：发布接口只允许 `draft -> published`，下架接口只允许 `published -> draft`，设为私有接口只允许 `draft -> private`，转为草稿接口只允许 `private -> draft`，全部 SQL 都在 `where` 中校验前置状态；`archived` 为保留值，没有接口可以写入。
+- `draft` 与 `private` 是可编辑状态，后台更新接口允许直接修改；`published`、`archived` 不可直接编辑。
+- 私有文章的 `published_at` 保持为空；设为私有、转为草稿接口都不修改 `published_at`。
 - 发布接口每次执行都会把 `published_at` 设置为当前时间；下架接口不修改 `published_at`，保留最后一次发布时间供后台查看。
 - 修订快照保留策略：每篇文章保留最近 `ARTICLE_LOG_RETENTION_LIMIT`（默认 `20`）个快照和首版（`version = 1`），更早的快照由后端每日定时任务（本地时间 `00:15`）通过单条集合删除清理；清理不依赖应用层逐行判断，且任何情况下都不删除首版快照。
 

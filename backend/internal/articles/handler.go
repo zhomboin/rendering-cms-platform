@@ -49,8 +49,11 @@ type articleStore interface {
 	ListAdminArticles(ctx context.Context) ([]dbgen.ListAdminArticlesRow, error)
 	CreateDraftArticle(ctx context.Context, arg dbgen.CreateDraftArticleParams) (dbgen.CreateDraftArticleRow, error)
 	UpdateDraftArticle(ctx context.Context, arg dbgen.UpdateDraftArticleParams) (dbgen.UpdateDraftArticleRow, error)
+	UpdatePrivateArticle(ctx context.Context, arg dbgen.UpdatePrivateArticleParams) (dbgen.UpdatePrivateArticleRow, error)
 	PublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.PublishArticleRow, error)
 	UnpublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.UnpublishArticleRow, error)
+	MarkArticlePrivate(ctx context.Context, articleID pgtype.UUID) (dbgen.MarkArticlePrivateRow, error)
+	RestoreArticleToDraft(ctx context.Context, articleID pgtype.UUID) (dbgen.RestoreArticleToDraftRow, error)
 	ListArticleRevisions(ctx context.Context, articleID pgtype.UUID) ([]dbgen.ListArticleRevisionsRow, error)
 	GetArticleRevision(ctx context.Context, arg dbgen.GetArticleRevisionParams) (dbgen.GetArticleRevisionRow, error)
 	SearchPublishedArticles(ctx context.Context, query string) ([]dbgen.SearchPublishedArticlesRow, error)
@@ -84,6 +87,8 @@ func (h Handler) RegisterAdminRoutes(router chi.Router) {
 	router.Patch("/articles/{id}", h.updateDraftArticle)
 	router.Post("/articles/{id}/publish", h.publishArticle)
 	router.Post("/articles/{id}/unpublish", h.unpublishArticle)
+	router.Post("/articles/{id}/private", h.markArticlePrivate)
+	router.Post("/articles/{id}/restore-draft", h.restoreArticleToDraft)
 	router.Get("/articles/{id}/revisions", h.listArticleRevisions)
 	router.Get("/articles/{id}/revisions/{version}", h.getArticleRevision)
 }
@@ -240,12 +245,12 @@ func (h Handler) updateDraftArticle(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "文章读取失败")
 		return
 	}
-	if current.Status != dbgen.ArticleStatusDraft {
-		writeError(w, http.StatusConflict, "已发布文章不能通过保存草稿直接修改")
+	if current.Status != dbgen.ArticleStatusDraft && current.Status != dbgen.ArticleStatusPrivate {
+		writeError(w, http.StatusConflict, "仅草稿或私有文章可直接编辑，已发布文章请先下架")
 		return
 	}
 
-	article, err := h.queries.UpdateDraftArticle(r.Context(), dbgen.UpdateDraftArticleParams{
+	updateParams := dbgen.UpdateDraftArticleParams{
 		ArticleID:     articleID,
 		Slug:          current.Slug,
 		ArticleName:   payload.ArticleName,
@@ -257,7 +262,23 @@ func (h Handler) updateDraftArticle(w http.ResponseWriter, r *http.Request) {
 		FeaturedRank:  int32WithDefault(payload.FeaturedRank, 100),
 		FeaturedAt:    nullableTimestamptzFromString(payload.FeaturedAt),
 		CoverImageUrl: nullableText(payload.CoverImageURL),
-	})
+	}
+	if current.Status == dbgen.ArticleStatusPrivate {
+		privateParams := dbgen.UpdatePrivateArticleParams(updateParams)
+		article, err := h.queries.UpdatePrivateArticle(r.Context(), privateParams)
+		if err != nil {
+			if isArticleNameUniqueViolation(err) {
+				writeError(w, http.StatusBadRequest, "文章英文名已存在")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "私有文章更新失败")
+			return
+		}
+		writeJSON(w, http.StatusOK, mapArticle(article))
+		return
+	}
+
+	article, err := h.queries.UpdateDraftArticle(r.Context(), updateParams)
 	if err != nil {
 		if isArticleNameUniqueViolation(err) {
 			writeError(w, http.StatusBadRequest, "文章英文名已存在")
@@ -346,6 +367,88 @@ func (h Handler) unpublishArticle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "文章下架失败")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapArticle(article))
+}
+
+func (h Handler) markArticlePrivate(w http.ResponseWriter, r *http.Request) {
+	user, ok := httpapi.UserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "未登录")
+		return
+	}
+	articleID, err := uuidFromString(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "文章 ID 无效")
+		return
+	}
+	if _, err := uuidFromString(user.UserID); err != nil {
+		writeError(w, http.StatusUnauthorized, "用户 ID 无效")
+		return
+	}
+	current, err := h.queries.GetArticleByID(r.Context(), articleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "文章不存在")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "文章读取失败")
+		return
+	}
+	if current.Status != dbgen.ArticleStatusDraft {
+		writeError(w, http.StatusConflict, "仅草稿状态的文章可以设为私有")
+		return
+	}
+
+	article, err := h.queries.MarkArticlePrivate(r.Context(), articleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusConflict, "仅草稿状态的文章可以设为私有")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "文章设为私有失败")
+		return
+	}
+	writeJSON(w, http.StatusOK, mapArticle(article))
+}
+
+func (h Handler) restoreArticleToDraft(w http.ResponseWriter, r *http.Request) {
+	user, ok := httpapi.UserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "未登录")
+		return
+	}
+	articleID, err := uuidFromString(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "文章 ID 无效")
+		return
+	}
+	if _, err := uuidFromString(user.UserID); err != nil {
+		writeError(w, http.StatusUnauthorized, "用户 ID 无效")
+		return
+	}
+	current, err := h.queries.GetArticleByID(r.Context(), articleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "文章不存在")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "文章读取失败")
+		return
+	}
+	if current.Status != dbgen.ArticleStatusPrivate {
+		writeError(w, http.StatusConflict, "仅私有文章可以转为草稿")
+		return
+	}
+
+	article, err := h.queries.RestoreArticleToDraft(r.Context(), articleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusConflict, "仅私有文章可以转为草稿")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "文章转为草稿失败")
 		return
 	}
 	writeJSON(w, http.StatusOK, mapArticle(article))
@@ -530,9 +633,12 @@ type articleRow interface {
 		dbgen.GetArticleRevisionRow |
 		dbgen.ListAdminArticlesRow |
 		dbgen.ListPublishedArticlesRow |
+		dbgen.MarkArticlePrivateRow |
 		dbgen.PublishArticleRow |
+		dbgen.RestoreArticleToDraftRow |
 		dbgen.UnpublishArticleRow |
 		dbgen.UpdateDraftArticleRow |
+		dbgen.UpdatePrivateArticleRow |
 		articleView
 }
 
@@ -663,6 +769,26 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
 			Version: article.Version,
 		}
+	case dbgen.MarkArticlePrivateRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case dbgen.RestoreArticleToDraftRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
 	case dbgen.UnpublishArticleRow:
 		return articleView{
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
@@ -674,6 +800,16 @@ func articleViewFromRow[T articleRow](row T) articleView {
 			Version: article.Version,
 		}
 	case dbgen.UpdateDraftArticleRow:
+		return articleView{
+			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
+			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,
+			Status: article.Status, Tags: article.Tags, Featured: article.Featured,
+			FeaturedRank: article.FeaturedRank, FeaturedAt: article.FeaturedAt,
+			CoverImageUrl: article.CoverImageUrl, PublishedAt: article.PublishedAt,
+			AuthorID: article.AuthorID, CreatedAt: article.CreatedAt, UpdatedAt: article.UpdatedAt,
+			Version: article.Version,
+		}
+	case dbgen.UpdatePrivateArticleRow:
 		return articleView{
 			ArticleID: article.ArticleID, Slug: article.Slug, ArticleName: article.ArticleName,
 			Title: article.Title, Summary: article.Summary, BodyMdx: article.BodyMdx,

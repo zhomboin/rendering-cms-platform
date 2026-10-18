@@ -529,6 +529,199 @@ func TestUnpublishArticleMapsConcurrentStatusChangeToConflict(t *testing.T) {
 	}
 }
 
+func TestMarkArticlePrivateMarksDraft(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	store := &articleStoreStub{}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/private", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if len(store.markPrivateArgs) != 1 || store.markPrivateArgs[0] != articleID {
+		t.Fatalf("mark private args = %v, want [%s]", store.markPrivateArgs, articleID)
+	}
+	var body map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["status"] != "private" {
+		t.Fatalf("status = %#v, want private", body["status"])
+	}
+	if body["publishedAt"] != nil {
+		t.Fatalf("private article must not carry publishedAt: %#v", body["publishedAt"])
+	}
+}
+
+func TestMarkArticlePrivateRejectsPublishedArticle(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	published := articleByIDForTest(articleID, "aB3dE9", "线上标题")
+	published.Status = dbgen.ArticleStatusPublished
+	store := &articleStoreStub{getByIDArticle: published}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/private", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if len(store.markPrivateArgs) != 0 {
+		t.Fatalf("mark private calls = %d, want 0", len(store.markPrivateArgs))
+	}
+}
+
+func TestMarkArticlePrivateRejectsPrivateArticle(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	private := articleByIDForTest(articleID, "aB3dE9", "私有标题")
+	private.Status = dbgen.ArticleStatusPrivate
+	store := &articleStoreStub{getByIDArticle: private}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/private", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if len(store.markPrivateArgs) != 0 {
+		t.Fatalf("mark private calls = %d, want 0", len(store.markPrivateArgs))
+	}
+}
+
+func TestMarkArticlePrivateReturnsNotFoundForMissingArticle(t *testing.T) {
+	store := &articleStoreStub{getByIDErr: pgx.ErrNoRows}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/private", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+	if len(store.markPrivateArgs) != 0 {
+		t.Fatalf("mark private calls = %d, want 0", len(store.markPrivateArgs))
+	}
+}
+
+func TestMarkArticlePrivateMapsConcurrentStatusChangeToConflict(t *testing.T) {
+	store := &articleStoreStub{markPrivateErr: pgx.ErrNoRows}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/private", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+}
+
+func TestRestoreArticleToDraftRestoresPrivateArticle(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	private := articleByIDForTest(articleID, "aB3dE9", "私有标题")
+	private.Status = dbgen.ArticleStatusPrivate
+	store := &articleStoreStub{getByIDArticle: private}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/restore-draft", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if len(store.restoreDraftArgs) != 1 || store.restoreDraftArgs[0] != articleID {
+		t.Fatalf("restore draft args = %v, want [%s]", store.restoreDraftArgs, articleID)
+	}
+	var body map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["status"] != "draft" {
+		t.Fatalf("status = %#v, want draft", body["status"])
+	}
+}
+
+func TestRestoreArticleToDraftRejectsDraftArticle(t *testing.T) {
+	store := &articleStoreStub{}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPost, "/articles/11111111-1111-1111-1111-111111111111/restore-draft", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if len(store.restoreDraftArgs) != 0 {
+		t.Fatalf("restore draft calls = %d, want 0", len(store.restoreDraftArgs))
+	}
+}
+
+func TestUpdatePrivateArticleAllowsDirectEdit(t *testing.T) {
+	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
+	private := articleByIDForTest(articleID, "Z9yX8w", "私有标题")
+	private.Status = dbgen.ArticleStatusPrivate
+	store := &articleStoreStub{getByIDArticle: private}
+	handler := NewHandler(store)
+	router := authenticatedArticleRouter(t, handler)
+	req := httptest.NewRequest(http.MethodPatch, "/articles/11111111-1111-1111-1111-111111111111", strings.NewReader(`{
+		"articleName": "ops-runbook",
+		"title": "运维手册",
+		"summary": "更新摘要",
+		"bodyMdx": "更新正文",
+		"tags": ["ops"],
+		"featured": false,
+		"coverImageUrl": ""
+	}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if len(store.updatePrivateArgs) != 1 {
+		t.Fatalf("private update calls = %d, want 1", len(store.updatePrivateArgs))
+	}
+	if store.updatePrivateArgs[0].Slug != "Z9yX8w" {
+		t.Fatalf("private update slug = %q, want existing short slug preserved", store.updatePrivateArgs[0].Slug)
+	}
+	if len(store.updateArgs) != 0 {
+		t.Fatalf("draft update calls = %d, want 0", len(store.updateArgs))
+	}
+	var body map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["status"] != "private" {
+		t.Fatalf("status = %#v, want private", body["status"])
+	}
+}
+
 func TestListArticleRevisionsReturnsSummariesWithoutBody(t *testing.T) {
 	articleID := uuidForTest("11111111-1111-1111-1111-111111111111")
 	updatedAt := pgtype.Timestamptz{Time: time.Date(2026, 10, 15, 8, 0, 0, 0, time.UTC), Valid: true}
@@ -713,8 +906,11 @@ type articleStoreStub struct {
 	lastArticleNameLookup  string
 	createArgs             []dbgen.CreateDraftArticleParams
 	updateArgs             []dbgen.UpdateDraftArticleParams
+	updatePrivateArgs      []dbgen.UpdatePrivateArticleParams
 	publishArgs            []pgtype.UUID
 	unpublishArgs          []pgtype.UUID
+	markPrivateArgs        []pgtype.UUID
+	restoreDraftArgs       []pgtype.UUID
 	revisionRows           []dbgen.ListArticleRevisionsRow
 	revisionDetail         dbgen.GetArticleRevisionRow
 	lastRevisionLookup     dbgen.GetArticleRevisionParams
@@ -723,6 +919,8 @@ type articleStoreStub struct {
 	getByIDErr             error
 	publishErr             error
 	unpublishErr           error
+	markPrivateErr         error
+	restoreDraftErr        error
 	byArticleNameArticle   dbgen.GetArticleByArticleNameRow
 	searchCalls            int
 	slugLookupCalls        int
@@ -797,6 +995,27 @@ func (s *articleStoreStub) UnpublishArticle(ctx context.Context, articleID pgtyp
 	return unpublishArticleForTest(articleID, "aB3dE9"), nil
 }
 
+func (s *articleStoreStub) MarkArticlePrivate(ctx context.Context, articleID pgtype.UUID) (dbgen.MarkArticlePrivateRow, error) {
+	if s.markPrivateErr != nil {
+		return dbgen.MarkArticlePrivateRow{}, s.markPrivateErr
+	}
+	s.markPrivateArgs = append(s.markPrivateArgs, articleID)
+	return markPrivateArticleForTest(articleID, "aB3dE9"), nil
+}
+
+func (s *articleStoreStub) RestoreArticleToDraft(ctx context.Context, articleID pgtype.UUID) (dbgen.RestoreArticleToDraftRow, error) {
+	if s.restoreDraftErr != nil {
+		return dbgen.RestoreArticleToDraftRow{}, s.restoreDraftErr
+	}
+	s.restoreDraftArgs = append(s.restoreDraftArgs, articleID)
+	return restoreDraftArticleForTest(articleID, "aB3dE9"), nil
+}
+
+func (s *articleStoreStub) UpdatePrivateArticle(ctx context.Context, arg dbgen.UpdatePrivateArticleParams) (dbgen.UpdatePrivateArticleRow, error) {
+	s.updatePrivateArgs = append(s.updatePrivateArgs, arg)
+	return updatePrivateArticleForTest(arg.ArticleID, arg.Slug, arg.ArticleName, arg.Title), nil
+}
+
 func (s *articleStoreStub) ListArticleRevisions(ctx context.Context, articleID pgtype.UUID) ([]dbgen.ListArticleRevisionsRow, error) {
 	s.revisionListCalls++
 	return s.revisionRows, nil
@@ -827,6 +1046,36 @@ func publishArticleForTest(articleID pgtype.UUID, slug string) dbgen.PublishArti
 
 func unpublishArticleForTest(articleID pgtype.UUID, slug string) dbgen.UnpublishArticleRow {
 	return dbgen.UnpublishArticleRow{
+		ArticleID:   articleID,
+		Slug:        slug,
+		ArticleName: "redis-sentinel-with-docker",
+		Title:       "短链文章",
+		Summary:     "摘要",
+		BodyMdx:     "正文",
+		Status:      dbgen.ArticleStatusDraft,
+		Tags:        []string{"go"},
+		AuthorID:    uuidForTest("22222222-2222-2222-2222-222222222222"),
+		Version:     1,
+	}
+}
+
+func markPrivateArticleForTest(articleID pgtype.UUID, slug string) dbgen.MarkArticlePrivateRow {
+	return dbgen.MarkArticlePrivateRow{
+		ArticleID:   articleID,
+		Slug:        slug,
+		ArticleName: "redis-sentinel-with-docker",
+		Title:       "短链文章",
+		Summary:     "摘要",
+		BodyMdx:     "正文",
+		Status:      dbgen.ArticleStatusPrivate,
+		Tags:        []string{"go"},
+		AuthorID:    uuidForTest("22222222-2222-2222-2222-222222222222"),
+		Version:     1,
+	}
+}
+
+func restoreDraftArticleForTest(articleID pgtype.UUID, slug string) dbgen.RestoreArticleToDraftRow {
+	return dbgen.RestoreArticleToDraftRow{
 		ArticleID:   articleID,
 		Slug:        slug,
 		ArticleName: "redis-sentinel-with-docker",
@@ -887,6 +1136,21 @@ func updateArticleForTest(articleID pgtype.UUID, slug string, articleName string
 		Summary:     "摘要",
 		BodyMdx:     "正文",
 		Status:      dbgen.ArticleStatusDraft,
+		Tags:        []string{"go"},
+		AuthorID:    uuidForTest("22222222-2222-2222-2222-222222222222"),
+		Version:     1,
+	}
+}
+
+func updatePrivateArticleForTest(articleID pgtype.UUID, slug string, articleName string, title string) dbgen.UpdatePrivateArticleRow {
+	return dbgen.UpdatePrivateArticleRow{
+		ArticleID:   articleID,
+		Slug:        slug,
+		ArticleName: articleName,
+		Title:       title,
+		Summary:     "摘要",
+		BodyMdx:     "正文",
+		Status:      dbgen.ArticleStatusPrivate,
 		Tags:        []string{"go"},
 		AuthorID:    uuidForTest("22222222-2222-2222-2222-222222222222"),
 		Version:     1,

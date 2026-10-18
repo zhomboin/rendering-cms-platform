@@ -186,6 +186,42 @@ returning
   version,
   search_vector;
 
+-- name: UpdatePrivateArticle :one
+update articles
+set
+  slug = $2,
+  article_name = $3,
+  title = $4,
+  summary = $5,
+  body_mdx = $6,
+  tags = $7,
+  featured = $8,
+  featured_rank = $9,
+  featured_at = $10,
+  cover_image_url = $11,
+  updated_at = now()
+where article_id = $1
+  and status = 'private'
+returning
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at,
+  version,
+  search_vector;
+
 -- name: PublishArticle :one
 update articles
 set
@@ -194,6 +230,60 @@ set
   updated_at = now()
 where article_id = $1
   and status = 'draft'
+returning
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at,
+  version,
+  search_vector;
+
+-- name: MarkArticlePrivate :one
+update articles
+set
+  status = 'private',
+  updated_at = now()
+where article_id = $1
+  and status = 'draft'
+returning
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at,
+  version,
+  search_vector;
+
+-- name: RestoreArticleToDraft :one
+update articles
+set
+  status = 'draft',
+  updated_at = now()
+where article_id = $1
+  and status = 'private'
 returning
   article_id,
   slug,

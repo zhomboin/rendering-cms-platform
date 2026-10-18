@@ -138,13 +138,17 @@ ETag: "<sha256>"
 
 ## 文章状态流转
 
-`article_status` 当前包含 `draft`、`published`、`archived` 三个合法值，但后台接口只落地以下流转：
+`article_status` 当前包含 `draft`、`published`、`private`、`archived` 四个合法值，后台接口只落地以下流转：
 
 ```text
 draft --发布 publish--> published
 published --下架 unpublish--> draft（可修改后再次发布）
+draft --设为私有 private--> private
+private --转为草稿 restore-draft--> draft
 ```
 
+- `private` 是私有状态：仅后台接口（登录态）返回，公开列表、详情、搜索一律按未发布处理（详情 `404`），`published_at` 保持为空。
+- 私有文章与草稿一样可直接编辑保存；如需公开，先「转为草稿」再「发布」。
 - `archived` 是保留值，当前没有任何接口可以进入或离开该状态。
 - 已发布文章在后台编辑器中为只读；修改内容必须先下架恢复为草稿。
 
@@ -194,7 +198,7 @@ Content-Type: application/json
 - 创建草稿时 `version` 默认为 `1`。
 - 创建草稿成功后由数据库触发器自动写入 `article_logs`。
 
-## 更新草稿
+## 更新草稿与私有文章
 
 ```http
 PATCH /api/v1/admin/articles/{id}
@@ -206,9 +210,10 @@ Content-Type: application/json
 
 说明：
 
-- 更新草稿不会修改已有短链码。
-- 更新草稿可以修改 `articleName`。
-- 只允许更新 `draft` 状态文章；如果文章已发布或归档，返回 `409`，避免通过“保存草稿”直接覆盖线上内容。
+- 更新不会修改已有短链码。
+- 更新可以修改 `articleName`。
+- 允许更新 `draft` 与 `private` 状态文章；如果文章已发布或归档，返回 `409`，避免通过“保存”直接覆盖线上内容。
+- 私有文章通过该接口直接编辑保存，语义与草稿一致。
 - 更新成功后 `articles.version` 自动加 `1`。
 - 更新成功后由数据库触发器自动写入 `article_logs`。
 
@@ -245,6 +250,35 @@ Authorization: Bearer <jwt-token>
 - 下架后可在后台修改文章并再次调用发布接口；再次发布会把 `published_at` 重置为新发布时间。
 - 静态博客侧的页面需要在下架后触发 Rendering 重建才会从站点移除，详见 `docs/operations/rendering-blog-publishing-integration.md`。
 
+## 设为私有
+
+```http
+POST /api/v1/admin/articles/{id}/private
+Authorization: Bearer <jwt-token>
+```
+
+说明：
+
+- 将 `draft` 状态文章转为 `private`，用于日常记录、运维文档等仅自己可见的内容。
+- 只允许草稿设为私有；文章已发布、已是私有或已归档时返回 `409`，文章不存在时返回 `404`。
+- 私有文章仅出现在后台接口中，公开列表、详情和搜索永远不返回；公开详情访问其短链或英文名返回 `404`。
+- `published_at` 保持为空；后续如需公开，先调用「转为草稿」，再调用发布接口。
+- 成功后 `articles.version` 自动加 `1`，并由数据库触发器自动写入 `article_logs`。
+
+## 转为草稿
+
+```http
+POST /api/v1/admin/articles/{id}/restore-draft
+Authorization: Bearer <jwt-token>
+```
+
+说明：
+
+- 将 `private` 状态文章恢复为 `draft`。
+- 只允许私有文章转为草稿；其他状态返回 `409`，文章不存在时返回 `404`。
+- 转为草稿不会自动公开文章，也不会设置 `published_at`；需要公开时再调用发布接口。
+- 成功后 `articles.version` 自动加 `1`，并由数据库触发器自动写入 `article_logs`。
+
 ## 文章修订历史
 
 ### 版本列表
@@ -277,7 +311,7 @@ Authorization: Bearer <jwt-token>
 
 ### 恢复语义
 
-系统不提供专用的“恢复/回滚”写接口。恢复历史版本由后台前端完成：读取版本详情 → 将快照字段载入编辑器表单 → 用户确认后调用现有 `PATCH /api/v1/admin/articles/{id}` 保存草稿。恢复只允许在 `draft` 状态下操作；已发布文章需先下架。恢复产生的变更与普通编辑一致：`version` 自动加 `1` 并由数据库触发器写入新的修订快照，全程可审计。
+系统不提供专用的“恢复/回滚”写接口。恢复历史版本由后台前端完成：读取版本详情 → 将快照字段载入编辑器表单 → 用户确认后调用现有 `PATCH /api/v1/admin/articles/{id}` 保存。恢复只允许在 `draft` 或 `private` 状态下操作；已发布文章需先下架。恢复产生的变更与普通编辑一致：`version` 自动加 `1` 并由数据库触发器写入新的修订快照，全程可审计。
 
 ## MDX 导入工具
 

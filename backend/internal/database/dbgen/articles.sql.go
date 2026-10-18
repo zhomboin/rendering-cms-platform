@@ -651,6 +651,81 @@ func (q *Queries) ListPublishedArticles(ctx context.Context) ([]ListPublishedArt
 	return items, nil
 }
 
+const markArticlePrivate = `-- name: MarkArticlePrivate :one
+update articles
+set
+  status = 'private',
+  updated_at = now()
+where article_id = $1
+  and status = 'draft'
+returning
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at,
+  version,
+  search_vector
+`
+
+type MarkArticlePrivateRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) MarkArticlePrivate(ctx context.Context, articleID pgtype.UUID) (MarkArticlePrivateRow, error) {
+	row := q.db.QueryRow(ctx, markArticlePrivate, articleID)
+	var i MarkArticlePrivateRow
+	err := row.Scan(
+		&i.ArticleID,
+		&i.Slug,
+		&i.ArticleName,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.Tags,
+		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
+		&i.CoverImageUrl,
+		&i.PublishedAt,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Version,
+		&i.SearchVector,
+	)
+	return i, err
+}
+
 const pruneArticleLogs = `-- name: PruneArticleLogs :execrows
 delete from article_logs log
 using articles art
@@ -722,6 +797,81 @@ type PublishArticleRow struct {
 func (q *Queries) PublishArticle(ctx context.Context, articleID pgtype.UUID) (PublishArticleRow, error) {
 	row := q.db.QueryRow(ctx, publishArticle, articleID)
 	var i PublishArticleRow
+	err := row.Scan(
+		&i.ArticleID,
+		&i.Slug,
+		&i.ArticleName,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.Tags,
+		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
+		&i.CoverImageUrl,
+		&i.PublishedAt,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Version,
+		&i.SearchVector,
+	)
+	return i, err
+}
+
+const restoreArticleToDraft = `-- name: RestoreArticleToDraft :one
+update articles
+set
+  status = 'draft',
+  updated_at = now()
+where article_id = $1
+  and status = 'private'
+returning
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at,
+  version,
+  search_vector
+`
+
+type RestoreArticleToDraftRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) RestoreArticleToDraft(ctx context.Context, articleID pgtype.UUID) (RestoreArticleToDraftRow, error) {
+	row := q.db.QueryRow(ctx, restoreArticleToDraft, articleID)
+	var i RestoreArticleToDraftRow
 	err := row.Scan(
 		&i.ArticleID,
 		&i.Slug,
@@ -907,6 +1057,116 @@ func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticle
 		arg.CoverImageUrl,
 	)
 	var i UpdateDraftArticleRow
+	err := row.Scan(
+		&i.ArticleID,
+		&i.Slug,
+		&i.ArticleName,
+		&i.Title,
+		&i.Summary,
+		&i.BodyMdx,
+		&i.Status,
+		&i.Tags,
+		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
+		&i.CoverImageUrl,
+		&i.PublishedAt,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Version,
+		&i.SearchVector,
+	)
+	return i, err
+}
+
+const updatePrivateArticle = `-- name: UpdatePrivateArticle :one
+update articles
+set
+  slug = $2,
+  article_name = $3,
+  title = $4,
+  summary = $5,
+  body_mdx = $6,
+  tags = $7,
+  featured = $8,
+  featured_rank = $9,
+  featured_at = $10,
+  cover_image_url = $11,
+  updated_at = now()
+where article_id = $1
+  and status = 'private'
+returning
+  article_id,
+  slug,
+  article_name,
+  title,
+  summary,
+  body_mdx,
+  status,
+  tags,
+  featured,
+  featured_rank,
+  featured_at,
+  cover_image_url,
+  published_at,
+  author_id,
+  created_at,
+  updated_at,
+  version,
+  search_vector
+`
+
+type UpdatePrivateArticleParams struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Tags          []string
+	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
+	CoverImageUrl pgtype.Text
+}
+
+type UpdatePrivateArticleRow struct {
+	ArticleID     pgtype.UUID
+	Slug          string
+	ArticleName   string
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Status        ArticleStatus
+	Tags          []string
+	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
+	CoverImageUrl pgtype.Text
+	PublishedAt   pgtype.Timestamptz
+	AuthorID      pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	Version       int32
+	SearchVector  interface{}
+}
+
+func (q *Queries) UpdatePrivateArticle(ctx context.Context, arg UpdatePrivateArticleParams) (UpdatePrivateArticleRow, error) {
+	row := q.db.QueryRow(ctx, updatePrivateArticle,
+		arg.ArticleID,
+		arg.Slug,
+		arg.ArticleName,
+		arg.Title,
+		arg.Summary,
+		arg.BodyMdx,
+		arg.Tags,
+		arg.Featured,
+		arg.FeaturedRank,
+		arg.FeaturedAt,
+		arg.CoverImageUrl,
+	)
+	var i UpdatePrivateArticleRow
 	err := row.Scan(
 		&i.ArticleID,
 		&i.Slug,

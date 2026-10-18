@@ -17,6 +17,7 @@ const (
 	ArticleStatusDraft     ArticleStatus = "draft"
 	ArticleStatusPublished ArticleStatus = "published"
 	ArticleStatusArchived  ArticleStatus = "archived"
+	ArticleStatusPrivate   ArticleStatus = "private"
 )
 
 func (e *ArticleStatus) Scan(src interface{}) error {

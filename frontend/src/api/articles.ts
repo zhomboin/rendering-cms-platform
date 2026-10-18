@@ -1,6 +1,6 @@
 import { apiGet, apiPatch, apiPost } from './client';
 
-export type ArticleStatus = 'draft' | 'published' | 'archived';
+export type ArticleStatus = 'draft' | 'published' | 'archived' | 'private';
 
 export interface ArticleFormData {
   title: string;
@@ -19,6 +19,8 @@ export interface AdminArticleRecord extends ArticleFormData {
   articleId: string;
   status: ArticleStatus;
   publishedAt: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   version?: number;
 }
 
@@ -52,6 +54,14 @@ export function publishAdminArticle(articleId: string) {
 
 export function unpublishAdminArticle(articleId: string) {
   return apiPost<AdminArticleRecord>(`/admin/articles/${articleId}/unpublish`);
+}
+
+export function markAdminArticlePrivate(articleId: string) {
+  return apiPost<AdminArticleRecord>(`/admin/articles/${articleId}/private`);
+}
+
+export function restoreAdminArticleToDraft(articleId: string) {
+  return apiPost<AdminArticleRecord>(`/admin/articles/${articleId}/restore-draft`);
 }
 
 export interface ArticleRevisionSummary {

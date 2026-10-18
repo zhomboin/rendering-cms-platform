@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Table, Button, Tag, Input, Select, Space, Typography, Alert, Popconfirm, message } from 'antd';
-import { PlusOutlined, EditOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, ReloadOutlined, StopOutlined, EyeOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { listAdminArticles, unpublishAdminArticle } from '../../api/articles';
+import { listAdminArticles, unpublishAdminArticle, markAdminArticlePrivate, restoreAdminArticleToDraft } from '../../api/articles';
 import type { AdminArticleRecord } from '../../api/articles';
 
 const { Title } = Typography;
@@ -14,12 +14,14 @@ const statusOptions = [
   { value: '', label: '全部' },
   { value: 'draft', label: '草稿' },
   { value: 'published', label: '已发布' },
+  { value: 'private', label: '私有' },
   { value: 'archived', label: '已归档' },
 ];
 
 const statusConfig: Record<AdminArticleRecord['status'], { color: string; label: string }> = {
   draft: { color: 'default', label: '草稿' },
   published: { color: 'success', label: '已发布' },
+  private: { color: 'purple', label: '私有' },
   archived: { color: 'warning', label: '已归档' },
 };
 
@@ -52,6 +54,28 @@ export default function ArticleListPage() {
     },
     onError: (mutationError) => {
       message.error(mutationError instanceof Error ? mutationError.message : '文章下架失败');
+    },
+  });
+
+  const markPrivateMutation = useMutation({
+    mutationFn: markAdminArticlePrivate,
+    onSuccess: () => {
+      message.success('文章已设为私有，仅后台可见');
+      void queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
+    },
+    onError: (mutationError) => {
+      message.error(mutationError instanceof Error ? mutationError.message : '文章设为私有失败');
+    },
+  });
+
+  const restoreDraftMutation = useMutation({
+    mutationFn: restoreAdminArticleToDraft,
+    onSuccess: () => {
+      message.success('私有文章已转为草稿');
+      void queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
+    },
+    onError: (mutationError) => {
+      message.error(mutationError instanceof Error ? mutationError.message : '文章转为草稿失败');
     },
   });
 
@@ -126,12 +150,49 @@ export default function ArticleListPage() {
     {
       title: '操作',
       key: 'action',
-      width: 140,
+      width: 240,
       render: (_: unknown, record: AdminArticleRecord) => (
         <Space size={0}>
+          <Button type="link" size="small" icon={<EyeOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/articles/${record.articleId}/read`); }}>
+            阅读
+          </Button>
           <Button type="link" size="small" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/articles/${record.articleId}/edit`); }}>
             编辑
           </Button>
+          {record.status === 'draft' && (
+            <Popconfirm
+              title="确认设为私有？"
+              description="设为私有后仅在后台可见，公开站点不展示；可随时转为草稿再发布。"
+              okText="设为私有"
+              cancelText="取消"
+              onConfirm={(e) => {
+                e?.stopPropagation();
+                markPrivateMutation.mutate(record.articleId);
+              }}
+              onCancel={(e) => e?.stopPropagation()}
+            >
+              <Button type="link" size="small" icon={<LockOutlined />} onClick={(e) => e.stopPropagation()}>
+                私有
+              </Button>
+            </Popconfirm>
+          )}
+          {record.status === 'private' && (
+            <Popconfirm
+              title="确认转为草稿？"
+              description="转为草稿后仍不会自动公开，需要再执行发布才会出现在公开站点。"
+              okText="转为草稿"
+              cancelText="取消"
+              onConfirm={(e) => {
+                e?.stopPropagation();
+                restoreDraftMutation.mutate(record.articleId);
+              }}
+              onCancel={(e) => e?.stopPropagation()}
+            >
+              <Button type="link" size="small" icon={<UnlockOutlined />} onClick={(e) => e.stopPropagation()}>
+                转草稿
+              </Button>
+            </Popconfirm>
+          )}
           {record.status === 'published' && (
             <Popconfirm
               title="确认下架这篇文章？"
@@ -203,7 +264,7 @@ export default function ArticleListPage() {
           showSizeChanger: false,
           showTotal: (total) => `共 ${total} 篇文章`,
         }}
-        scroll={{ x: 980 }}
+        scroll={{ x: 1120 }}
         onRow={(record) => ({
           onClick: () => navigate(`/admin/articles/${record.articleId}/edit`),
           style: { cursor: 'pointer', height: 48 },

@@ -6,6 +6,7 @@ import AdminLayout from '../layouts/AdminLayout';
 const AssetsPage = lazy(() => import('../pages/assets/AssetsPage'));
 const ArticleEditorPage = lazy(() => import('../pages/articles/ArticleEditorPage'));
 const ArticleListPage = lazy(() => import('../pages/articles/ArticleListPage'));
+const ArticleReadingPage = lazy(() => import('../pages/articles/ArticleReadingPage'));
 const CommentsPage = lazy(() => import('../pages/comments/CommentsPage'));
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
@@ -25,6 +26,7 @@ export function AppRoutes() {
         <Routes>
           <Route index element={<Navigate to="/admin" replace />} />
           <Route path="/admin/login" element={<LoginPage />} />
+          <Route path="/admin/articles/:id/read" element={<ArticleReadingPage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<DashboardPage />} />
             <Route path="articles" element={<ArticleListPage />} />
