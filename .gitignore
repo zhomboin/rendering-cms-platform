@@ -4,6 +4,9 @@
 !.env.example
 !*.env.example
 
+# 本地 Agent 工具目录
+.zcode/
+
 # 日志与临时文件
 *.log
 logs/
