@@ -5,7 +5,7 @@
 ## 触发机制
 
 ```text
-cms-rendering-deploy.timer（每 5 分钟）
+cms-rendering-deploy.timer（每小时整点，OnCalendar=hourly）
   -> cms-rendering-deploy.service（systemd oneshot）
     -> deploy/auto-deploy.sh
       1. flock 抢 /var/lock/rendering-cms/deploy.lock，抢不到直接退出
@@ -48,7 +48,7 @@ git pull
 sudo bash deploy/setup.sh
 ```
 
-`setup.sh` 会创建目录、迁移 `deploy/production.env` 到 `/etc/rendering-cms/production.env`、安装 systemd 单元与 logrotate，并在 `production.env` 不含占位值时自动启用 timer。
+`setup.sh` 会创建目录、迁移 `deploy/production.env` 到 `/etc/rendering-cms/production.env`、生成 systemd 单元（直接写入服务器 `/etc/systemd/system/`，仓库内不保存单元文件）与 logrotate，并在 `production.env` 不含占位值时自动启用 timer。
 
 `production.env` 仍是占位值时，setup 不会启用 timer；填好真实配置后手动启用：
 

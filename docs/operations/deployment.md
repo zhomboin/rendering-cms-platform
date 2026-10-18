@@ -37,7 +37,7 @@
 - `deploy/auto-deploy.sh`：自动部署主脚本（systemd timer 定时触发）。
 - `deploy/setup.sh`：自动部署一次性安装脚本（目录、systemd 单元、配置迁移）。
 - `deploy/rollback.sh`：手动回滚脚本（代码回滚 + 可选数据库恢复）。
-- `deploy/systemd/cms-rendering-deploy.service`、`deploy/systemd/cms-rendering-deploy.timer`：systemd 单元。
+- systemd 单元 `cms-rendering-deploy.service` / `.timer`：不在仓库内，由 `deploy/setup.sh` 在服务器上生成到 `/etc/systemd/system/`。
 - `deploy/nginx/frontend.conf`：前端 Nginx 容器配置。
 - `deploy/nginx/rendering.me.conf`：服务器宿主机 Nginx 完整反向代理配置。
 - `deploy/nginx/rendering-cms-proxy-headers.conf`：CMS 各 location 共用的可信代理头、超时和缓冲配置。
@@ -295,7 +295,7 @@ curl -sSI -H 'Authorization: Bearer invalid-test-token' https://cms.rendering.me
 
 ## 发布更新
 
-生产服务器已配置 `cms-rendering-deploy.timer` 时，以下流程由 `deploy/auto-deploy.sh` 每 5 分钟自动检查并执行，详见 `docs/operations/auto-deploy.md`。手动流程仍作为基线 SOP 保留；手动操作前建议先停止 timer：
+生产服务器已配置 `cms-rendering-deploy.timer` 时，以下流程由 `deploy/auto-deploy.sh` 每小时整点自动检查并执行，详见 `docs/operations/auto-deploy.md`。手动流程仍作为基线 SOP 保留；手动操作前建议先停止 timer：
 
 ```bash
 sudo systemctl stop cms-rendering-deploy.timer

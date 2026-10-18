@@ -7,7 +7,7 @@
 #      /var/lib/rendering-cms/backups、/var/lock/rendering-cms；
 #   2. 迁移/安装环境配置（deploy/production.env -> /etc/rendering-cms/production.env，
 #      安装 deploy.env 模板）；
-#   3. 安装 systemd 单元 cms-rendering-deploy.service / cms-rendering-deploy.timer；
+#   3. 生成 systemd 单元到 /etc/systemd/system/（cms-rendering-deploy.service/.timer）；
 #   4. 安装 logrotate 配置；
 #   5. production.env 校验通过后启用 timer。
 #
@@ -77,13 +77,50 @@ if [ ! -f "$CONFIG_DIR/deploy.env" ]; then
   log "  已安装 $CONFIG_DIR/deploy.env（可选调整项见文件内注释）"
 fi
 
-log "3/6 安装 systemd 单元……"
-sed -e "s#/opt/rendering-cms-platform#$APP_DIR#g" \
-    -e "s/^User=root$/User=$SERVICE_USER/" \
-    -e "s/^Group=root$/Group=$SERVICE_USER/" \
-    "$SCRIPT_DIR/systemd/$SERVICE_NAME.service" \
-    > "/etc/systemd/system/$SERVICE_NAME.service"
-install -m 0644 "$SCRIPT_DIR/systemd/$SERVICE_NAME.timer" "/etc/systemd/system/$SERVICE_NAME.timer"
+log "3/6 生成 systemd 单元到 /etc/systemd/system/ ……"
+# systemd 单元只存在于服务器上（/etc/systemd/system/），代码仓库不保存单元文件；
+# 此处按当前 APP_DIR / SERVICE_USER 现场生成。
+cat > "/etc/systemd/system/$SERVICE_NAME.service" <<EOF
+[Unit]
+Description=Rendering CMS Platform 自动部署（拉取代码并按需发布）
+Documentation=file://$APP_DIR/docs/operations/auto-deploy.md
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+ConditionPathIsDirectory=$APP_DIR
+
+[Service]
+Type=oneshot
+# 默认以 root 运行；Git 操作由 auto-deploy.sh 自动降权到仓库属主执行。
+# 如需专用用户，用 deploy/setup.sh --user <name> 重新生成本单元。
+User=$SERVICE_USER
+Group=$SERVICE_USER
+ExecStart=$APP_DIR/deploy/auto-deploy.sh
+# 单次部署（构建镜像 + migration + 健康检查）的最长允许时间
+TimeoutStartSec=30min
+Nice=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > "/etc/systemd/system/$SERVICE_NAME.timer" <<EOF
+[Unit]
+Description=Rendering CMS Platform 自动部署定时触发器
+
+[Timer]
+# 每小时整点检查一次远端提交（无更新时脚本秒退，不做任何变更）；
+# 停机期间错过整点时，开机后补跑一次。
+OnCalendar=hourly
+Persistent=true
+AccuracySec=1min
+Unit=$SERVICE_NAME.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+chmod 0644 "/etc/systemd/system/$SERVICE_NAME.service" "/etc/systemd/system/$SERVICE_NAME.timer"
 systemctl daemon-reload
 
 log "4/6 安装 logrotate 配置……"
@@ -107,7 +144,7 @@ fi
 log "6/6 启用定时部署……"
 if [ "$ENV_READY" = "true" ]; then
   systemctl enable --now "$SERVICE_NAME.timer"
-  log "  已启用 $SERVICE_NAME.timer（每 5 分钟检查远端提交）。"
+  log "  已启用 $SERVICE_NAME.timer（每小时整点检查远端提交）。"
 else
   log "  跳过启用 timer。"
 fi
