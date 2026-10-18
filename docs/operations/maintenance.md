@@ -48,6 +48,28 @@ grep -l "部署失败" /var/log/rendering-cms/deploy-*.log | wc -l          # �
 | `deploy/rollback.sh` | 手动回滚：代码退到上次成功提交，`--backup` 可连数据库一起恢复 | 发布出问题、需要退版本时 |
 | `deploy/setup.sh` | 一次性安装：目录、配置迁移、systemd 单元、logrotate | 首次部署；目录/单元损坏后修复；`--user` 换运行用户 |
 
+## 手动执行部署
+
+按场景选一种：
+
+```bash
+# 方式一：立即触发一次标准部署（远端无新提交则秒退，最常用）
+sudo systemctl start cms-rendering-deploy.service
+journalctl -u cms-rendering-deploy.service -f            # 实时看部署进度
+
+# 方式二：免提交强制重发当前提交（改完 /etc/rendering-cms/production.env 后让它生效）
+sudo /opt/rendering-cms-platform/deploy/auto-deploy.sh --force
+
+# 方式三：完全手动发布（绕过脚本的特殊操作：换对象存储、恢复数据库、临时改 compose）
+sudo systemctl stop cms-rendering-deploy.timer           # 先停自动部署
+# ……按 docs/operations/deployment.md「发布更新」或 runbook.md 手动执行……
+sudo systemctl start cms-rendering-deploy.timer          # 完成后恢复
+```
+
+- 方式一、二走脚本自带锁，与定时触发并发时后到的一方自动跳过，不会重复发布。
+- 方式三是绕过脚本的裸操作，没有锁保护，**必须先停 timer**，否则定时部署可能在操作中途启动容器。
+- 手动发布同样遵守 SOP 红线：migration 前先备份数据库，失败时按回滚原则处理（见 `auto-deploy.md`）。
+
 ## 目录与文件地图
 
 | 路径 | 内容 | 说明 |
