@@ -6,12 +6,12 @@
 
 - 应用目录：`/opt/rendering-cms-platform`。
 - Compose 目录：`deploy/`。
-- 生产环境变量：`deploy/production.env`，权限必须为 `600`。
+- 生产环境变量：`/etc/rendering-cms/production.env`，权限必须为 `600`（由 `deploy/setup.sh` 从旧位置 `deploy/production.env` 迁移；已启用自动部署的服务器以 `/etc/rendering-cms/` 为准，本文命令中的 `--env-file production.env` 相应替换为 `--env-file /etc/rendering-cms/production.env`）。
 - 现有 Rendering 博客端口：`127.0.0.1:3000`，由宿主机 Nginx 转发 `rendering.me` 和 `www.rendering.me`。
 - CMS 生产入口端口：默认由 `frontend` 容器绑定 `127.0.0.1:3001`。
 - 对象存储：生产使用 Cloudflare R2，后端通过 R2 S3 API 生成预签名上传和下载 URL。
 - 公网 HTTPS：由宿主机 Nginx、Caddy 或负载均衡器转发到 `127.0.0.1:3000` 和 `127.0.0.1:3001`。
-- 备份目录：`backups/`，不得提交到 Git。
+- 备份目录：自动部署环境使用 `/var/lib/rendering-cms/backups/`；未启用自动部署时使用应用目录下的 `backups/`。均不得提交到 Git。
 
 ## 生产访问入口
 

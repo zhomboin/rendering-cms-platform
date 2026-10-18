@@ -44,6 +44,7 @@
 - `backend/Dockerfile`：后端生产镜像。
 - `frontend/Dockerfile`：前端生产镜像。
 - `docs/operations/auto-deploy.md`：systemd timer 自动部署与回滚 SOP。
+- `docs/operations/maintenance.md`：运维速查卡（定期检查清单、目录地图、异常第一反应）。
 - `docs/operations/runbook.md`：固定运维 SOP。
 - `docs/operations/production-access.md`：生产访问、登录和后台用户初始化 SOP。
 - `docs/operations/backup.md`：备份要求。
