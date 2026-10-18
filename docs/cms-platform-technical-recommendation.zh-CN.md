@@ -189,21 +189,14 @@ rendering-cms-platform/
 
 ## 部署
 
-推荐部署单元：
+生产部署已按以下形态落地（2026-10）：
 
-- Go 后端：独立 systemd service 或容器
-- React 前端：静态构建后由 Nginx/Caddy 托管
-- PostgreSQL：独立实例或托管数据库
-- 对象存储：R2/S3/MinIO
+- 生产环境为单机 Docker Compose：`frontend`（Nginx 托管 Vite 产物并反代 API）、`backend`（Go 容器）、`postgres`（PostgreSQL 16）、`migrate`（一次性 migration profile）。
+- 生产配置集中在服务器 `/etc/rendering-cms/production.env`，不在代码仓库内。
+- 发布由 systemd timer 自动化：`cms-rendering-deploy.timer` 每小时整点触发 `deploy/auto-deploy.sh`，自动拉取代码、比较提交、按固定顺序发布（pull → build → 备份 → migration → 重启 → 健康检查），失败自动回滚代码。
+- 对象存储使用 Cloudflare R2，宿主机 Nginx 终止 HTTPS。
 
-部署流程：
-
-1. 备份 PostgreSQL。
-2. 执行 SQL migration。
-3. 构建并发布 Go 后端。
-4. 构建并发布 React 前端。
-5. 重启后端服务。
-6. 执行健康检查。
+部署入口文档：`docs/operations/deployment.md`（首次部署与手动 SOP）、`docs/operations/auto-deploy.md`（自动部署机制）、`docs/operations/maintenance.md`（日常巡检速查）。
 
 ## 不推荐方案
 
@@ -219,6 +212,8 @@ rendering-cms-platform/
 这些方案短期看起来简单，但会在部署、并发、备份、安全和搜索一致性上很快失控。
 
 ## 推荐实施顺序
+
+以下顺序已全部落地投产（2026-10），保留作为项目演进记录；当前执行入口见 `docs/README.md`。
 
 1. 新建 `rendering-cms-platform` 仓库或目录。
 2. 搭建 Go 后端骨架、配置、健康检查和数据库连接。

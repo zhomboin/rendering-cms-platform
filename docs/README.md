@@ -7,7 +7,9 @@
 - `docs/apis/`：后端接口契约，接口行为变更时必须同步更新。
 - `docs/sql/schema.md`：数据库表、索引、隐私字段和迁移规则说明。
 - `docs/operations/development-environment.md`：WSL2 Ubuntu 24.04 本地开发环境。
-- `docs/operations/deployment.md`：生产 Docker 部署入口。
+- `docs/operations/deployment.md`：生产 Docker 部署入口（含首次部署与自动部署启用）。
+- `docs/operations/auto-deploy.md`：systemd timer 自动部署机制、失败回滚策略与手动回滚。
+- `docs/operations/maintenance.md`：运维速查卡（定期检查清单、目录地图、手动部署、异常第一反应）。
 - `docs/operations/runbook.md`：生产固定运维 SOP。
 - `docs/operations/production-access.md`：生产登录、后台用户、PostgreSQL 和 Cloudflare R2 访问 SOP。
 - `docs/operations/backup.md`：PostgreSQL 备份与 Cloudflare R2 对象备份要求。
@@ -19,6 +21,11 @@
 - `docs/guides/go-backend-guide.md`：Go 后端代码导读。
 - `docs/guides/frontend-architecture.md`：前端目录结构与代码开发规范。
 - `docs/guides/frontend-design.md`：后台管理界面设计规范。
+
+## 执行中计划与专项沉淀
+
+- `docs/plans/`：执行中或待生产验收的实施计划；全部完成并投产的计划归档到 `docs/archive/plans/`。
+- `docs/web-tools-platform-analysis.zh-CN.md`：Web 工具平台独立项目的前期可行性分析（决策为不并入本仓库，文档作为可迁移的需求沉淀）。
 
 ## 历史归档
 

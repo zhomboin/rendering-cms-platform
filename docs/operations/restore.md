@@ -6,7 +6,7 @@
 
 恢复操作会覆盖或改变目标数据库状态。执行前必须完成以下检查：
 
-1. 确认目标环境是生产服务器，且 `deploy/production.env` 指向正确数据库。
+1. 确认目标环境是生产服务器，且 `/etc/rendering-cms/production.env` 指向正确数据库。
 2. 备份当前数据库现场。
 3. 停止会写入数据库的后端服务或切到维护模式。
 4. 确认备份文件来源、时间和完整性。
@@ -18,35 +18,35 @@
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
-docker compose --env-file production.env -f docker-compose.prod.yml stop backend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml stop backend
 ```
 
 普通 SQL 备份恢复：
 
 ```bash
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
-docker compose --env-file production.env -f docker-compose.prod.yml exec -T postgres \
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
   psql -U "$POSTGRES_USER" "$POSTGRES_DB" \
-  < ../backups/rendering-cms-latest.sql
+  < /var/lib/rendering-cms/backups/rendering-cms-latest.sql
 ```
 
 gzip 压缩备份恢复：
 
 ```bash
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
-gzip -dc ../backups/rendering-cms-latest.sql.gz \
-  | docker compose --env-file production.env -f docker-compose.prod.yml exec -T postgres \
+gzip -dc /var/lib/rendering-cms/backups/rendering-cms-latest.sql.gz \
+  | docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
       psql -U "$POSTGRES_USER" "$POSTGRES_DB"
 ```
 
 恢复完成后重新启动应用：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml up -d backend frontend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d backend frontend
 ```
 
 本地开发环境如果 `DATABASE_URL` 指向宿主机可访问的 `127.0.0.1:5432`，可以直接执行：
@@ -87,7 +87,7 @@ gzip -dc backups/rendering-cms-latest.sql.gz | psql "$DATABASE_URL"
 ```bash
 cd /opt/rendering-cms-platform/deploy
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
 aws s3api head-object \
   --endpoint-url "$S3_ENDPOINT" \

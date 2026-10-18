@@ -4,19 +4,19 @@
 
 ## 备份时机
 
-- 每次生产 migration 前必须备份 PostgreSQL。
+- 已启用自动部署时，`deploy/auto-deploy.sh` 在每次发布执行 migration 前自动备份到 `/var/lib/rendering-cms/backups/`（保留最近 14 份），无需人工干预。
+- 每次生产 migration 前必须备份 PostgreSQL（自动部署已内置，手动发布勿跳过）。
 - 每次大版本发布前必须备份 PostgreSQL。
 - 手动修改生产数据前必须备份 PostgreSQL。
 - 发现异常写入、误删除或需要排查数据问题时，应先备份当前现场。
 
 ## 目录准备
 
-备份文件建议统一放在应用目录下的 `backups/`，该目录不应提交到 Git。
+备份文件统一放在 `/var/lib/rendering-cms/backups/`，该目录不在 Git 仓库内，权限 `700`。
 
 ```bash
-cd /opt/rendering-cms-platform
-mkdir -p backups
-chmod 700 backups
+mkdir -p /var/lib/rendering-cms/backups
+chmod 700 /var/lib/rendering-cms/backups
 ```
 
 ## 手动备份
@@ -26,21 +26,21 @@ chmod 700 backups
 ```bash
 cd /opt/rendering-cms-platform/deploy
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
-mkdir -p ../backups
-chmod 700 ../backups
-docker compose --env-file production.env -f docker-compose.prod.yml exec -T postgres \
+mkdir -p /var/lib/rendering-cms/backups
+chmod 700 /var/lib/rendering-cms/backups
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
   pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
-  > "../backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql"
+  > "/var/lib/rendering-cms/backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql"
 ```
 
 如果希望压缩备份文件：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml exec -T postgres \
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
   pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
-  | gzip > "../backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
+  | gzip > "/var/lib/rendering-cms/backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
 ```
 
 本地开发环境如果 `DATABASE_URL` 指向宿主机可访问的 `127.0.0.1:5432`，可以直接执行：
@@ -54,14 +54,14 @@ pg_dump "$DATABASE_URL" | gzip > "backups/rendering-cms-$(date +%Y%m%d-%H%M%S).s
 备份完成后至少检查文件是否存在且非空：
 
 ```bash
-ls -lh ../backups/rendering-cms-*.sql*
-test -s "$(ls -t ../backups/rendering-cms-*.sql* | head -n 1)"
+ls -lh /var/lib/rendering-cms/backups/rendering-cms-*.sql*
+test -s "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql* | head -n 1)"
 ```
 
 如果使用压缩备份，应检查 gzip 文件完整性：
 
 ```bash
-gzip -t "$(ls -t ../backups/rendering-cms-*.sql.gz | head -n 1)"
+gzip -t "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql.gz | head -n 1)"
 ```
 
 ## 保留策略
@@ -85,19 +85,19 @@ PostgreSQL 只保存上传文件元数据和 object key，不保存文件本体�
 ```bash
 cd /opt/rendering-cms-platform/deploy
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
 aws s3api list-objects-v2 \
   --endpoint-url "$S3_ENDPOINT" \
   --bucket "$S3_BUCKET" \
   --output json \
-  > "../backups/r2-objects-$(date +%Y%m%d-%H%M%S).json"
+  > "/var/lib/rendering-cms/backups/r2-objects-$(date +%Y%m%d-%H%M%S).json"
 ```
 
 使用 `rclone` 同步 R2 bucket 示例：
 
 ```bash
-rclone sync "r2:$S3_BUCKET" "../backups/r2-$S3_BUCKET-$(date +%Y%m%d-%H%M%S)" --progress
+rclone sync "r2:$S3_BUCKET" "/var/lib/rendering-cms/backups/r2-$S3_BUCKET-$(date +%Y%m%d-%H%M%S)" --progress
 ```
 
 执行跨存储备份前应先在服务器上配置只读或最小权限的 R2 访问凭据。若使用服务器磁盘快照，只能覆盖 PostgreSQL volume，不能替代 R2 对象备份。

@@ -71,23 +71,23 @@ docker compose version
 准备备份目录：
 
 ```bash
-mkdir -p backups
-chmod 700 backups
+mkdir -p /var/lib/rendering-cms/backups
+chmod 700 /var/lib/rendering-cms/backups
 ```
 
 ## 环境变量
 
-复制生产环境模板：
+复制生产环境模板到 `/etc/rendering-cms/`（自动部署环境统一从这里读取；旧位置 `deploy/production.env` 由 `deploy/setup.sh` 自动迁移）：
 
 ```bash
-cd /opt/rendering-cms-platform/deploy
-cp production.env.example production.env
-chmod 600 production.env
+sudo mkdir -p /etc/rendering-cms
+sudo cp /opt/rendering-cms-platform/deploy/production.env.example /etc/rendering-cms/production.env
+sudo chmod 600 /etc/rendering-cms/production.env
 ```
 
 ### 必须修改的生产配置
 
-生产部署时必须修改 `deploy/production.env`。不要直接使用 `deploy/production.env.example` 中的占位值。
+生产部署时必须修改 `/etc/rendering-cms/production.env`。不要直接使用 `deploy/production.env.example` 中的占位值。
 
 基础部署配置：
 
@@ -200,32 +200,32 @@ R2 bucket CORS JSON 示例：
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
-docker compose --env-file production.env -f docker-compose.prod.yml build
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml build
 ```
 
 启动 PostgreSQL：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml up -d postgres
-docker compose --env-file production.env -f docker-compose.prod.yml ps
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d postgres
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml ps
 ```
 
 执行 migration：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml --profile migrate run --rm migrate
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml --profile migrate run --rm migrate
 ```
 
 启动应用：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml up -d backend frontend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d backend frontend
 ```
 
 检查容器状态：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml ps
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml ps
 ```
 
 健康检查：
@@ -241,6 +241,17 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
   "status": "ok"
 }
 ```
+
+## 启用自动部署
+
+首次部署验证通过后，启用 systemd timer 自动部署（每小时整点检查远端提交并自动发布）：
+
+```bash
+cd /opt/rendering-cms-platform
+sudo bash deploy/setup.sh
+```
+
+机制、失败自动回滚策略与手动回滚见 `docs/operations/auto-deploy.md`；日常巡检速查见 `docs/operations/maintenance.md`。
 
 ## HTTPS 入口
 
@@ -318,18 +329,18 @@ cd /opt/rendering-cms-platform
 git pull --ff-only
 
 cd deploy
-docker compose --env-file production.env -f docker-compose.prod.yml build
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml build
 
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
-docker compose --env-file production.env -f docker-compose.prod.yml exec -T postgres \
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
   pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
-  | gzip > "../backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
+  | gzip > "/var/lib/rendering-cms/backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
 
-docker compose --env-file production.env -f docker-compose.prod.yml --profile migrate run --rm migrate
-docker compose --env-file production.env -f docker-compose.prod.yml up -d backend frontend
-docker compose --env-file production.env -f docker-compose.prod.yml ps
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml --profile migrate run --rm migrate
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d backend frontend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml ps
 curl -fsS http://127.0.0.1:3001/api/v1/health
 ```
 

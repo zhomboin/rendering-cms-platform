@@ -6,7 +6,7 @@
 
 - 应用目录：`/opt/rendering-cms-platform`。
 - Compose 目录：`deploy/`。
-- 生产环境变量：`/etc/rendering-cms/production.env`，权限必须为 `600`（由 `deploy/setup.sh` 从旧位置 `deploy/production.env` 迁移；已启用自动部署的服务器以 `/etc/rendering-cms/` 为准，本文命令中的 `--env-file production.env` 相应替换为 `--env-file /etc/rendering-cms/production.env`）。
+- 生产环境变量：`/etc/rendering-cms/production.env`，权限必须为 `600`（由 `deploy/setup.sh` 从旧位置 `deploy/production.env` 迁移；未启用自动部署的环境先使用 `deploy/production.env`）。
 - 现有 Rendering 博客端口：`127.0.0.1:3000`，由宿主机 Nginx 转发 `rendering.me` 和 `www.rendering.me`。
 - CMS 生产入口端口：默认由 `frontend` 容器绑定 `127.0.0.1:3001`。
 - 对象存储：生产使用 Cloudflare R2，后端通过 R2 S3 API 生成预签名上传和下载 URL。
@@ -23,9 +23,9 @@
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
-docker compose --env-file production.env -f docker-compose.prod.yml ps
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml ps
 curl -fsS http://127.0.0.1:3001/api/v1/health
-docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=100 backend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml logs --tail=100 backend
 df -h
 ```
 
@@ -59,34 +59,34 @@ git pull --ff-only
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
-docker compose --env-file production.env -f docker-compose.prod.yml build
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml build
 ```
 
 备份 PostgreSQL：
 
 ```bash
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
-mkdir -p ../backups
-chmod 700 ../backups
-docker compose --env-file production.env -f docker-compose.prod.yml exec -T postgres \
+mkdir -p /var/lib/rendering-cms/backups
+chmod 700 /var/lib/rendering-cms/backups
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
   pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
-  | gzip > "../backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
-gzip -t "$(ls -t ../backups/rendering-cms-*.sql.gz | head -n 1)"
+  | gzip > "/var/lib/rendering-cms/backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
+gzip -t "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql.gz | head -n 1)"
 ```
 
 执行 migration：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml --profile migrate run --rm migrate
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml --profile migrate run --rm migrate
 ```
 
 重启应用：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml up -d backend frontend
-docker compose --env-file production.env -f docker-compose.prod.yml ps
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d backend frontend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml ps
 ```
 
 发布后 smoke test：
@@ -108,7 +108,7 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 
 ## MDX 文章导入 SOP
 
-生产数据库和后端使用 Docker 部署，`deploy/production.env` 中的 `DATABASE_URL` 默认指向 `postgres:5432`。该主机名只在 Docker 网络内可解析，因此不要在宿主机直接执行 `go run ./cmd/import-mdx -database-url "$DATABASE_URL"`。
+生产数据库和后端使用 Docker 部署，`/etc/rendering-cms/production.env` 中的 `DATABASE_URL` 默认指向 `postgres:5432`。该主机名只在 Docker 网络内可解析，因此不要在宿主机直接执行 `go run ./cmd/import-mdx -database-url "$DATABASE_URL"`。
 
 先 dry-run 检查 Rendering 博客文章能否解析：
 
@@ -148,19 +148,19 @@ curl -fsS https://cms.rendering.me/api/v1/articles
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
-docker compose --env-file production.env -f docker-compose.prod.yml stop backend frontend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml stop backend frontend
 ```
 
 启动应用容器：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml up -d backend frontend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d backend frontend
 ```
 
 停止全部容器，保留 volume：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml stop
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml stop
 ```
 
 不要在生产环境执行 `docker compose down -v`，该命令会删除 PostgreSQL 数据 volume。
@@ -171,20 +171,20 @@ docker compose --env-file production.env -f docker-compose.prod.yml stop
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
-docker compose --env-file production.env -f docker-compose.prod.yml logs -f backend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml logs -f backend
 ```
 
 查看前端 Nginx 日志：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml logs -f frontend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml logs -f frontend
 ```
 
 导出最近日志：
 
 ```bash
 mkdir -p ../tmp
-docker compose --env-file production.env -f docker-compose.prod.yml logs --since=1h backend frontend > ../tmp/rendering-cms-logs-$(date +%Y%m%d-%H%M%S).log
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml logs --since=1h backend frontend > ../tmp/rendering-cms-logs-$(date +%Y%m%d-%H%M%S).log
 ```
 
 ## 备份 SOP
@@ -194,14 +194,14 @@ docker compose --env-file production.env -f docker-compose.prod.yml logs --since
 ```bash
 cd /opt/rendering-cms-platform/deploy
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
-mkdir -p ../backups
-chmod 700 ../backups
-docker compose --env-file production.env -f docker-compose.prod.yml exec -T postgres \
+mkdir -p /var/lib/rendering-cms/backups
+chmod 700 /var/lib/rendering-cms/backups
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
   pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
-  | gzip > "../backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
-gzip -t "$(ls -t ../backups/rendering-cms-*.sql.gz | head -n 1)"
+  | gzip > "/var/lib/rendering-cms/backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
+gzip -t "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql.gz | head -n 1)"
 ```
 
 保留策略：
@@ -216,13 +216,13 @@ gzip -t "$(ls -t ../backups/rendering-cms-*.sql.gz | head -n 1)"
 ```bash
 cd /opt/rendering-cms-platform/deploy
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
 aws s3api list-objects-v2 \
   --endpoint-url "$S3_ENDPOINT" \
   --bucket "$S3_BUCKET" \
   --output json \
-  > "../backups/r2-objects-$(date +%Y%m%d-%H%M%S).json"
+  > "/var/lib/rendering-cms/backups/r2-objects-$(date +%Y%m%d-%H%M%S).json"
 ```
 
 ## 恢复 SOP
@@ -239,24 +239,24 @@ aws s3api list-objects-v2 \
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
-docker compose --env-file production.env -f docker-compose.prod.yml stop backend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml stop backend
 ```
 
 恢复 gzip 备份：
 
 ```bash
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
-gzip -dc ../backups/rendering-cms-latest.sql.gz \
-  | docker compose --env-file production.env -f docker-compose.prod.yml exec -T postgres \
+gzip -dc /var/lib/rendering-cms/backups/rendering-cms-latest.sql.gz \
+  | docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
       psql -U "$POSTGRES_USER" "$POSTGRES_DB"
 ```
 
 恢复后启动并验收：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml up -d backend frontend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d backend frontend
 curl -fsS http://127.0.0.1:3001/api/v1/health
 ```
 
@@ -268,9 +268,9 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
-docker compose --env-file production.env -f docker-compose.prod.yml ps
-docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=200 backend
-docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=100 postgres
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml ps
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml logs --tail=200 backend
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml logs --tail=100 postgres
 ```
 
 排查顺序：
@@ -316,7 +316,7 @@ docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=
 
 - 不要执行 `docker compose down -v`。
 - 不要删除 `rendering_cms_postgres_data` volume。
-- 不要把 `deploy/production.env`、备份文件或对象存储密钥提交到 Git。
+- 不要把 `/etc/rendering-cms/production.env`、备份文件或对象存储密钥提交到 Git。
 - 不要在未备份生产数据库的情况下执行 migration。
 - 不要直接修改生产数据库数据，除非已经完成备份并记录操作原因。
 

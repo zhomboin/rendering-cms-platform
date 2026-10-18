@@ -18,14 +18,14 @@
 ```bash
 cd /opt/rendering-cms-platform/deploy
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
 ```
 
 确认生产容器状态：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml ps
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml ps
 ```
 
 ## CMS 后台登录
@@ -52,17 +52,17 @@ editor
 ```bash
 cd /opt/rendering-cms-platform/deploy
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
 
-docker compose --env-file production.env -f docker-compose.prod.yml exec postgres \
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec postgres \
   psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 ```
 
 无交互执行 SQL：
 
 ```bash
-docker compose --env-file production.env -f docker-compose.prod.yml exec -T postgres \
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
   psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   -c "select now();"
 ```
@@ -113,7 +113,7 @@ order by created_at desc;
 
 ## Cloudflare R2 访问
 
-R2 bucket、对象、CORS 和访问密钥在 Cloudflare Dashboard 中管理。生产环境后端使用 `deploy/production.env` 中的 S3 兼容配置访问 R2：
+R2 bucket、对象、CORS 和访问密钥在 Cloudflare Dashboard 中管理。生产环境后端使用 `/etc/rendering-cms/production.env` 中的 S3 兼容配置访问 R2：
 
 ```env
 APP_ENV=production
@@ -137,7 +137,7 @@ S3_ASSET_FILE_PREFIX=assets
 ```bash
 cd /opt/rendering-cms-platform/deploy
 set -a
-. ./production.env
+. /etc/rendering-cms/production.env
 set +a
 
 aws s3api list-objects-v2 \
@@ -217,7 +217,7 @@ CMS 登录失败：
 4. 查看后端日志：
 
    ```bash
-   docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=200 backend
+   docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml logs --tail=200 backend
    ```
 
 PostgreSQL 无法进入：
@@ -227,7 +227,7 @@ PostgreSQL 无法进入：
 3. 查看 PostgreSQL 日志：
 
    ```bash
-   docker compose --env-file production.env -f docker-compose.prod.yml logs --tail=100 postgres
+   docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml logs --tail=100 postgres
    ```
 
 R2 文件上传或下载失败：
