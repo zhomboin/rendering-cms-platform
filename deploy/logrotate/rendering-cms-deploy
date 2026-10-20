@@ -1,5 +1,7 @@
-/var/log/rendering-cms/deploy-*.log
-/var/log/rendering-cms/rollback-*.log
+# 部署/回滚脚本追加写入的单一日志文件：logrotate 每周轮转、压缩，
+# rotate 8 保留约两个月历史。脚本不再按运行生成时间戳文件。
+/var/log/rendering-cms/deploy.log
+/var/log/rendering-cms/rollback.log
 {
     weekly
     rotate 8

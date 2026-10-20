@@ -1,8 +1,17 @@
+# 容器 stdout/stderr 日志统一走 json-file 驱动并限制大小，
+# 防止 /var/lib/docker/containers/ 下的 *-json.log 无限增长。
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: rendering-cms-postgres
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
@@ -21,6 +30,7 @@ services:
     image: migrate/migrate:v4.18.3
     profiles:
       - migrate
+    logging: *default-logging
     volumes:
       - ../backend/migrations:/migrations:ro
     command: ["-path=/migrations", "-database", "${DATABASE_URL:?DATABASE_URL is required}", "up"]
@@ -37,6 +47,7 @@ services:
     image: rendering-cms-platform-backend:${APP_IMAGE_TAG:-latest}
     container_name: rendering-cms-backend
     restart: unless-stopped
+    logging: *default-logging
     environment:
       HTTP_ADDR: 0.0.0.0:8080
       APP_ENV: ${APP_ENV:-production}
@@ -52,6 +63,7 @@ services:
       PUBLIC_MAX_IN_FLIGHT: ${PUBLIC_MAX_IN_FLIGHT:-128}
       PUBLIC_RATE_LIMIT_MAX_CLIENTS: ${PUBLIC_RATE_LIMIT_MAX_CLIENTS:-10000}
       LOG_DIR: /var/log/rendering-cms-platform
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-30}
       S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
       S3_REGION: ${S3_REGION:?S3_REGION is required}
       S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
@@ -84,6 +96,7 @@ services:
     image: rendering-cms-platform-frontend:${APP_IMAGE_TAG:-latest}
     container_name: rendering-cms-frontend
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "${PUBLIC_HTTP_BIND:-127.0.0.1:3001}:80"
     depends_on:

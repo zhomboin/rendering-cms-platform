@@ -108,12 +108,26 @@ func TestLoadRequiresJWTSecret(t *testing.T) {
 	}
 }
 
+func TestLoadFallsBackToDefaultLogRetention(t *testing.T) {
+	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
+	t.Setenv("LOG_RETENTION_DAYS", "0")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if cfg.LogRetentionDays != 30 {
+		t.Fatalf("LogRetentionDays = %d, want default 30 for invalid value", cfg.LogRetentionDays)
+	}
+}
+
 func TestLoadReadsDatabaseAndS3Settings(t *testing.T) {
 	t.Setenv("HTTP_ADDR", ":9090")
 	t.Setenv("DATABASE_URL", "postgres://rendering:secret@127.0.0.1:5432/rendering_cms?sslmode=disable")
 	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
 	t.Setenv("FRONTEND_ORIGIN", "http://localhost:5173")
 	t.Setenv("LOG_DIR", "/var/log/rendering-cms-platform")
+	t.Setenv("LOG_RETENTION_DAYS", "7")
 	t.Setenv("APP_ENV", "development")
 	t.Setenv("DEV_BOOTSTRAP_ADMIN", "true")
 	t.Setenv("DEV_ADMIN_EMAIL", "admin@rendering.me")
@@ -136,6 +150,9 @@ func TestLoadReadsDatabaseAndS3Settings(t *testing.T) {
 
 	if cfg.HTTPAddr != ":9090" {
 		t.Fatalf("HTTPAddr = %q, want :9090", cfg.HTTPAddr)
+	}
+	if cfg.LogRetentionDays != 7 {
+		t.Fatalf("LogRetentionDays = %d, want 7", cfg.LogRetentionDays)
 	}
 	if cfg.DatabaseURL == "" {
 		t.Fatal("DatabaseURL is empty")

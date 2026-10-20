@@ -26,7 +26,7 @@ cms-rendering-deploy.timer（每小时整点，OnCalendar=hourly）
 | `/opt/rendering-cms-platform` | 应用代码（Git 仓库） | 仓库属主 |
 | `/etc/rendering-cms/production.env` | 生产环境变量（含密钥） | `0600` |
 | `/etc/rendering-cms/deploy.env` | 自动部署配置（可选） | `0644` |
-| `/var/log/rendering-cms/` | 部署/回滚日志，`latest.log` 指向最近一次 | `0750` |
+| `/var/log/rendering-cms/` | 部署日志 `deploy.log`、回滚日志 `rollback.log`（追加写入，logrotate 轮转） | `0750` |
 | `/var/lib/rendering-cms/backups/` | PostgreSQL 备份（migration 前自动生成） | `0700` |
 | `/var/lib/rendering-cms/deploy-state.env` | 最近两次成功部署的提交记录 | - |
 | `/var/lock/rendering-cms/deploy.lock` | 部署互斥锁（flock） | `0755` |
@@ -62,7 +62,7 @@ sudo systemctl enable --now cms-rendering-deploy.timer
 
 - `GIT_BRANCH`：跟踪分支，默认 `main`。
 - `HEALTH_URL`：健康检查地址，默认 `http://127.0.0.1:3001/api/v1/health`；修改 `PUBLIC_HTTP_BIND` 时需同步调整。
-- `BACKUP_KEEP`：备份保留个数，默认 `14`，超出按时间清理。
+- `BACKUP_KEEP`：备份保留个数，默认 `14`；自动生成的 `.sql.gz` 与手动放入的 `.sql` 按修改时间一起排序，超出部分在成功部署后清理，非法值回退为 `14`。
 - `AUTO_ROLLBACK`：部署失败时是否自动回滚代码，默认 `true`。
 - `NOTIFY_WEBHOOK`：可选 webhook（接收 `{"text": "..."}`），部署成功/失败时通知。
 
@@ -81,7 +81,7 @@ sudo /opt/rendering-cms-platform/deploy/auto-deploy.sh --force
 journalctl -u cms-rendering-deploy.service -f
 
 # 查看部署日志文件
-tail -f /var/log/rendering-cms/latest.log
+tail -f /var/log/rendering-cms/deploy.log
 
 # 查看 timer 计划
 systemctl list-timers | grep cms-rendering-deploy

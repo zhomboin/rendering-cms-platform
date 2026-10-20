@@ -25,7 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}
-	logger, closeLogger := logging.NewDailyFileLogger(cfg.LogDir)
+	logger, closeLogger := logging.NewDailyFileLogger(cfg.LogDir, cfg.LogRetentionDays)
 	defer closeLogger.Close()
 
 	db, err := database.Open(context.Background(), cfg.DatabaseURL)

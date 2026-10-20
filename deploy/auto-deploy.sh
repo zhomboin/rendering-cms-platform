@@ -47,6 +47,11 @@ DEPLOY_ENV_FILE="${DEPLOY_ENV_FILE:-/etc/rendering-cms/deploy.env}"
 : "${PRUNE_IMAGES:=true}"
 : "${NOTIFY_WEBHOOK:=}"
 
+# 备份保留数必须是正整数，防止误配置（如 0）时把备份全部清掉
+if ! [[ "$BACKUP_KEEP" =~ ^[1-9][0-9]*$ ]]; then
+  BACKUP_KEEP=14
+fi
+
 FORCE_DEPLOY=false
 [ "${1:-}" = "--force" ] && FORCE_DEPLOY=true
 
@@ -57,12 +62,14 @@ LOCK_FILE="$LOCK_DIR/deploy.lock"
 [[ "$COMPOSE_FILE" = /* ]] || COMPOSE_FILE="$APP_DIR/$COMPOSE_FILE"
 
 # ---------------------------------------------------------------------------
-# 日志：同时写入 /var/log/rendering-cms/deploy-*.log 和 stdout（进 journald）。
+# 日志：追加写入 /var/log/rendering-cms/deploy.log（单一文件，logrotate 负责
+# 轮转、压缩和删除），同时输出 stdout（进 journald，journalctl 可按次检索）。
+# 不使用"每次运行一个时间戳文件"的写法：logrotate 对该模式只改名不删除，
+# 文件数会随每小时检查无限增长。
 # ---------------------------------------------------------------------------
 mkdir -p "$LOG_DIR" "$STATE_DIR" "$BACKUP_DIR" "$LOCK_DIR"
-LOG_FILE="$LOG_DIR/deploy-$(date +%Y%m%d-%H%M%S).log"
+LOG_FILE="$LOG_DIR/deploy.log"
 exec > >(tee -a "$LOG_FILE") 2>&1
-ln -sfn "$LOG_FILE" "$LOG_DIR/latest.log"
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 
@@ -119,8 +126,9 @@ backup_postgres() {
 
 prune_backups() {
   local old
+  # 自动 .sql.gz 与手动放入的未压缩 .sql 一起按修改时间排序保留
   # shellcheck disable=SC2012
-  mapfile -t old < <(ls -1t "$BACKUP_DIR"/rendering-cms-*.sql.gz 2>/dev/null | tail -n +"$((BACKUP_KEEP + 1))" || true)
+  mapfile -t old < <(ls -1t "$BACKUP_DIR"/rendering-cms-*.sql.gz "$BACKUP_DIR"/rendering-cms-*.sql 2>/dev/null | tail -n +"$((BACKUP_KEEP + 1))" || true)
   [ "${#old[@]}" -eq 0 ] && return 0
   rm -f -- "${old[@]}"
   log "已清理过期备份 ${#old[@]} 个（保留最近 $BACKUP_KEEP 个）"

@@ -66,10 +66,31 @@ gzip -t "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql.gz | head -n
 
 ## 保留策略
 
-- 至少保留最近 7 天备份。
-- 生产环境建议额外保留每周和每月关键备份。
+- 自动部署内置清理：每次成功部署后保留最近 `BACKUP_KEEP` 份（默认 14），自动生成的 `.sql.gz` 与手动放入的未压缩 `.sql` 按修改时间一起排序，超出部分删除。
+- 手动备份建议直接使用压缩格式（`.sql.gz`）；已生成的未压缩备份可以事后压缩以减少占用：
+
+  ```bash
+  gzip /var/lib/rendering-cms/backups/rendering-cms-20260101-000000.sql
+  ```
+
+- 至少保留最近 7 天备份；生产环境建议额外保留每周和每月关键备份（在备份目录之外单独归档，避免被自动清理删除）。
 - 删除旧备份前必须确认最近一次备份可用。
 - 备份文件包含业务数据和后台用户信息，应限制访问权限，不要提交到 Git。
+
+### 对象存储备份产物的清理
+
+`r2-objects-*.json` 对象清单和 `rclone` 整桶同步目录不参与自动部署的备份清理，需要手动管理：
+
+```bash
+# 清理 90 天前的对象清单
+find /var/lib/rendering-cms/backups -maxdepth 1 -name 'r2-objects-*.json' -mtime +90 -delete
+
+# 整桶同步目录先确认大小，确认已异地归档后再逐个删除
+ls -lh /var/lib/rendering-cms/backups/r2-*/
+rm -rf /var/lib/rendering-cms/backups/r2-rendering-assets-20260101-000000
+```
+
+整桶同步目录经常是对象数据的唯一离线副本，且每份都是全量大小、占用最多；删除前必须先 `scp`/`rsync` 到服务器之外并确认可读。
 
 ## 对象存储备份
 

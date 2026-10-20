@@ -8,7 +8,7 @@
 
 ```bash
 curl -fsS http://127.0.0.1:3001/api/v1/health     # 期望 {"status":"ok"}
-tail -20 /var/log/rendering-cms/latest.log        # 最近一次部署结果
+tail -20 /var/log/rendering-cms/deploy.log        # 最近部署结果（文件含最近几次运行）
 cat /var/lib/rendering-cms/deploy-state.env       # 最近成功部署的提交
 systemctl list-timers | grep cms-rendering-deploy # timer 在跑、下次触发在整点
 df -h /var/lib/rendering-cms                      # 磁盘
@@ -17,7 +17,7 @@ df -h /var/lib/rendering-cms                      # 磁盘
 判断标准：
 
 - 健康检查返回 `ok`。
-- `latest.log` 末尾是「部署成功」或「远端无新提交」，没有「部署失败」。
+- `deploy.log` 末尾是「部署成功」或「远端无新提交」，没有「部署失败」。
 - `deploy-state.env` 里的 `LAST_SUCCESS_COMMIT` 落后 `origin/main` 最多一个检查周期（刚推送的新提交要等下一个整点，属正常）。
 - 磁盘使用率明显低于 80%。
 
@@ -27,7 +27,7 @@ df -h /var/lib/rendering-cms                      # 磁盘
 ls -lht /var/lib/rendering-cms/backups/ | head -5                       # 备份在按次增长
 gzip -t "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql.gz | head -1)" && echo 备份完好
 docker system df                                                        # 镜像/卷占用
-grep -l "部署失败" /var/log/rendering-cms/deploy-*.log | wc -l          # 一周内的失败次数
+journalctl -u cms-rendering-deploy.service --since "7 days ago" | grep -c "==== 部署失败 ===="  # 一周内的失败次数
 ```
 
 - **把最新数据库备份复制到服务器之外**（scp/rsync 到本地电脑或对象存储）。自动备份只存在服务器本地，会随服务器一起丢失，异地保存是唯一需要人工坚持的备份环节。
@@ -77,19 +77,20 @@ sudo systemctl start cms-rendering-deploy.timer          # 完成后恢复
 | `/opt/rendering-cms-platform` | 代码 + `deploy/` 脚本 | 不要在生产服务器上手改仓库内文件，脏工作区会阻止部署 |
 | `/etc/rendering-cms/production.env` | 应用生产配置（数据库密码、JWT、R2 密钥） | 权限 `600`；修改后 `auto-deploy.sh --force` 生效 |
 | `/etc/rendering-cms/deploy.env` | 部署脚本配置（分支、健康检查、备份保留数、webhook） | 全部可选；修改后下次触发自动生效 |
-| `/var/log/rendering-cms/deploy-*.log`、`latest.log` | 每次部署与回滚的完整日志 | logrotate 每周轮转、保留 8 份；`latest.log` 始终指向最近一次 |
-| `/var/lib/rendering-cms/backups/` | PostgreSQL 自动备份（`.sql.gz`） | 每次部署前生成，自动保留最近 14 份 |
+| `/var/log/rendering-cms/deploy.log`、`rollback.log` | 部署与回滚运行日志（追加写入，journald 同步留存） | logrotate 每周轮转、压缩，保留 8 份 |
+| `/var/lib/rendering-cms/backups/` | PostgreSQL 备份 | 自动备份为 `.sql.gz`，与手动放入的 `.sql` 一起按时间保留最近 14 份；R2 清单和整桶目录不参与自动清理 |
+| Docker 容器日志（`/var/lib/docker/containers/`） | backend/frontend/postgres 的 stdout/stderr | 生产 Compose 已限制每容器 `10m × 3` 份，循环覆盖 |
 | `/var/lib/rendering-cms/deploy-state.env` | 最近两次成功部署的提交号 | `rollback.sh` 的默认回滚目标 |
 | `/var/lock/rendering-cms/deploy.lock` | 部署互斥锁 | 在 tmpfs 上，重启自动消失，无需清理 |
-| `journalctl -u cms-rendering-deploy` | systemd 侧运行记录 | 内容与 `latest.log` 一致，适合 `--since` 查历史 |
+| `journalctl -u cms-rendering-deploy` | systemd 侧运行记录 | 内容与 `deploy.log` 一致，适合 `--since` 查历史 |
 
-应用自身的后端 JSON 日志在 Docker volume `rendering_cms_backend_logs` 内，查看方式见 `docs/operations/observability.md`。
+应用自身的后端 JSON 日志在 Docker volume `rendering_cms_backend_logs` 内，后端自动保留最近 `LOG_RETENTION_DAYS`（默认 30）天，查看方式见 `docs/operations/observability.md`。
 
 ## 异常第一反应
 
 | 症状 | 先敲这条命令 |
 | --- | --- |
-| 收到部署失败通知 | `tail -50 /var/log/rendering-cms/latest.log`（失败阶段、是否已自动回滚都在里面） |
+| 收到部署失败通知 | `tail -50 /var/log/rendering-cms/deploy.log`（失败阶段、是否已自动回滚都在里面） |
 | 网站打不开 | `curl -fsS http://127.0.0.1:3001/api/v1/health`，不通则按 `runbook.md` 故障节查容器 |
 | 远端有新提交但一直没部署 | `journalctl -u cms-rendering-deploy.service -n 50`（常见原因：fetch 凭据失效、工作区被改脏） |
 | migration 后服务异常 | **不要盲目重启容器**，按 `docs/operations/restore.md` 评估；确认要回退时用 `rollback.sh --backup` |

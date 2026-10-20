@@ -58,9 +58,8 @@ while [ $# -gt 0 ]; do
 done
 
 mkdir -p "$LOG_DIR" "$STATE_DIR" "$BACKUP_DIR" "$LOCK_DIR"
-LOG_FILE="$LOG_DIR/rollback-$(date +%Y%m%d-%H%M%S).log"
+LOG_FILE="$LOG_DIR/rollback.log"
 exec > >(tee -a "$LOG_FILE") 2>&1
-ln -sfn "$LOG_FILE" "$LOG_DIR/rollback-latest.log"
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 trap 'log "意外错误：脚本第 ${LINENO} 行执行失败"' ERR

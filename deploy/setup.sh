@@ -167,6 +167,6 @@ fi
 log "完成。常用命令："
 log "  手动触发一次部署：sudo systemctl start $SERVICE_NAME.service"
 log "  查看部署日志：    journalctl -u $SERVICE_NAME.service -f"
-log "                  或 /var/log/rendering-cms/latest.log"
+log "                  或 /var/log/rendering-cms/deploy.log"
 log "  查看 timer 状态： systemctl list-timers | grep $SERVICE_NAME"
 log "  停止自动部署：    sudo systemctl stop $SERVICE_NAME.timer"

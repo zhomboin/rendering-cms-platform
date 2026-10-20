@@ -15,6 +15,8 @@ type Config struct {
 	FrontendOrigin            string
 	FrontendOrigins           []string
 	LogDir                    string
+	// LogRetentionDays 按日日志文件保留天数，0 或非法值时使用后端默认 30。
+	LogRetentionDays int
 	AppEnv                    string
 	DevBootstrapAdmin         bool
 	DevAdminEmail             string
@@ -54,6 +56,7 @@ func Load() (Config, error) {
 			envOrDefault("FRONTEND_ORIGIN", "http://127.0.0.1:5173"),
 		),
 		LogDir:                    envOrDefault("LOG_DIR", "logs"),
+		LogRetentionDays:          positiveIntEnv("LOG_RETENTION_DAYS", 30),
 		AppEnv:                    envOrDefault("APP_ENV", "production"),
 		DevBootstrapAdmin:         parseBoolEnv("DEV_BOOTSTRAP_ADMIN"),
 		DevAdminEmail:             envOrDefault("DEV_ADMIN_EMAIL", "admin@rendering.me"),

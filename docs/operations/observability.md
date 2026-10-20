@@ -25,6 +25,15 @@ export LOG_DIR=/var/log/rendering-cms-platform
 export BACKEND_LOG_HOST_DIR=/var/log/rendering-cms-platform
 ```
 
+## 日志保留与清理
+
+- 后端按天切分日志文件，并在切换新一天文件（以及进程启动后的首次写入）时自动删除超过 `LOG_RETENTION_DAYS` 天的旧文件；默认保留 `30` 天，设为 `0` 或非法值时同样使用默认值。
+- 清理只删除严格匹配 `backend-YYYY-MM-DD.log` 命名的文件，日志目录内其他文件不会被删除；删除失败静默忽略，不影响请求处理。
+- 容器 stdout/stderr（前端 Nginx 访问日志、PostgreSQL 日志等）由 Docker `json-file` 驱动收集，生产 Compose 已为每个服务配置 `max-size: 10m`、`max-file: 3`，超限自动循环覆盖，无需人工清理。
+- 部署脚本日志 `/var/log/rendering-cms/deploy.log`、`rollback.log` 由服务器 logrotate 每周轮转、压缩并保留 8 份，见 `docs/operations/maintenance.md`。
+
+## 请求日志字段
+
 请求日志事件名为 `http_request`，当前记录字段包括：
 
 - `method`：HTTP 方法。

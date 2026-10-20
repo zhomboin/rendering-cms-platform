@@ -120,6 +120,7 @@ PUBLIC_SEARCH_RATE_PER_SECOND=5
 PUBLIC_SEARCH_BURST=10
 PUBLIC_MAX_IN_FLIGHT=128
 PUBLIC_RATE_LIMIT_MAX_CLIENTS=10000
+LOG_RETENTION_DAYS=30
 ARTICLE_LOG_RETENTION_LIMIT=20
 ```
 
@@ -148,6 +149,7 @@ S3_ASSET_FILE_PREFIX=assets
 - `VITE_API_BASE` 保持 `/api/v1`，让浏览器走同域 API 反代。
 - `PUBLIC_*` 是 Go 服务的第二层保护。搜索默认额度低于普通文章读取；调整时应结合 Nginx `429`、应用 `429/503`、数据库 P95 和连接池使用率，不得直接取消硬客户端状态上限。
 - `ARTICLE_LOG_RETENTION_LIMIT` 是每篇文章保留的修订快照数量（不含首版），默认 `20`。后端每天本地时间 `00:15` 自动清理超出保留策略的 `article_logs` 快照，清理量记录在 `pruned stale article logs` 日志行的 `deleted` 字段；设为 `0` 或非法值时使用默认值，清理任务不会删除任何文章的首版快照。
+- `LOG_RETENTION_DAYS` 是后端按日日志文件（`backend_logs` 卷内）的保留天数，默认 `30`。后端在切换新一天日志文件时自动删除更早的文件；设为 `0` 或非法值时使用默认值。容器 stdout/stderr 日志由 Compose 统一限制为每容器 `10m × 3` 份，无需配置。
 - `S3_ENDPOINT` 使用 R2 S3 API 端点，不要填写 R2 公开访问自定义域名。
 - `S3_PUBLIC_BASE_URL` 使用图片公开访问域名，和 `S3_ENDPOINT` 分开配置；文章正文图片会使用该 URL。
 - `S3_REGION` 使用 `auto`。
