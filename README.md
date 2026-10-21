@@ -34,7 +34,7 @@
 
 - S3 兼容对象存储
 - 本地开发使用 MinIO
-- 生产环境使用 Cloudflare R2（公开访问域名 `assets.rendering.me`），早期生产曾使用服务器本机 MinIO，已于 2026-06 迁移到 R2
+- 生产环境使用 Cloudflare R2（公开访问域名 `assets.rendering.me`）
 
 ## 本地开发环境
 
@@ -89,7 +89,8 @@ bash scripts/env/stop-dev-services.sh
 
 ## 文档入口
 
-- `docs/README.md`：当前文档索引，说明权威文档、历史归档和已清理内容。
+- `docs/README.md`：当前文档索引，说明权威文档、进度与变更记录、历史归档。
+- `docs/progress.md`：项目主进度记录，由 Agent 定期维护。
 - `AGENTS.md`：Agent 协作规则、技术约束和本地环境约束。
 - `docs/cms-platform-technical-recommendation.zh-CN.md`：CMS 平台技术架构建议。
 - `docs/apis/`：当前 API 契约。

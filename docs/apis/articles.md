@@ -228,7 +228,7 @@ Authorization: Bearer <jwt-token>
 
 - 将文章状态设置为 `published`。
 - 只允许发布 `draft` 状态文章；文章已发布、已归档时返回 `409`，文章不存在时返回 `404`。
-- 每次发布都会把 `published_at` 设置为本次发布时间。文章下架后再次发布时，`published_at` 会重置为再次发布的时间，文章按新发布时间参与公开列表排序（行为变更：此前首次发布后的重复发布会保留最早的 `published_at`）。
+- 每次发布都会把 `published_at` 设置为本次发布时间。文章下架后再次发布时，`published_at` 会重置为再次发布的时间，文章按新发布时间参与公开列表排序。
 - 发布成功后 `articles.version` 自动加 `1`。
 - 发布成功后由数据库触发器自动写入 `article_logs`。
 

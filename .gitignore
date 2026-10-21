@@ -7,7 +7,8 @@
 # 本地 Agent 工具目录
 .zcode/
 
-# 日志与临时文件
+# 报告、日志与临时文件
+reports/
 *.log
 logs/
 tmp/

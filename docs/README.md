@@ -22,6 +22,11 @@
 - `docs/guides/frontend-architecture.md`：前端目录结构与代码开发规范。
 - `docs/guides/frontend-design.md`：后台管理界面设计规范。
 
+## 进度与变更记录
+
+- `docs/progress.md`：项目主进度记录，记录每次修改，Agent 定期维护；各专项进度通过该文档链接进入。
+- `docs/change-log.md`：被推翻、废弃和清理内容的唯一记录文档；其它文档一律只保留最新版本，不书写历史版本标注。
+
 ## 执行中计划与专项沉淀
 
 - `docs/plans/`：执行中或待生产验收的实施计划；全部完成并投产的计划归档到 `docs/archive/plans/`。
@@ -36,9 +41,3 @@
 - `docs/archive/reviews/`：已处理或阶段性的代码审查报告。
 
 归档文档中的命令、状态、路径和待办可能反映当时上下文。需要执行当前任务时，以本文档“当前权威文档”中的入口为准。
-
-## 已清理内容
-
-- `docs/temp/login.html` 是登录页视觉改造的临时参考稿，已完成落地后移除。
-- `backend/docs/` 已收敛到 `docs/guides/`，避免文档分散。
-- `frontend/DESIGN.md` 和 `frontend/ARCHITECTURE.md` 已收敛到 `docs/guides/`，避免前端规则散落在模块目录。
