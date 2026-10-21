@@ -12,6 +12,8 @@ import (
 type RouterConfig struct {
 	LoginHandler              http.HandlerFunc
 	RefreshHandler            http.HandlerFunc
+	MFAVerifyHandler          http.HandlerFunc
+	MFAResendHandler          http.HandlerFunc
 	JWTSecret                 string
 	FrontendOrigin            string
 	FrontendOrigins           []string
@@ -46,6 +48,13 @@ func WithLoginHandler(handler http.HandlerFunc) RouterOption {
 func WithRefreshHandler(handler http.HandlerFunc) RouterOption {
 	return func(config *RouterConfig) {
 		config.RefreshHandler = handler
+	}
+}
+
+func WithMFAHandlers(verifyHandler http.HandlerFunc, resendHandler http.HandlerFunc) RouterOption {
+	return func(config *RouterConfig) {
+		config.MFAVerifyHandler = verifyHandler
+		config.MFAResendHandler = resendHandler
 	}
 }
 
@@ -133,6 +142,12 @@ func NewRouter(options ...RouterOption) http.Handler {
 	}
 	if config.RefreshHandler != nil {
 		router.Post("/api/v1/auth/refresh", config.RefreshHandler)
+	}
+	if config.MFAVerifyHandler != nil {
+		router.Post("/api/v1/auth/mfa/verify", config.MFAVerifyHandler)
+	}
+	if config.MFAResendHandler != nil {
+		router.Post("/api/v1/auth/mfa/resend", config.MFAResendHandler)
 	}
 	for _, registrar := range config.PublicRoutes {
 		registrar(router)

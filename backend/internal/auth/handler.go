@@ -44,11 +44,12 @@ type LoginUser struct {
 }
 
 type UserRecord struct {
-	UserID       string
-	Email        string
-	Name         string
-	PasswordHash string
-	Role         string
+	UserID          string
+	Email           string
+	Name            string
+	PasswordHash    string
+	Role            string
+	LastLoginIpHash string
 }
 
 type UserFinder interface {
@@ -59,6 +60,7 @@ type LoginAttemptStore interface {
 	ListRecentFailedLoginAttemptsByEmail(ctx context.Context, arg dbgen.ListRecentFailedLoginAttemptsByEmailParams) ([]pgtype.Timestamptz, error)
 	ListRecentFailedLoginAttemptsByIP(ctx context.Context, arg dbgen.ListRecentFailedLoginAttemptsByIPParams) ([]pgtype.Timestamptz, error)
 	CreateLoginAttempt(ctx context.Context, arg dbgen.CreateLoginAttemptParams) (dbgen.LoginAttempt, error)
+	ListRecentLoginAttemptOutcomes(ctx context.Context, arg dbgen.ListRecentLoginAttemptOutcomesParams) ([]bool, error)
 }
 
 type DatabaseUserFinder struct {
@@ -76,23 +78,17 @@ func (finder DatabaseUserFinder) FindUserByEmail(ctx context.Context, email stri
 	}
 
 	return UserRecord{
-		UserID:       user.UserID.String(),
-		Email:        user.Email,
-		Name:         user.Name,
-		PasswordHash: user.PasswordHash,
-		Role:         string(user.Role),
+		UserID:          user.UserID.String(),
+		Email:           user.Email,
+		Name:            user.Name,
+		PasswordHash:    user.PasswordHash,
+		Role:            string(user.Role),
+		LastLoginIpHash: user.LastLoginIpHash.String,
 	}, nil
 }
 
-func NewLoginHandler(secret string, finder UserFinder, stores ...LoginAttemptStore) http.HandlerFunc {
-	var store LoginAttemptStore
-	if len(stores) > 0 {
-		store = stores[0]
-	}
-	return NewLoginHandlerWithClock(secret, finder, store, time.Now)
-}
-
-func NewLoginHandlerWithClock(secret string, finder UserFinder, store LoginAttemptStore, now func() time.Time) http.HandlerFunc {
+func NewLoginHandler(deps LoginDeps) http.HandlerFunc {
+	svc := newLoginService(deps)
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request LoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -106,8 +102,8 @@ func NewLoginHandlerWithClock(secret string, finder UserFinder, store LoginAttem
 		}
 		ipHash := ipHashFromRequest(r)
 
-		if store != nil {
-			locked, err := isLoginLocked(r.Context(), store, request.Email, ipHash, now())
+		if svc.attempts != nil {
+			locked, err := isLoginLocked(r.Context(), svc.attempts, request.Email, ipHash, svc.now())
 			if err != nil {
 				writeAuthError(w, http.StatusInternalServerError, "登录安全检查失败")
 				return
@@ -118,43 +114,72 @@ func NewLoginHandlerWithClock(secret string, finder UserFinder, store LoginAttem
 			}
 		}
 
-		user, err := finder.FindUserByEmail(r.Context(), request.Email)
+		user, err := svc.finder.FindUserByEmail(r.Context(), request.Email)
 		if err != nil {
 			_ = VerifyPassword(dummyPasswordHash, request.Password)
-			recordLoginAttempt(r.Context(), store, request.Email, ipHash, false, "invalid_credentials")
+			recordLoginAttempt(r.Context(), svc.attempts, request.Email, ipHash, false, "invalid_credentials")
 			writeAuthError(w, http.StatusUnauthorized, "邮箱或密码错误")
 			return
 		}
 		if !VerifyPassword(user.PasswordHash, request.Password) {
-			recordLoginAttempt(r.Context(), store, request.Email, ipHash, false, "invalid_credentials")
+			recordLoginAttempt(r.Context(), svc.attempts, request.Email, ipHash, false, "invalid_credentials")
 			writeAuthError(w, http.StatusUnauthorized, "邮箱或密码错误")
 			return
 		}
 		if user.Role != "admin" && user.Role != "editor" {
-			recordLoginAttempt(r.Context(), store, request.Email, ipHash, false, "forbidden_role")
+			recordLoginAttempt(r.Context(), svc.attempts, request.Email, ipHash, false, "forbidden_role")
 			writeAuthError(w, http.StatusForbidden, "用户无后台访问权限")
 			return
 		}
 
-		tokens, err := IssueTokenPairWithClock(secret, user.UserID, user.Role, now)
+		required, err := svc.mfaRequired(r.Context(), user, ipHash)
 		if err != nil {
-			recordLoginAttempt(r.Context(), store, request.Email, ipHash, false, "token_issue_failed")
-			writeAuthError(w, http.StatusInternalServerError, "登录令牌生成失败")
+			writeAuthError(w, http.StatusInternalServerError, "登录安全检查失败")
 			return
 		}
-		recordLoginAttempt(r.Context(), store, request.Email, ipHash, true, "")
-
-		writeJSON(w, http.StatusOK, LoginResponse{
-			Token:        tokens.Token,
-			RefreshToken: tokens.RefreshToken,
-			User: LoginUser{
-				UserID: user.UserID,
-				Email:  user.Email,
-				Name:   user.Name,
-				Role:   user.Role,
-			},
-		})
+		if required {
+			if err := svc.dispatchLoginCode(r.Context(), user); err != nil {
+				svc.writeDispatchError(w, err)
+				return
+			}
+			challengeToken, err := IssueMFAChallengeToken(svc.secret, user.UserID, user.Role, user.Email, svc.now)
+			if err != nil {
+				writeAuthError(w, http.StatusInternalServerError, "登录令牌生成失败")
+				return
+			}
+			writeJSON(w, http.StatusOK, MFAChallengeResponse{
+				MFARequired:    true,
+				ChallengeToken: challengeToken,
+				Email:          user.Email,
+				ExpiresIn:      int(loginCodeTTL.Seconds()),
+			})
+			return
+		}
+		svc.completeLogin(w, r, user, ipHash)
 	}
+}
+
+// completeLogin 完成无验证码路径的登录：签发令牌、记录成功并更新登录 IP 基线。
+func (svc *loginService) completeLogin(w http.ResponseWriter, r *http.Request, user UserRecord, ipHash string) {
+	tokens, err := IssueTokenPairWithClock(svc.secret, user.UserID, user.Role, svc.now)
+	if err != nil {
+		recordLoginAttempt(r.Context(), svc.attempts, user.Email, ipHash, false, "token_issue_failed")
+		writeAuthError(w, http.StatusInternalServerError, "登录令牌生成失败")
+		return
+	}
+	recordLoginAttempt(r.Context(), svc.attempts, user.Email, ipHash, true, "")
+	svc.updateLastLoginIP(r.Context(), user.UserID, ipHash)
+
+	writeJSON(w, http.StatusOK, LoginResponse{
+		Token:        tokens.Token,
+		RefreshToken: tokens.RefreshToken,
+		User: LoginUser{
+			UserID: user.UserID,
+			Email:  user.Email,
+			Name:   user.Name,
+			Role:   user.Role,
+		},
+	})
 }
 
 func NewRefreshHandler(secret string) http.HandlerFunc {

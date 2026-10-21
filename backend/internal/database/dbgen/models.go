@@ -295,6 +295,17 @@ type LoginAttempt struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type LoginEmailCode struct {
+	CodeID    pgtype.UUID
+	UserID    pgtype.UUID
+	Email     string
+	CodeHash  string
+	ExpiresAt pgtype.Timestamptz
+	Attempts  int32
+	UsedAt    pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+}
+
 type SiteViewDaily struct {
 	ViewDate pgtype.Date
 	Views    int32
@@ -307,11 +318,12 @@ type SiteViewHistory struct {
 }
 
 type User struct {
-	UserID       pgtype.UUID
-	Email        string
-	Name         string
-	PasswordHash string
-	Role         UserRole
-	CreatedAt    pgtype.Timestamptz
-	UpdatedAt    pgtype.Timestamptz
+	UserID          pgtype.UUID
+	Email           string
+	Name            string
+	PasswordHash    string
+	Role            UserRole
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+	LastLoginIpHash pgtype.Text
 }

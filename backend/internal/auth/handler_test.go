@@ -28,9 +28,7 @@ func TestLoginHandlerRejectsLockedLoginBeforePasswordLookup(t *testing.T) {
 		},
 	}
 	finder := &userFinderStub{}
-	handler := NewLoginHandlerWithClock("secret-32-characters-minimum-value", finder, store, func() time.Time {
-		return now
-	})
+	handler := NewLoginHandler(testLoginDeps(finder, store, now))
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{
 		"email": "admin@example.com",
 		"password": "wrong-password"
@@ -61,9 +59,7 @@ func TestLoginHandlerReturnsRefreshToken(t *testing.T) {
 		PasswordHash: passwordHash,
 		Role:         "admin",
 	}}
-	handler := NewLoginHandlerWithClock("secret-32-characters-minimum-value", finder, nil, func() time.Time {
-		return now
-	})
+	handler := NewLoginHandler(testLoginDeps(finder, nil, now))
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{
 		"email": "admin@example.com",
 		"password": "correct-password"
@@ -149,9 +145,7 @@ func TestRefreshHandlerRejectsAccessToken(t *testing.T) {
 func TestLoginHandlerRecordsFailedAttempt(t *testing.T) {
 	store := &loginAttemptStoreStub{}
 	finder := &userFinderStub{returnErr: ErrUserNotFound}
-	handler := NewLoginHandlerWithClock("secret-32-characters-minimum-value", finder, store, func() time.Time {
-		return time.Date(2026, 5, 12, 12, 0, 0, 0, time.UTC)
-	})
+	handler := NewLoginHandler(testLoginDeps(finder, store, time.Date(2026, 5, 12, 12, 0, 0, 0, time.UTC)))
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{
 		"email": "missing@example.com",
 		"password": "wrong-password"
@@ -175,9 +169,7 @@ func TestLoginHandlerRecordsFailedAttempt(t *testing.T) {
 func TestLoginHandlerIgnoresSpoofedForwardedFor(t *testing.T) {
 	store := &loginAttemptStoreStub{}
 	finder := &userFinderStub{returnErr: ErrUserNotFound}
-	handler := NewLoginHandlerWithClock("secret-32-characters-minimum-value", finder, store, func() time.Time {
-		return time.Date(2026, 5, 12, 12, 0, 0, 0, time.UTC)
-	})
+	handler := NewLoginHandler(testLoginDeps(finder, store, time.Date(2026, 5, 12, 12, 0, 0, 0, time.UTC)))
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{
 		"email": "missing@example.com",
 		"password": "wrong-password"
@@ -208,9 +200,7 @@ func TestLoginHandlerDoesNotCombineEmailAndIPFailures(t *testing.T) {
 		},
 	}
 	finder := &userFinderStub{returnErr: ErrUserNotFound}
-	handler := NewLoginHandlerWithClock("secret-32-characters-minimum-value", finder, store, func() time.Time {
-		return now
-	})
+	handler := NewLoginHandler(testLoginDeps(finder, store, now))
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{
 		"email": "missing@example.com",
 		"password": "wrong-password"
@@ -233,6 +223,15 @@ func sha256String(value string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func testLoginDeps(finder UserFinder, store LoginAttemptStore, now time.Time) LoginDeps {
+	return LoginDeps{
+		Secret:   "secret-32-characters-minimum-value",
+		Finder:   finder,
+		Attempts: store,
+		Now:      func() time.Time { return now },
+	}
+}
+
 type userFinderStub struct {
 	called    bool
 	returnErr error
@@ -250,6 +249,7 @@ func (s *userFinderStub) FindUserByEmail(ctx context.Context, email string) (Use
 type loginAttemptStoreStub struct {
 	emailFailures  []pgtype.Timestamptz
 	ipFailures     []pgtype.Timestamptz
+	outcomes       []bool
 	createdAttempt dbgen.CreateLoginAttemptParams
 }
 
@@ -264,4 +264,8 @@ func (s *loginAttemptStoreStub) ListRecentFailedLoginAttemptsByIP(ctx context.Co
 func (s *loginAttemptStoreStub) CreateLoginAttempt(ctx context.Context, arg dbgen.CreateLoginAttemptParams) (dbgen.LoginAttempt, error) {
 	s.createdAttempt = arg
 	return dbgen.LoginAttempt{}, nil
+}
+
+func (s *loginAttemptStoreStub) ListRecentLoginAttemptOutcomes(ctx context.Context, arg dbgen.ListRecentLoginAttemptOutcomesParams) ([]bool, error) {
+	return s.outcomes, nil
 }

@@ -17,6 +17,7 @@ import (
 	"rendering-cms-platform/backend/internal/database/dbgen"
 	httpapi "rendering-cms-platform/backend/internal/http"
 	"rendering-cms-platform/backend/internal/logging"
+	"rendering-cms-platform/backend/internal/mail"
 	"rendering-cms-platform/backend/internal/storage"
 )
 
@@ -49,6 +50,32 @@ func main() {
 		log.Fatalf("open object storage: %v", err)
 	}
 	userFinder := auth.NewDatabaseUserFinder(queries)
+
+	// SMTP 未配置齐全时邮件验证码功能在 config 层已自动关闭；dev log 仅在 LOGIN_MFA_DEV_LOG 开启时注入。
+	var emailSender auth.EmailSender
+	if cfg.SMTP.Configured() {
+		emailSender = mail.NewSMTPSender(mail.SMTPConfig{
+			Host:     cfg.SMTP.Host,
+			Port:     cfg.SMTP.Port,
+			Username: cfg.SMTP.Username,
+			Password: cfg.SMTP.Password,
+			From:     cfg.SMTP.From,
+		})
+	}
+	var codeLogger auth.CodeLogger
+	if cfg.LoginMFADevLog {
+		codeLogger = logger.Info
+	}
+	loginDeps := auth.LoginDeps{
+		Secret:     cfg.JWTSecret,
+		Finder:     userFinder,
+		Attempts:   queries,
+		Codes:      queries,
+		Sender:     emailSender,
+		DevLog:     codeLogger,
+		MFAEnabled: cfg.LoginMFAEnabled,
+	}
+
 	articleHandler := articles.NewHandler(queries)
 	analyticsHandler := analytics.NewHandler(queries)
 	commentHandler := comments.NewHandler(queries)
@@ -69,7 +96,8 @@ func main() {
 			httpapi.WithJWTSecret(cfg.JWTSecret),
 			httpapi.WithFrontendOrigins(cfg.FrontendOrigins),
 			httpapi.WithLogger(logger),
-			httpapi.WithLoginHandler(auth.NewLoginHandler(cfg.JWTSecret, userFinder, queries)),
+			httpapi.WithLoginHandler(auth.NewLoginHandler(loginDeps)),
+			httpapi.WithMFAHandlers(auth.NewMFAVerifyHandler(loginDeps), auth.NewMFAResendHandler(loginDeps)),
 			httpapi.WithRefreshHandler(auth.NewRefreshHandler(cfg.JWTSecret)),
 			httpapi.WithPublicTrafficLimits(httpapi.PublicTrafficLimits{
 				ReadRatePerSecond:   cfg.PublicReadRatePerSecond,

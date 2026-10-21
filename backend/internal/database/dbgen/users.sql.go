@@ -19,9 +19,19 @@ order by (role = 'admin') desc, created_at asc
 limit 1
 `
 
-func (q *Queries) GetDefaultImportAuthor(ctx context.Context) (User, error) {
+type GetDefaultImportAuthorRow struct {
+	UserID       pgtype.UUID
+	Email        string
+	Name         string
+	PasswordHash string
+	Role         UserRole
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+}
+
+func (q *Queries) GetDefaultImportAuthor(ctx context.Context) (GetDefaultImportAuthorRow, error) {
 	row := q.db.QueryRow(ctx, getDefaultImportAuthor)
-	var i User
+	var i GetDefaultImportAuthorRow
 	err := row.Scan(
 		&i.UserID,
 		&i.Email,
@@ -35,20 +45,32 @@ func (q *Queries) GetDefaultImportAuthor(ctx context.Context) (User, error) {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-select user_id, email, name, password_hash, role, created_at, updated_at
+select user_id, email, name, password_hash, role, last_login_ip_hash, created_at, updated_at
 from users
 where email = $1
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+type GetUserByEmailRow struct {
+	UserID          pgtype.UUID
+	Email           string
+	Name            string
+	PasswordHash    string
+	Role            UserRole
+	LastLoginIpHash pgtype.Text
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+}
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
 	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i User
+	var i GetUserByEmailRow
 	err := row.Scan(
 		&i.UserID,
 		&i.Email,
 		&i.Name,
 		&i.PasswordHash,
 		&i.Role,
+		&i.LastLoginIpHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -61,9 +83,19 @@ from users
 where user_id = $1
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, userID pgtype.UUID) (User, error) {
+type GetUserByIDRow struct {
+	UserID       pgtype.UUID
+	Email        string
+	Name         string
+	PasswordHash string
+	Role         UserRole
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+}
+
+func (q *Queries) GetUserByID(ctx context.Context, userID pgtype.UUID) (GetUserByIDRow, error) {
 	row := q.db.QueryRow(ctx, getUserByID, userID)
-	var i User
+	var i GetUserByIDRow
 	err := row.Scan(
 		&i.UserID,
 		&i.Email,

@@ -100,6 +100,7 @@ rendering-cms-platform/
 - 不得暴露未认证的后台 API。
 - 不得公开未审核评论。
 - 不得保存原始 IP 地址；如需风控或去重，只保存哈希。
+- 后台登录在密码验证成功后按风险判定（登录 IP 变更或连续失败 3 次）触发邮箱验证码两步校验；验证码数据库只存哈希，校验失败响应不区分错误类型，生产环境不得开启 `LOGIN_MFA_DEV_LOG`。
 - 文件上传必须校验文件名、内容类型和大小。
 - 第一版允许上传类型为 `image/png`、`image/jpeg`、`image/webp`、`application/pdf`、`text/plain`、`application/zip`。
 - 第一版上传大小上限为 `20MB`。

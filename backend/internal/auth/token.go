@@ -20,11 +20,13 @@ type TokenPair struct {
 }
 
 const (
-	TokenTypeAccess  = "access"
-	TokenTypeRefresh = "refresh"
+	TokenTypeAccess       = "access"
+	TokenTypeRefresh      = "refresh"
+	TokenTypeMFAChallenge = "mfa_challenge"
 
 	accessTokenTTL  = 2 * time.Hour
 	refreshTokenTTL = 7 * 24 * time.Hour
+	mfaChallengeTTL = 10 * time.Minute
 )
 
 func IssueToken(secret string, userID string, role string) (string, error) {
@@ -48,6 +50,10 @@ func IssueTokenPairWithClock(secret string, userID string, role string, now func
 }
 
 func issueTokenWithClock(secret string, userID string, role string, tokenType string, ttl time.Duration, now func() time.Time) (string, error) {
+	return issueTokenWithSubject(secret, userID, role, "", tokenType, ttl, now)
+}
+
+func issueTokenWithSubject(secret string, userID string, role string, subject string, tokenType string, ttl time.Duration, now func() time.Time) (string, error) {
 	if secret == "" {
 		return "", errors.New("JWT secret is required")
 	}
@@ -57,6 +63,7 @@ func issueTokenWithClock(secret string, userID string, role string, tokenType st
 		Role:      role,
 		TokenType: tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   subject,
 			IssuedAt:  jwt.NewNumericDate(issuedAt),
 			ExpiresAt: jwt.NewNumericDate(issuedAt.Add(ttl)),
 		},
@@ -84,6 +91,21 @@ func ParseRefreshToken(secret string, raw string) (Claims, error) {
 	}
 	if claims.TokenType != TokenTypeRefresh {
 		return Claims{}, errors.New("token is not a refresh token")
+	}
+	return claims, nil
+}
+
+func IssueMFAChallengeToken(secret string, userID string, role string, email string, now func() time.Time) (string, error) {
+	return issueTokenWithSubject(secret, userID, role, email, TokenTypeMFAChallenge, mfaChallengeTTL, now)
+}
+
+func ParseMFAChallengeToken(secret string, raw string) (Claims, error) {
+	claims, err := ParseToken(secret, raw)
+	if err != nil {
+		return Claims{}, err
+	}
+	if claims.TokenType != TokenTypeMFAChallenge {
+		return Claims{}, errors.New("token is not an mfa challenge token")
 	}
 	return claims, nil
 }

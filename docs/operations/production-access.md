@@ -220,6 +220,21 @@ CMS 登录失败：
    docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml logs --tail=200 backend
    ```
 
+登录要求邮箱验证码但收不到邮件：
+
+1. 确认 `SMTP_HOST`、`SMTP_USERNAME`、`SMTP_PASSWORD` 配置齐全；缺任一项时验证码功能整体关闭（登录不会要求验证码，也不会报错）。
+2. 检查收件箱垃圾邮件文件夹；验证码邮件发件人为 `SMTP_FROM`（留空时为 `SMTP_USERNAME`）。
+3. 确认 `SMTP_PASSWORD` 使用的是邮箱服务商的 SMTP 授权码，不是邮箱登录密码。
+4. 确认 `SMTP_PORT` 与服务商匹配：465 为隐式 TLS，587 走 STARTTLS。
+5. 触发了发送频率限制（60 秒重发间隔、每邮箱每小时 5 封）时接口返回 `429`，等待后重试。
+6. 后端日志出现 `验证码邮件发送失败` 时，检查 SMTP 地址、授权码和网络连通性。
+
+验证码输入后仍无法登录：
+
+1. 验证码有效期 10 分钟，过期后需点击重新发送。
+2. 单个验证码最多输错 5 次，超限作废后需重新发送。
+3. `challengeToken` 有效期与验证码一致；超时后返回重新走密码登录。
+
 PostgreSQL 无法进入：
 
 1. 确认 `postgres` 容器运行。

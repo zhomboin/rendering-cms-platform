@@ -124,6 +124,18 @@ LOG_RETENTION_DAYS=30
 ARTICLE_LOG_RETENTION_LIMIT=20
 ```
 
+登录邮箱验证码 SMTP 配置：
+
+```env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=465
+SMTP_USERNAME=cms@example.com
+SMTP_PASSWORD=<smtp-授权码或密码>
+SMTP_FROM=cms@example.com
+LOGIN_MFA_ENABLED=true
+LOGIN_MFA_DEV_LOG=false
+```
+
 Cloudflare R2 对象存储配置：
 
 ```env
@@ -156,6 +168,11 @@ S3_ASSET_FILE_PREFIX=assets
 - `S3_USE_PATH_STYLE` 生产环境固定为 `false`，让 AWS SDK 使用 R2 需要的虚拟主机风格寻址。
 - `S3_BLOG_IMAGE_PREFIX` 和 `S3_ASSET_FILE_PREFIX` 分别控制文章图片和普通资源文件的对象 key 前缀。
 - `S3_ACCESS_KEY_ID` 和 `S3_SECRET_ACCESS_KEY` 使用 Cloudflare R2 专用访问密钥，权限限定到 `S3_BUCKET` 的对象读写。
+- `SMTP_*` 用于登录邮箱验证码发信。`SMTP_HOST`、`SMTP_USERNAME`、`SMTP_PASSWORD` 配置齐全即启用验证码功能，未配置齐全时自动关闭（登录不触发验证码）；`SMTP_PASSWORD` 使用个人邮箱的 SMTP 授权码（如 QQ 邮箱、163 邮箱授权码或 Gmail 应用密码）。
+- `SMTP_PORT` 默认 `465`（隐式 TLS）；使用 587/25 时走 STARTTLS。
+- `SMTP_FROM` 为发件人地址，留空时使用 `SMTP_USERNAME`。
+- `LOGIN_MFA_ENABLED` 不设置时跟随 SMTP 配置；显式设为 `false` 可在 SMTP 已配置的情况下关闭验证码功能。
+- `LOGIN_MFA_DEV_LOG` 生产环境必须保持 `false` 或不设置；开启会把验证码明文写入后端日志，仅限本地联调。
 - R2 bucket 必须配置 CORS，允许生产前端来源对预签名 URL 发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
 
 R2 bucket CORS JSON 示例：
@@ -349,6 +366,8 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 ## 发布后验收
 
 - 后台管理员可以登录。
+- 配置 SMTP 后，从新 IP（或换网络）登录后台会收到邮箱验证码邮件，输入 6 位验证码后可以完成登录；同 IP 再次登录不再要求验证码。
+- `LOGIN_MFA_DEV_LOG` 未开启，后端日志不出现验证码明文。
 - 仪表盘、文章列表、评论列表和文件列表可以打开。
 - 创建文章草稿并保存成功。
 - 发布文章后，公开文章读取接口返回已发布内容。
