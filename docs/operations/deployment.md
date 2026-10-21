@@ -41,6 +41,7 @@
 - `deploy/nginx/frontend.conf`：前端 Nginx 容器配置。
 - `deploy/nginx/rendering.me.conf`：服务器宿主机 Nginx 完整反向代理配置。
 - `deploy/nginx/rendering-cms-proxy-headers.conf`：CMS 各 location 共用的可信代理头、超时和缓冲配置。
+- `deploy/nginx/cloudflare-realip.conf`：Cloudflare 橙云代理下的真实 IP 还原配置（宿主机 Nginx http 级 include）。
 - `backend/Dockerfile`：后端生产镜像。
 - `frontend/Dockerfile`：前端生产镜像。
 - `docs/operations/auto-deploy.md`：systemd timer 自动部署与回滚 SOP。
@@ -168,7 +169,7 @@ S3_ASSET_FILE_PREFIX=assets
 - `S3_USE_PATH_STYLE` 生产环境固定为 `false`，让 AWS SDK 使用 R2 需要的虚拟主机风格寻址。
 - `S3_BLOG_IMAGE_PREFIX` 和 `S3_ASSET_FILE_PREFIX` 分别控制文章图片和普通资源文件的对象 key 前缀。
 - `S3_ACCESS_KEY_ID` 和 `S3_SECRET_ACCESS_KEY` 使用 Cloudflare R2 专用访问密钥，权限限定到 `S3_BUCKET` 的对象读写。
-- `SMTP_*` 用于登录邮箱验证码发信。`SMTP_HOST`、`SMTP_USERNAME`、`SMTP_PASSWORD` 配置齐全即启用验证码功能，未配置齐全时自动关闭（登录不触发验证码）；`SMTP_PASSWORD` 使用个人邮箱的 SMTP 授权码（如 QQ 邮箱、163 邮箱授权码或 Gmail 应用密码）。
+- `SMTP_*` 用于登录邮箱验证码发信。`SMTP_HOST`、`SMTP_USERNAME`、`SMTP_PASSWORD` 配置齐全即启用验证码功能，未配置齐全时自动关闭（登录不触发验证码）；`SMTP_PASSWORD` 使用个人邮箱的 SMTP 授权码（如 QQ 邮箱、163 邮箱授权码或 Gmail 应用密码）。`SMTP_*` 与 `LOGIN_MFA_*` 变量由 `deploy/docker-compose.prod.yml` 的 backend `environment` 传入容器，新增此类变量时必须同步 compose 透传，否则 `production.env` 中的配置不会生效。
 - `SMTP_PORT` 默认 `465`（隐式 TLS）；使用 587/25 时走 STARTTLS。
 - `SMTP_FROM` 为发件人地址，留空时使用 `SMTP_USERNAME`。
 - `LOGIN_MFA_ENABLED` 不设置时跟随 SMTP 配置；显式设为 `false` 可在 SMTP 已配置的情况下关闭验证码功能。
@@ -299,6 +300,23 @@ sudo systemctl reload nginx
 ```text
 /etc/nginx/snippets/rendering-locations.conf
 ```
+
+## Cloudflare 橙云真实 IP
+
+站点域名经 Cloudflare 橙云（Proxied）代理时，宿主机 Nginx 的 `$remote_addr` 是 Cloudflare 边缘节点 IP，不是访客真实 IP；登录 IP 基线、登录失败锁定和邮箱验证码触发都会失真。Cloudflare 会在每个代理请求上携带 `CF-Connecting-IP` 头（访客真实 IP），通过 Nginx realip 模块按可信来源还原：
+
+```bash
+cd /opt/rendering-cms-platform
+sudo cp deploy/nginx/cloudflare-realip.conf /etc/nginx/conf.d/00-cloudflare-realip.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+- 配置以 `deploy/nginx/cloudflare-realip.conf` 为准，在 http 级生效，博客与 CMS 站点同时受益；`$remote_addr` 被还原后，现有 `X-Real-IP` 传递链路（宿主机 Nginx → 前端容器 Nginx → 后端）无需任何改动。
+- 仅信任来自 Cloudflare IP 段的 `CF-Connecting-IP` 头：直连源站伪造该头不会生效。可选加固是用防火墙把 80/443 入站限制到 Cloudflare IP 段，彻底杜绝直连。
+- 源站证书使用 Cloudflare Origin CA（Full strict 模式标准做法），仅 Cloudflare 信任，浏览器直连会报证书错误，属预期行为。
+- Cloudflare 调整 IP 段后需更新仓库内 `deploy/nginx/cloudflare-realip.conf`（来源 `https://www.cloudflare.com/ips-v4` 与 `/ips-v6`），随下次部署复制到服务器。
+- 验证：访问 CMS 后 `sudo tail /var/log/nginx/access.log`，来源应显示访客公网 IP 而非 `172.67.x` / `104.21.x`；换网络登录后台应触发邮箱验证码。
 
 该 snippet 负责博客 HTTPS server 内的 `/blog/`、`/en/blog/` 和唯一默认 `location /`，并分别使用 `rendering_article`、`rendering_general` 限流区。Rendering 仓库不得再安装声明相同 `listen` 或 `server_name` 的完整虚拟主机。安装后使用 `sudo nginx -T | grep -n 'server_name rendering.me'` 确认 HTTPS server 只有一个有效定义。
 
