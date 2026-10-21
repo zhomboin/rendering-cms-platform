@@ -31,6 +31,11 @@ type Config struct {
 	// ArticleLogRetention 每篇文章保留的修订快照数量（不含首版），0 或非法值时使用后端默认 20。
 	ArticleLogRetention int32
 	S3                  S3Config
+	SMTP                SMTPConfig
+	// LoginMFAEnabled 未显式设置时由 SMTP 是否配置齐全决定；关闭后登录不触发邮箱验证码。
+	LoginMFAEnabled bool
+	// LoginMFADevLog 开发调试开关，开启后验证码写入后端日志而不实际发信。
+	LoginMFADevLog bool
 }
 
 type S3Config struct {
@@ -43,6 +48,20 @@ type S3Config struct {
 	PublicBaseURL   string
 	BlogImagePrefix string
 	AssetFilePrefix string
+}
+
+type SMTPConfig struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	// From 为空时使用 Username 作为发件人。
+	From string
+}
+
+// Configured 判断 SMTP 是否配置齐全，未配置齐全时邮件验证码功能自动关闭。
+func (config SMTPConfig) Configured() bool {
+	return config.Host != "" && config.Username != "" && config.Password != ""
 }
 
 func Load() (Config, error) {
@@ -69,6 +88,15 @@ func Load() (Config, error) {
 		PublicMaxInFlight:         positiveIntEnv("PUBLIC_MAX_IN_FLIGHT", 128),
 		PublicRateLimitMaxClients: positiveIntEnv("PUBLIC_RATE_LIMIT_MAX_CLIENTS", 10000),
 		ArticleLogRetention:       int32(positiveIntEnv("ARTICLE_LOG_RETENTION_LIMIT", 20)),
+		SMTP: SMTPConfig{
+			// SMTP_* 用于登录邮箱验证码发信，支持个人邮箱授权码或企业 SMTP；未配置齐全时邮件验证码自动关闭。
+			Host:     strings.TrimSpace(os.Getenv("SMTP_HOST")),
+			Port:     positiveIntEnv("SMTP_PORT", 465),
+			Username: strings.TrimSpace(os.Getenv("SMTP_USERNAME")),
+			Password: os.Getenv("SMTP_PASSWORD"),
+			From:     strings.TrimSpace(os.Getenv("SMTP_FROM")),
+		},
+		LoginMFADevLog: parseBoolEnv("LOGIN_MFA_DEV_LOG"),
 		S3: S3Config{
 			// S3_* 同时兼容本地 MinIO 和生产 Cloudflare R2，生产环境由 deploy/production.env 提供。
 			Endpoint:        os.Getenv("S3_ENDPOINT"),
@@ -86,6 +114,13 @@ func Load() (Config, error) {
 
 	if cfg.JWTSecret == "" {
 		return Config{}, errors.New("JWT_SECRET is required")
+	}
+
+	// LOGIN_MFA_ENABLED 未设置时跟随 SMTP 配置：SMTP 配置齐全即启用，便于本地无 SMTP 环境自动关闭。
+	if os.Getenv("LOGIN_MFA_ENABLED") != "" {
+		cfg.LoginMFAEnabled = parseBoolEnv("LOGIN_MFA_ENABLED")
+	} else {
+		cfg.LoginMFAEnabled = cfg.SMTP.Configured()
 	}
 
 	return cfg, nil

@@ -240,3 +240,94 @@ func TestLoadReadsMultipleFrontendOrigins(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadDisablesMFAByDefaultWithoutSMTP(t *testing.T) {
+	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if cfg.SMTP.Port != 465 {
+		t.Fatalf("SMTPPort = %d, want 465", cfg.SMTP.Port)
+	}
+	if cfg.SMTP.Configured() {
+		t.Fatal("SMTP should be unconfigured by default")
+	}
+	if cfg.LoginMFAEnabled {
+		t.Fatal("LoginMFAEnabled = true, want false when SMTP is unconfigured")
+	}
+	if cfg.LoginMFADevLog {
+		t.Fatal("LoginMFADevLog = true, want false by default")
+	}
+}
+
+func TestLoadEnablesMFAWhenSMTPConfigured(t *testing.T) {
+	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_USERNAME", "cms@example.com")
+	t.Setenv("SMTP_PASSWORD", "授权码或密码")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if !cfg.SMTP.Configured() {
+		t.Fatal("SMTP should be configured")
+	}
+	if !cfg.LoginMFAEnabled {
+		t.Fatal("LoginMFAEnabled = false, want true when SMTP is configured")
+	}
+}
+
+func TestLoadHonorsExplicitMFAFlag(t *testing.T) {
+	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_USERNAME", "cms@example.com")
+	t.Setenv("SMTP_PASSWORD", "授权码或密码")
+	t.Setenv("LOGIN_MFA_ENABLED", "false")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if cfg.LoginMFAEnabled {
+		t.Fatal("LoginMFAEnabled = true, want explicit false to win over SMTP")
+	}
+
+	t.Setenv("LOGIN_MFA_ENABLED", "true")
+	t.Setenv("LOGIN_MFA_DEV_LOG", "true")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if !cfg.LoginMFAEnabled || !cfg.LoginMFADevLog {
+		t.Fatalf("LoginMFAEnabled = %v LoginMFADevLog = %v, want both true", cfg.LoginMFAEnabled, cfg.LoginMFADevLog)
+	}
+}
+
+func TestLoadReadsSMTPFromSettings(t *testing.T) {
+	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
+	t.Setenv("SMTP_HOST", "smtp.qq.com")
+	t.Setenv("SMTP_PORT", "587")
+	t.Setenv("SMTP_USERNAME", "cms@example.com")
+	t.Setenv("SMTP_PASSWORD", "secret")
+	t.Setenv("SMTP_FROM", "no-reply@example.com")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if cfg.SMTP.Host != "smtp.qq.com" || cfg.SMTP.Port != 587 || cfg.SMTP.From != "no-reply@example.com" {
+		t.Fatalf("SMTP = %#v, want custom host/port/from", cfg.SMTP)
+	}
+
+	t.Setenv("SMTP_PORT", "0")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if cfg.SMTP.Port != 465 {
+		t.Fatalf("SMTPPort fallback = %d, want 465", cfg.SMTP.Port)
+	}
+}

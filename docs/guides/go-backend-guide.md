@@ -40,12 +40,13 @@ backend/
     database/      # PostgreSQL 连接
     database/dbgen # sqlc 生成的数据库访问代码
     http/          # 路由和中间件
-    auth/          # 登录、JWT、密码哈希
+    auth/          # 登录、JWT、密码哈希、登录邮箱验证码
     articles/      # 文章管理
     analytics/     # 访问统计
     comments/      # 评论提交和审核
     assets/        # 文件上传下载和审计
     storage/       # S3 / MinIO 客户端
+    mail/          # SMTP 验证码邮件发送
   migrations/      # PostgreSQL migration
   sql/             # sqlc 查询 SQL
   go.mod           # Go module 和依赖声明
@@ -105,6 +106,8 @@ github.com/go-chi/chi/v5
 ```go
 router.Get("/api/v1/health", handler)
 router.Post("/api/v1/auth/login", config.LoginHandler)
+router.Post("/api/v1/auth/mfa/verify", config.MFAVerifyHandler)
+router.Post("/api/v1/auth/mfa/resend", config.MFAResendHandler)
 ```
 
 后台路由统一放在 `/api/v1/admin` 下：
@@ -149,6 +152,7 @@ backend/internal/auth/
 - bcrypt 密码哈希与校验。
 - JWT 签发与解析。
 - 登录接口。
+- 登录防爆破锁定与邮箱验证码两步登录（风险判定、验证码生成与哈希、校验和重发接口）。
 - 根据邮箱查询用户。
 
 主要文件：
@@ -157,6 +161,7 @@ backend/internal/auth/
 password.go
 token.go
 handler.go
+mfa.go
 ```
 
 主要依赖：

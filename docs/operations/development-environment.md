@@ -154,6 +154,9 @@ FRONTEND_ORIGINS=http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:30
 VITE_API_BASE=http://127.0.0.1:8080/api/v1
 LOG_DIR=/var/log/rendering-cms-platform
 
+# 登录邮箱验证码：默认不配置 SMTP，功能自动关闭；LOGIN_MFA_DEV_LOG 打开后验证码写入后端日志，便于联调两步登录。
+LOGIN_MFA_DEV_LOG=true
+
 S3_ENDPOINT=http://127.0.0.1:9000
 S3_REGION=us-east-1
 S3_BUCKET=rendering-assets
@@ -184,6 +187,8 @@ MINIO_API_CORS_ALLOW_ORIGIN=http://127.0.0.1:3000,http://127.0.0.1:5173,http://l
 ```
 
 该逻辑仅用于本地开发。生产环境不要设置 `APP_ENV=development` 或 `DEV_BOOTSTRAP_ADMIN=true`。
+
+登录邮箱验证码的本地行为：`SMTP_*` 变量不配置齐全时验证码功能默认自动关闭，登录流程与未上线该功能时一致；dev 模板中通过 `LOGIN_MFA_ENABLED=true` 显式开启，配合 `LOGIN_MFA_DEV_LOG=true` 时验证码明文输出在后端日志（按 `LOG_DIR` 查看当天日志文件）而不实际发信，可本地完整联调两步登录。本地如需真实发信，配置 `SMTP_HOST`、`SMTP_USERNAME`、`SMTP_PASSWORD`（个人邮箱授权码）并关闭 `LOGIN_MFA_DEV_LOG` 即可，详见 `docs/operations/deployment.md` 的 SMTP 配置说明。
 
 后端容器内的 `LOG_DIR` 通过 Docker bind mount 写入宿主机目录。本地默认目录为 `logs/backend`，位于项目目录下，已被 `.gitignore` 排除，不会提交到 Git。如需挂载到其他系统盘路径，可在启动脚本前导出 `BACKEND_LOG_HOST_DIR`：
 

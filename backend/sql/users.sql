@@ -4,7 +4,7 @@ from users
 where user_id = $1;
 
 -- name: GetUserByEmail :one
-select user_id, email, name, password_hash, role, created_at, updated_at
+select user_id, email, name, password_hash, role, last_login_ip_hash, created_at, updated_at
 from users
 where email = $1;
 

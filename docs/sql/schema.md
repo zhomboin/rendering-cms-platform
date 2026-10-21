@@ -12,8 +12,9 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 
 ## 核心表
 
-- `users`：后台用户表，保存邮箱、名称、密码哈希、角色和时间戳。
+- `users`：后台用户表，保存邮箱、名称、密码哈希、角色、上次成功登录 IP 哈希基线 `last_login_ip_hash` 和时间戳。
 - `login_attempts`：登录尝试审计表，保存邮箱、IP 哈希、是否成功、失败原因和创建时间，用于登录安全加固和防爆破。
+- `login_email_codes`：登录邮箱验证码表，保存用户、邮箱、验证码哈希、过期时间、校验尝试次数、占用时间和创建时间，用于登录两步验证。
 - `articles`：文章主表，保存系统生成的 6 位短链码 `slug`、用户命名的英文名 `article_name`、标题、摘要、MDX 正文、状态、标签、精选标记、精选排序 `featured_rank`、可选精选时间 `featured_at`、封面地址、发布时间、作者、版本号和全文搜索向量。
 - `article_logs`：文章版本日志表，字段与 `articles` 保持一致，以 `article_id` 和 `version` 作为联合主键。
 - `comments`：评论表，评论默认状态为 `pending`，后台审核后进入 `approved` 或 `rejected`。
@@ -28,6 +29,7 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 ## 关联关系
 
 - `articles.author_id` 引用 `users.user_id`。
+- `login_email_codes.user_id` 引用 `users.user_id`。
 - `article_logs.article_id` 引用 `articles.article_id`，文章删除时级联删除版本日志。
 - `comments.article_id` 引用 `articles.article_id`，文章删除时级联删除评论。
 - `article_view_daily.article_id` 引用 `articles.article_id`，文章删除时级联删除统计聚合。
@@ -54,6 +56,10 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - `login_attempts_email_created_at_idx` 支持按邮箱查询最近失败。
 - `login_attempts_ip_hash_created_at_idx` 支持按 IP 哈希查询最近失败。
 - 5 分钟内失败 5 次及以上锁定 5 分钟，15 分钟内失败 10 次及以上锁定 15 分钟，1 小时内失败 20 次及以上锁定 1 天。
+- 邮箱验证码由 `000012_login_email_mfa` migration 引入：密码验证成功后，登录 IP 哈希与 `users.last_login_ip_hash` 基线不同，或该邮箱自上次成功以来连续失败达到 3 次时，要求输入邮箱验证码；首次登录无基线视为未变更。
+- 验证码哈希存 `login_email_codes.code_hash`（`sha256(JWT_SECRET + ":" + code)`），不存明文；有效期 10 分钟，单码最多校验 5 次，仅可使用一次（`used_at` 原子占用）。
+- `login_email_codes_email_created_at_idx` 支持按邮箱取最新验证码与小时发送量限流（60 秒重发间隔、每小时 5 封）。
+- 完整登录成功（含验证码路径）才更新 `users.last_login_ip_hash` 并在 `login_attempts` 记录成功；验证码猜错以失败原因 `mfa_invalid_code` 计入 `login_attempts`，与密码失败共享锁定规则。
 
 ## 文章版本规则
 

@@ -188,6 +188,75 @@
   text-align: center;
 }
 
+.login-mfa {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.login-mfa-icon {
+  width: 56px;
+  height: 56px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(226, 232, 240, 0.86);
+  border-radius: 14px;
+  color: #2563eb;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1);
+}
+
+.login-mfa-icon .anticon {
+  font-size: 26px;
+}
+
+.login-mfa-hint {
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.login-mfa .ant-otp {
+  width: 100%;
+}
+
+.login-mfa .ant-otp .ant-otp-segment {
+  height: 46px;
+  border-color: #d1d5db;
+  border-radius: 8px;
+  color: #1f2937;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.login-mfa .ant-otp .ant-otp-segment:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.26);
+}
+
+.login-mfa-submit {
+  width: 100%;
+}
+
+.login-mfa-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.login-mfa-link.ant-btn {
+  padding: 0 8px;
+  color: #2563eb;
+  font-size: 13px;
+}
+
+.login-mfa-link.ant-btn:hover {
+  color: #1d4ed8;
+}
+
 @media (max-width: 520px) {
   .login-page {
     padding: 24px 14px;
