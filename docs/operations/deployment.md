@@ -173,6 +173,7 @@ S3_ASSET_FILE_PREFIX=assets
 - `SMTP_FROM` 为发件人地址，留空时使用 `SMTP_USERNAME`。
 - `LOGIN_MFA_ENABLED` 不设置时跟随 SMTP 配置；显式设为 `false` 可在 SMTP 已配置的情况下关闭验证码功能。
 - `LOGIN_MFA_DEV_LOG` 生产环境必须保持 `false` 或不设置；开启会把验证码明文写入后端日志，仅限本地联调。
+- 后端容器端口不得直接对公网暴露：登录 IP 基线与限流依赖 Nginx 可信代理覆写的 `X-Real-IP`，绕过 Nginx 直连会破坏该信任边界（攻击者可伪造来源 IP 匹配受害者基线以规避验证码触发）。
 - R2 bucket 必须配置 CORS，允许生产前端来源对预签名 URL 发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
 
 R2 bucket CORS JSON 示例：

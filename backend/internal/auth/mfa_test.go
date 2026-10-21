@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"rendering-cms-platform/backend/internal/database/dbgen"
@@ -38,6 +40,15 @@ func testMFAUser(passwordHash string, lastLoginIpHash string) UserRecord {
 		Role:            "admin",
 		LastLoginIpHash: lastLoginIpHash,
 	}
+}
+
+func testMFAPasswordHash(t *testing.T) string {
+	t.Helper()
+	passwordHash, err := HashPassword("correct-password")
+	if err != nil {
+		t.Fatalf("HashPassword() returned error: %v", err)
+	}
+	return passwordHash
 }
 
 func newMFALoginRequest(password string) *http.Request {
@@ -120,20 +131,15 @@ func TestHashLoginCode(t *testing.T) {
 
 func TestLoginHandlerIssuesMFAChallengeOnIPChange(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, sha256String("198.51.100.7"))}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
 	attempts := &loginAttemptStoreStub{}
 	codes := &emailCodeStoreStub{}
 	sender := &emailSenderStub{}
 	handler := NewLoginHandler(testMFADeps(finder, attempts, codes, sender, now))
 
-	handler.ServeHTTP(httptest.NewRecorder(), newMFALoginRequest("correct-password"))
-
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, newMFALoginRequest("correct-password"))
+
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status code = %d, want %d, body %s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -151,27 +157,51 @@ func TestLoginHandlerIssuesMFAChallengeOnIPChange(t *testing.T) {
 	if claims.Subject != "admin@example.com" || claims.UserID != testMFAUserID {
 		t.Fatalf("challenge claims = %#v, want subject email and user id", claims)
 	}
-	if len(sender.sent) == 0 || sender.sent[len(sender.sent)-1].to != "admin@example.com" {
-		t.Fatalf("sent emails = %#v, want code email to admin@example.com", sender.sent)
+	if len(sender.sent) != 1 || sender.sent[0].to != "admin@example.com" {
+		t.Fatalf("sent emails = %#v, want one code email to admin@example.com", sender.sent)
 	}
-	if !regexp.MustCompile(`^\d{6}$`).MatchString(sender.sent[len(sender.sent)-1].code) {
-		t.Fatalf("sent code = %q, want 6 位数字", sender.sent[len(sender.sent)-1].code)
+	if !regexp.MustCompile(`^\d{6}$`).MatchString(sender.sent[0].code) {
+		t.Fatalf("sent code = %q, want 6 位数字", sender.sent[0].code)
 	}
-	if len(codes.createdCodes) == 0 {
+	if len(codes.createdCodes) != 1 {
 		t.Fatal("验证码应写入数据库")
 	}
-	if attempts.createdAttempt.Success {
-		t.Fatal("验证码挑战阶段不应记录登录成功")
+	if attempts.createdAttempt.Success || attempts.createdAttempt.Email != "" {
+		t.Fatal("验证码挑战阶段不应记录登录成功或失败")
+	}
+}
+
+func TestLoginHandlerSkipsResendWithinInterval(t *testing.T) {
+	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
+	codes := &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, 0)}
+	recent := codes.activeCode
+	recent.CreatedAt = pgtype.Timestamptz{Time: now.Add(-30 * time.Second), Valid: true}
+	codes.activeCode = recent
+	sender := &emailSenderStub{}
+	handler := NewLoginHandler(testMFADeps(finder, &loginAttemptStoreStub{}, codes, sender, now))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, newMFALoginRequest("correct-password"))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var response MFAChallengeResponse
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
+		t.Fatalf("decode challenge response: %v", err)
+	}
+	if !response.MFARequired || response.ChallengeToken == "" {
+		t.Fatalf("response = %#v, want challenge response reusing existing code", response)
+	}
+	if len(codes.createdCodes) != 0 || len(sender.sent) != 0 {
+		t.Fatal("重发间隔内重复登录不应再次发送验证码，应复用现有验证码")
 	}
 }
 
 func TestLoginHandlerIssuesMFAChallengeAfterConsecutiveFailures(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, sha256String("192.0.2.10"))}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("192.0.2.10"))}
 	attempts := &loginAttemptStoreStub{outcomes: []bool{false, false, false}}
 	handler := NewLoginHandler(testMFADeps(finder, attempts, &emailCodeStoreStub{}, &emailSenderStub{}, now))
 
@@ -192,11 +222,7 @@ func TestLoginHandlerIssuesMFAChallengeAfterConsecutiveFailures(t *testing.T) {
 
 func TestLoginHandlerSkipsMFAWhenNoRisk(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, sha256String("192.0.2.10"))}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("192.0.2.10"))}
 	attempts := &loginAttemptStoreStub{outcomes: []bool{true, false, false}}
 	codes := &emailCodeStoreStub{}
 	sender := &emailSenderStub{}
@@ -228,11 +254,7 @@ func TestLoginHandlerSkipsMFAWhenNoRisk(t *testing.T) {
 
 func TestLoginHandlerMFASendFailure(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, sha256String("198.51.100.7"))}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
 	handler := NewLoginHandler(testMFADeps(finder, &loginAttemptStoreStub{}, &emailCodeStoreStub{}, &emailSenderStub{err: errBoom}, now))
 
 	rec := httptest.NewRecorder()
@@ -245,11 +267,7 @@ func TestLoginHandlerMFASendFailure(t *testing.T) {
 
 func TestLoginHandlerMFAHourlyLimit(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, sha256String("198.51.100.7"))}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
 	handler := NewLoginHandler(testMFADeps(finder, &loginAttemptStoreStub{}, &emailCodeStoreStub{recentCount: 5}, &emailSenderStub{}, now))
 
 	rec := httptest.NewRecorder()
@@ -262,11 +280,7 @@ func TestLoginHandlerMFAHourlyLimit(t *testing.T) {
 
 func TestLoginHandlerMFADevLog(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, sha256String("198.51.100.7"))}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
 	logged := []string{}
 	deps := testMFADeps(finder, &loginAttemptStoreStub{}, &emailCodeStoreStub{}, nil, now)
 	deps.DevLog = func(message string, args ...any) {
@@ -316,11 +330,7 @@ func testMFAChallengeToken(now time.Time) string {
 
 func TestMFAVerifyHandlerIssuesTokensOnCorrectCode(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, sha256String("198.51.100.7"))}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
 	attempts := &loginAttemptStoreStub{}
 	codes := &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, 0), claimResults: 1}
 	handler := NewMFAVerifyHandler(testMFADeps(finder, attempts, codes, &emailSenderStub{}, now))
@@ -341,24 +351,20 @@ func TestMFAVerifyHandlerIssuesTokensOnCorrectCode(t *testing.T) {
 	if _, err := ParseAccessToken(testMFASecret, response.Token); err != nil {
 		t.Fatalf("access token invalid: %v", err)
 	}
+	if len(codes.consumed) != 1 {
+		t.Fatal("正确验证码校验应消耗一次尝试")
+	}
 	if !attempts.createdAttempt.Success || attempts.createdAttempt.Email != "admin@example.com" {
 		t.Fatalf("created attempt = %#v, want successful attempt", attempts.createdAttempt)
 	}
 	if len(codes.updatedIPs) != 1 || codes.updatedIPs[0].IpHash.String != sha256String("192.0.2.10") {
 		t.Fatalf("updated ips = %#v, want verify request ip baseline", codes.updatedIPs)
 	}
-	if len(codes.incremented) != 0 {
-		t.Fatal("正确验证码不应累加失败次数")
-	}
 }
 
-func TestMFAVerifyHandlerRejectsWrongCode(t *testing.T) {
+func TestMFAVerifyHandlerRejectsWrongCodeAndRecordsFailure(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, "")}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	codes := &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, 0)}
 	attempts := &loginAttemptStoreStub{}
 	handler := NewMFAVerifyHandler(testMFADeps(finder, attempts, codes, &emailSenderStub{}, now))
@@ -369,26 +375,26 @@ func TestMFAVerifyHandlerRejectsWrongCode(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status code = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
-	if len(codes.incremented) != 1 {
-		t.Fatal("错误验证码应累加失败次数")
+	if len(codes.consumed) != 1 {
+		t.Fatal("错误验证码也应消耗一次尝试")
 	}
 	if len(codes.claimed) != 0 {
 		t.Fatal("错误验证码不应占用验证码")
 	}
-	if attempts.createdAttempt.Success {
-		t.Fatal("错误验证码不应记录登录成功")
+	if attempts.createdAttempt.Email != "admin@example.com" || attempts.createdAttempt.Success {
+		t.Fatalf("created attempt = %#v, want recorded mfa_invalid_code failure", attempts.createdAttempt)
+	}
+	if got := attempts.createdAttempt.FailureReason.String; got != "mfa_invalid_code" {
+		t.Fatalf("failure reason = %q, want mfa_invalid_code", got)
 	}
 }
 
 func TestMFAVerifyHandlerRejectsExhaustedCode(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, "")}
-	codes := &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, loginCodeMaxVerifyAttempts)}
-	handler := NewMFAVerifyHandler(testMFADeps(finder, &loginAttemptStoreStub{}, codes, &emailSenderStub{}, now))
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
+	codes := &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, loginCodeMaxVerifyAttempts), consumeErr: pgx.ErrNoRows}
+	attempts := &loginAttemptStoreStub{}
+	handler := NewMFAVerifyHandler(testMFADeps(finder, attempts, codes, &emailSenderStub{}, now))
 
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, newMFAVerifyRequest(testMFAChallengeToken(now), "654321"))
@@ -396,18 +402,17 @@ func TestMFAVerifyHandlerRejectsExhaustedCode(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status code = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
-	if len(codes.incremented) != 0 || len(codes.claimed) != 0 {
-		t.Fatal("超过尝试上限的验证码应直接拒绝且不再计数")
+	if len(codes.claimed) != 0 {
+		t.Fatal("尝试次数用尽的验证码不应被占用")
+	}
+	if attempts.createdAttempt.Email != "" {
+		t.Fatal("尝试次数用尽属于状态拒绝，不应记录新的登录失败")
 	}
 }
 
 func TestMFAVerifyHandlerRejectsExpiredCode(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, "")}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	expired := testMFACodeRecord("654321", now, 0)
 	expired.ExpiresAt = pgtype.Timestamptz{Time: now.Add(-time.Minute), Valid: true}
 	codes := &emailCodeStoreStub{activeCode: expired}
@@ -419,15 +424,14 @@ func TestMFAVerifyHandlerRejectsExpiredCode(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status code = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
+	if len(codes.consumed) != 0 {
+		t.Fatal("过期验证码不应消耗校验尝试")
+	}
 }
 
 func TestMFAVerifyHandlerRejectsClaimedCode(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, "")}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	codes := &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, 0), claimResults: 0}
 	handler := NewMFAVerifyHandler(testMFADeps(finder, &loginAttemptStoreStub{}, codes, &emailSenderStub{}, now))
 
@@ -451,6 +455,41 @@ func TestMFAVerifyHandlerRejectsInvalidChallengeToken(t *testing.T) {
 	}
 }
 
+func TestMFAVerifyHandlerReturnsServerErrorOnStoreFailure(t *testing.T) {
+	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
+
+	codes := &emailCodeStoreStub{activeErr: errBoom}
+	handler := NewMFAVerifyHandler(testMFADeps(finder, &loginAttemptStoreStub{}, codes, &emailSenderStub{}, now))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, newMFAVerifyRequest(testMFAChallengeToken(now), "654321"))
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("store error status code = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+
+	codes = &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, 0), consumeErr: errBoom}
+	handler = NewMFAVerifyHandler(testMFADeps(finder, &loginAttemptStoreStub{}, codes, &emailSenderStub{}, now))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, newMFAVerifyRequest(testMFAChallengeToken(now), "654321"))
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("consume error status code = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestMFAVerifyHandlerTreatsMissingCodeAsUnauthorized(t *testing.T) {
+	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
+	codes := &emailCodeStoreStub{activeErr: pgx.ErrNoRows}
+	handler := NewMFAVerifyHandler(testMFADeps(finder, &loginAttemptStoreStub{}, codes, &emailSenderStub{}, now))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, newMFAVerifyRequest(testMFAChallengeToken(now), "654321"))
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status code = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
 func newMFAResendRequest(challengeToken string) *http.Request {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/mfa/resend", strings.NewReader(`{
 		"challengeToken": "`+challengeToken+`"
@@ -461,11 +500,7 @@ func newMFAResendRequest(challengeToken string) *http.Request {
 
 func TestMFAResendHandlerRateLimitsWithinInterval(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, "")}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	latest := testMFACodeRecord("654321", now, 0)
 	latest.CreatedAt = pgtype.Timestamptz{Time: now.Add(-30 * time.Second), Valid: true}
 	codes := &emailCodeStoreStub{activeCode: latest}
@@ -478,18 +513,34 @@ func TestMFAResendHandlerRateLimitsWithinInterval(t *testing.T) {
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("status code = %d, want %d", rec.Code, http.StatusTooManyRequests)
 	}
-	if len(sender.sent) != 0 || len(codes.createdCodes) != 0 {
-		t.Fatal("限流期内不应重发验证码")
+	if len(sender.sent) != 0 || len(codes.createdCodes) != 0 || len(codes.claimed) != 0 {
+		t.Fatal("限流期内不应重发验证码或作废旧验证码")
+	}
+}
+
+func TestMFAResendHandlerHourlyLimitKeepsOldCode(t *testing.T) {
+	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
+	latest := testMFACodeRecord("654321", now, 0)
+	latest.CreatedAt = pgtype.Timestamptz{Time: now.Add(-2 * time.Minute), Valid: true}
+	codes := &emailCodeStoreStub{activeCode: latest, recentCount: 5}
+	sender := &emailSenderStub{}
+	handler := NewMFAResendHandler(testMFADeps(finder, &loginAttemptStoreStub{}, codes, sender, now))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, newMFAResendRequest(testMFAChallengeToken(now)))
+
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("status code = %d, want %d", rec.Code, http.StatusTooManyRequests)
+	}
+	if len(codes.claimed) != 0 {
+		t.Fatal("小时配额拒绝时不应作废旧验证码，用户仍可使用现有验证码")
 	}
 }
 
 func TestMFAResendHandlerIssuesNewCode(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	passwordHash, err := HashPassword("correct-password")
-	if err != nil {
-		t.Fatalf("HashPassword() returned error: %v", err)
-	}
-	finder := &userFinderStub{user: testMFAUser(passwordHash, "")}
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	latest := testMFACodeRecord("654321", now, 0)
 	latest.CreatedAt = pgtype.Timestamptz{Time: now.Add(-2 * time.Minute), Valid: true}
 	codes := &emailCodeStoreStub{activeCode: latest}
@@ -509,11 +560,29 @@ func TestMFAResendHandlerIssuesNewCode(t *testing.T) {
 	if response.ExpiresIn != 600 {
 		t.Fatalf("expiresIn = %d, want 600", response.ExpiresIn)
 	}
-	if len(codes.claimed) != 1 {
-		t.Fatal("重发前应作废旧验证码")
-	}
 	if len(codes.createdCodes) != 1 || len(sender.sent) != 1 {
 		t.Fatalf("重发应创建并投递一个新验证码：created=%d sent=%d", len(codes.createdCodes), len(sender.sent))
+	}
+	if len(codes.claimed) != 1 {
+		t.Fatal("新码发送成功后应作废旧验证码")
+	}
+}
+
+func TestMFAResendHandlerWithoutActiveCode(t *testing.T) {
+	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
+	codes := &emailCodeStoreStub{activeErr: pgx.ErrNoRows}
+	sender := &emailSenderStub{}
+	handler := NewMFAResendHandler(testMFADeps(finder, &loginAttemptStoreStub{}, codes, sender, now))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, newMFAResendRequest(testMFAChallengeToken(now)))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want %d, body %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if len(codes.createdCodes) != 1 || len(codes.claimed) != 0 {
+		t.Fatalf("无旧码时只创建新码：created=%d claimed=%d", len(codes.createdCodes), len(codes.claimed))
 	}
 }
 
@@ -522,6 +591,8 @@ var errBoom = &boomError{}
 type boomError struct{}
 
 func (*boomError) Error() string { return "boom" }
+
+var _ error = errBoom
 
 type emailMessage struct {
 	to   string
@@ -546,9 +617,10 @@ type emailCodeStoreStub struct {
 	createdCodes []dbgen.CreateLoginEmailCodeParams
 	activeCode   dbgen.LoginEmailCode
 	activeErr    error
+	consumeErr   error
 	claimResults int64
 	claimed      []pgtype.UUID
-	incremented  []pgtype.UUID
+	consumed     []dbgen.ConsumeLoginEmailCodeAttemptParams
 	updatedIPs   []dbgen.UpdateUserLastLoginIPHashParams
 }
 
@@ -564,14 +636,17 @@ func (s *emailCodeStoreStub) GetLatestActiveLoginEmailCode(ctx context.Context, 
 	return s.activeCode, nil
 }
 
+func (s *emailCodeStoreStub) ConsumeLoginEmailCodeAttempt(ctx context.Context, arg dbgen.ConsumeLoginEmailCodeAttemptParams) (int32, error) {
+	if s.consumeErr != nil {
+		return 0, s.consumeErr
+	}
+	s.consumed = append(s.consumed, arg)
+	return int32(len(s.consumed)), nil
+}
+
 func (s *emailCodeStoreStub) ClaimLoginEmailCode(ctx context.Context, codeID pgtype.UUID) (int64, error) {
 	s.claimed = append(s.claimed, codeID)
 	return s.claimResults, nil
-}
-
-func (s *emailCodeStoreStub) IncrementLoginEmailCodeAttempts(ctx context.Context, codeID pgtype.UUID) (int64, error) {
-	s.incremented = append(s.incremented, codeID)
-	return int64(len(s.incremented)), nil
 }
 
 func (s *emailCodeStoreStub) CountRecentLoginEmailCodes(ctx context.Context, arg dbgen.CountRecentLoginEmailCodesParams) (int64, error) {
@@ -582,3 +657,6 @@ func (s *emailCodeStoreStub) UpdateUserLastLoginIPHash(ctx context.Context, arg 
 	s.updatedIPs = append(s.updatedIPs, arg)
 	return nil
 }
+
+// 确保 errors.As 相关接口断言在编译期生效。
+var _ = errors.As

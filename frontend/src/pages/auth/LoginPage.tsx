@@ -92,6 +92,9 @@ function LoginForm() {
     } catch (err) {
       const error = err as { message?: string };
       void message.error(error.message || '验证码错误或已过期');
+      if (error.message === '登录验证已失效，请重新登录') {
+        backToCredentials();
+      }
     } finally {
       setCodeLoading(false);
     }
@@ -107,6 +110,9 @@ function LoginForm() {
     } catch (err) {
       const error = err as { message?: string };
       void message.error(error.message || '验证码发送失败，请稍后再试');
+      if (error.message === '登录验证已失效，请重新登录') {
+        backToCredentials();
+      }
     } finally {
       setResending(false);
     }

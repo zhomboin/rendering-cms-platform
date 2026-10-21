@@ -26,6 +26,27 @@ func (q *Queries) ClaimLoginEmailCode(ctx context.Context, codeID pgtype.UUID) (
 	return result.RowsAffected(), nil
 }
 
+const consumeLoginEmailCodeAttempt = `-- name: ConsumeLoginEmailCodeAttempt :one
+update login_email_codes
+set attempts = attempts + 1
+where code_id = $1
+  and used_at is null
+  and attempts < $2
+returning attempts
+`
+
+type ConsumeLoginEmailCodeAttemptParams struct {
+	CodeID      pgtype.UUID
+	MaxAttempts int32
+}
+
+func (q *Queries) ConsumeLoginEmailCodeAttempt(ctx context.Context, arg ConsumeLoginEmailCodeAttemptParams) (int32, error) {
+	row := q.db.QueryRow(ctx, consumeLoginEmailCodeAttempt, arg.CodeID, arg.MaxAttempts)
+	var attempts int32
+	err := row.Scan(&attempts)
+	return attempts, err
+}
+
 const countRecentLoginEmailCodes = `-- name: CountRecentLoginEmailCodes :one
 select count(*)
 from login_email_codes
@@ -93,7 +114,7 @@ select code_id, user_id, email, code_hash, expires_at, attempts, used_at, create
 from login_email_codes
 where email = $1
   and used_at is null
-order by created_at desc
+order by created_at desc, code_id desc
 limit 1
 `
 
@@ -111,21 +132,6 @@ func (q *Queries) GetLatestActiveLoginEmailCode(ctx context.Context, email strin
 		&i.CreatedAt,
 	)
 	return i, err
-}
-
-const incrementLoginEmailCodeAttempts = `-- name: IncrementLoginEmailCodeAttempts :execrows
-update login_email_codes
-set attempts = attempts + 1
-where code_id = $1
-  and used_at is null
-`
-
-func (q *Queries) IncrementLoginEmailCodeAttempts(ctx context.Context, codeID pgtype.UUID) (int64, error) {
-	result, err := q.db.Exec(ctx, incrementLoginEmailCodeAttempts, codeID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }
 
 const listRecentLoginAttemptOutcomes = `-- name: ListRecentLoginAttemptOutcomes :many

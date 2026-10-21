@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -30,6 +31,9 @@ const (
 	recentOutcomesLimit         = 10
 )
 
+// mfaInvalidCodeFailure 是验证码校验失败写入 login_attempts 的失败原因，与密码阶段失败共享锁定规则。
+const mfaInvalidCodeFailure = "mfa_invalid_code"
+
 // EmailSender 邮件发送接口，由 internal/mail.SMTPSender 实现。
 type EmailSender interface {
 	SendLoginCode(to string, code string, ttl time.Duration) error
@@ -42,8 +46,8 @@ type CodeLogger func(message string, args ...any)
 type EmailCodeStore interface {
 	CreateLoginEmailCode(ctx context.Context, arg dbgen.CreateLoginEmailCodeParams) (dbgen.LoginEmailCode, error)
 	GetLatestActiveLoginEmailCode(ctx context.Context, email string) (dbgen.LoginEmailCode, error)
+	ConsumeLoginEmailCodeAttempt(ctx context.Context, arg dbgen.ConsumeLoginEmailCodeAttemptParams) (int32, error)
 	ClaimLoginEmailCode(ctx context.Context, codeID pgtype.UUID) (int64, error)
-	IncrementLoginEmailCodeAttempts(ctx context.Context, codeID pgtype.UUID) (int64, error)
 	CountRecentLoginEmailCodes(ctx context.Context, arg dbgen.CountRecentLoginEmailCodesParams) (int64, error)
 	UpdateUserLastLoginIPHash(ctx context.Context, arg dbgen.UpdateUserLastLoginIPHashParams) error
 }
@@ -168,6 +172,18 @@ func (svc *loginService) mfaRequired(ctx context.Context, user UserRecord, ipHas
 	return EvaluateLoginRisk(ipChanged, outcomes), nil
 }
 
+// codeRecentlySent 判断该邮箱最近一次验证码是否仍在重发间隔内；无激活验证码返回 false。
+func (svc *loginService) codeRecentlySent(ctx context.Context, email string) (bool, error) {
+	latest, err := svc.codes.GetLatestActiveLoginEmailCode(ctx, email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return latest.CreatedAt.Valid && svc.now().Sub(latest.CreatedAt.Time) < loginCodeResendInterval, nil
+}
+
 // dispatchLoginCode 生成验证码、入库并发送；已知限流与发送失败以 *mfaDispatchError 返回状态码。
 func (svc *loginService) dispatchLoginCode(ctx context.Context, user UserRecord) error {
 	count, err := svc.codes.CountRecentLoginEmailCodes(ctx, dbgen.CountRecentLoginEmailCodesParams{
@@ -221,6 +237,32 @@ func (svc *loginService) writeDispatchError(w http.ResponseWriter, err error) {
 	writeAuthError(w, http.StatusInternalServerError, "登录安全检查失败")
 }
 
+// issueChallengeResponse 发送验证码并返回挑战响应；重发间隔内已有验证码时跳过发送，复用现有验证码。
+func (svc *loginService) issueChallengeResponse(w http.ResponseWriter, r *http.Request, user UserRecord) {
+	recentlySent, err := svc.codeRecentlySent(r.Context(), user.Email)
+	if err != nil {
+		writeAuthError(w, http.StatusInternalServerError, "登录安全检查失败")
+		return
+	}
+	if !recentlySent {
+		if err := svc.dispatchLoginCode(r.Context(), user); err != nil {
+			svc.writeDispatchError(w, err)
+			return
+		}
+	}
+	challengeToken, err := IssueMFAChallengeToken(svc.secret, user.UserID, user.Role, user.Email, svc.now)
+	if err != nil {
+		writeAuthError(w, http.StatusInternalServerError, "登录令牌生成失败")
+		return
+	}
+	writeJSON(w, http.StatusOK, MFAChallengeResponse{
+		MFARequired:    true,
+		ChallengeToken: challengeToken,
+		Email:          user.Email,
+		ExpiresIn:      int(loginCodeTTL.Seconds()),
+	})
+}
+
 // NewMFAVerifyHandler 校验邮箱验证码并完成登录。
 func NewMFAVerifyHandler(deps LoginDeps) http.HandlerFunc {
 	svc := newLoginService(deps)
@@ -249,16 +291,34 @@ func NewMFAVerifyHandler(deps LoginDeps) http.HandlerFunc {
 		}
 
 		record, err := svc.codes.GetLatestActiveLoginEmailCode(r.Context(), user.Email)
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeAuthError(w, http.StatusUnauthorized, "验证码错误或已过期")
+			return
+		}
 		if err != nil {
+			writeAuthError(w, http.StatusInternalServerError, "登录安全检查失败")
+			return
+		}
+		if !record.ExpiresAt.Valid || !record.ExpiresAt.Time.After(svc.now()) {
 			writeAuthError(w, http.StatusUnauthorized, "验证码错误或已过期")
 			return
 		}
-		if !record.ExpiresAt.Valid || !record.ExpiresAt.Time.After(svc.now()) || record.Attempts >= loginCodeMaxVerifyAttempts {
+		// 原子消耗一次校验尝试：并发请求各自递增计数，达到上限后不再返回行，防止并行爆破。
+		_, err = svc.codes.ConsumeLoginEmailCodeAttempt(r.Context(), dbgen.ConsumeLoginEmailCodeAttemptParams{
+			CodeID:      record.CodeID,
+			MaxAttempts: loginCodeMaxVerifyAttempts,
+		})
+		if errors.Is(err, pgx.ErrNoRows) {
 			writeAuthError(w, http.StatusUnauthorized, "验证码错误或已过期")
 			return
 		}
-		if HashLoginCode(svc.secret, request.Code) != record.CodeHash {
-			_, _ = svc.codes.IncrementLoginEmailCodeAttempts(r.Context(), record.CodeID)
+		if err != nil {
+			writeAuthError(w, http.StatusInternalServerError, "登录安全检查失败")
+			return
+		}
+		if subtle.ConstantTimeCompare([]byte(HashLoginCode(svc.secret, request.Code)), []byte(record.CodeHash)) != 1 {
+			// 验证码猜错计入 login_attempts，让既有三级锁定规则覆盖验证码爆破阶段。
+			recordLoginAttempt(r.Context(), svc.attempts, user.Email, ipHashFromRequest(r), false, mfaInvalidCodeFailure)
 			writeAuthError(w, http.StatusUnauthorized, "验证码错误或已过期")
 			return
 		}
@@ -272,15 +332,15 @@ func NewMFAVerifyHandler(deps LoginDeps) http.HandlerFunc {
 			return
 		}
 
-		ipHash := ipHashFromRequest(r)
-		recordLoginAttempt(r.Context(), svc.attempts, user.Email, ipHash, true, "")
-		svc.updateLastLoginIP(r.Context(), user.UserID, ipHash)
-
 		tokens, err := IssueTokenPairWithClock(svc.secret, user.UserID, user.Role, svc.now)
 		if err != nil {
 			writeAuthError(w, http.StatusInternalServerError, "登录令牌生成失败")
 			return
 		}
+		ipHash := ipHashFromRequest(r)
+		recordLoginAttempt(r.Context(), svc.attempts, user.Email, ipHash, true, "")
+		svc.updateLastLoginIP(r.Context(), user.UserID, ipHash)
+
 		writeJSON(w, http.StatusOK, LoginResponse{
 			Token:        tokens.Token,
 			RefreshToken: tokens.RefreshToken,
@@ -289,7 +349,7 @@ func NewMFAVerifyHandler(deps LoginDeps) http.HandlerFunc {
 	}
 }
 
-// NewMFAResendHandler 在限流允许时作废旧验证码并重新发送。
+// NewMFAResendHandler 在限流允许时重新发送验证码并作废旧验证码。
 func NewMFAResendHandler(deps LoginDeps) http.HandlerFunc {
 	svc := newLoginService(deps)
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -316,20 +376,22 @@ func NewMFAResendHandler(deps LoginDeps) http.HandlerFunc {
 		}
 
 		latest, err := svc.codes.GetLatestActiveLoginEmailCode(r.Context(), user.Email)
-		if err == nil {
-			if latest.CreatedAt.Valid && svc.now().Sub(latest.CreatedAt.Time) < loginCodeResendInterval {
-				writeAuthError(w, http.StatusTooManyRequests, "验证码发送过于频繁，请稍后再试")
-				return
-			}
-			_, _ = svc.codes.ClaimLoginEmailCode(r.Context(), latest.CodeID)
-		} else if !errors.Is(err, pgx.ErrNoRows) {
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			writeAuthError(w, http.StatusInternalServerError, "登录安全检查失败")
 			return
 		}
+		if err == nil && latest.CreatedAt.Valid && svc.now().Sub(latest.CreatedAt.Time) < loginCodeResendInterval {
+			writeAuthError(w, http.StatusTooManyRequests, "验证码发送过于频繁，请稍后再试")
+			return
+		}
 
+		// 先完成限流与新码发送，成功后再作废旧码，避免限流或发送失败后用户失去可用验证码。
 		if err := svc.dispatchLoginCode(r.Context(), user); err != nil {
 			svc.writeDispatchError(w, err)
 			return
+		}
+		if err == nil {
+			_, _ = svc.codes.ClaimLoginEmailCode(r.Context(), latest.CodeID)
 		}
 		writeJSON(w, http.StatusOK, MFAResendResponse{ExpiresIn: int(loginCodeTTL.Seconds())})
 	}

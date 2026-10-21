@@ -6,14 +6,14 @@
 
 - 触发判定在密码验证成功后进行（step-up 认证）：密码错误仍走既有失败锁定流程，不发送邮件。
 - 触发条件：登录 IP 哈希与 `users.last_login_ip_hash` 基线不同，或该邮箱自上次成功登录以来连续失败 ≥ 3 次；首次登录无基线视为未变更。
-- 验证码为 6 位随机数字（`crypto/rand`，补前导零），有效期 10 分钟，仅可使用一次，单码最多校验 5 次。
-- 验证码重发间隔 60 秒，每邮箱每小时最多发送 5 封；重发作废旧验证码。
+- 验证码为 6 位随机数字（`crypto/rand`，补前导零），有效期 10 分钟，仅可使用一次，单码最多校验 5 次；尝试次数通过数据库原子递增消耗，并发请求无法绕过上限。
+- 验证码发送间隔 60 秒，每邮箱每小时最多发送 5 封；重发接口间隔内返回 429，登录路径间隔内复用现有验证码不重复发信；重发在新码投递成功后才作废旧码。
 - 验证码不落明文，数据库保存 `sha256(JWT_SECRET + ":" + code)` 哈希。
 - 验证码校验与重发接口凭短期 `challengeToken`（JWT，`tokenType=mfa_challenge`，subject 为登录邮箱，TTL 10 分钟）访问，只有密码验证成功才能获得，防止对任意邮箱爆破验证码或借接口发送垃圾邮件。
 - 验证码校验失败统一返回 `验证码错误或已过期`，不区分错误类型，避免探测。
 - SMTP 未配置齐全时功能自动关闭（登录走原有流程），`LOGIN_MFA_ENABLED` 可显式覆盖；`LOGIN_MFA_DEV_LOG=true` 时验证码写入后端日志，供本地联调两步登录。
 - 发信使用个人邮箱 SMTP 授权码（465 隐式 TLS / 587 STARTTLS），不引入付费邮件服务；代码通过 `auth.EmailSender` 接口抽象，后续可平滑替换发送实现。
-- 既有 `login_attempts` 三级锁定规则不变；挑战签发阶段不计入 `login_attempts`，完整登录成功（含验证码路径）才记录 success 并更新 IP 基线。
+- 既有 `login_attempts` 三级锁定规则不变；挑战签发阶段不计入 `login_attempts`，验证码猜错以失败原因 `mfa_invalid_code` 计入失败并受三级锁定约束，完整登录成功（含验证码路径）才记录 success 并更新 IP 基线。
 
 **架构：** PostgreSQL migration `000012_login_email_mfa` 新增 `login_email_codes` 表并为 `users` 增加 `last_login_ip_hash` 列；后端新增 `internal/mail` SMTP 发信包与 `internal/auth/mfa.go` 验证码域逻辑，登录接口在角色检查后插入风险判定；前端登录页改为同页两步表单（密码 → 验证码）。
 
@@ -22,11 +22,12 @@
 ## 执行状态（2026-10-21）
 
 - [x] migration `000012_login_email_mfa`：up 新建 `login_email_codes` 表（code_hash、expires_at、attempts、used_at）并为 `users` 增加 `last_login_ip_hash`；down 删除表和列。
-- [x] sqlc 查询：`CreateLoginEmailCode`、`GetLatestActiveLoginEmailCode`、`ClaimLoginEmailCode`（原子占用）、`IncrementLoginEmailCodeAttempts`、`CountRecentLoginEmailCodes`（小时限流）、`ListRecentLoginAttemptOutcomes`（连续失败判定）、`UpdateUserLastLoginIPHash`；`GetUserByEmail` 增加返回 `last_login_ip_hash`。
+- [x] sqlc 查询：`CreateLoginEmailCode`、`GetLatestActiveLoginEmailCode`、`ConsumeLoginEmailCodeAttempt`（原子消耗校验尝试，防并发绕过上限）、`ClaimLoginEmailCode`（原子占用）、`CountRecentLoginEmailCodes`（小时限流）、`ListRecentLoginAttemptOutcomes`（连续失败判定）、`UpdateUserLastLoginIPHash`；`GetUserByEmail` 增加返回 `last_login_ip_hash`。
 - [x] 后端 `internal/mail`：标准库 SMTP 发信，465 隐式 TLS / 其余端口 STARTTLS，中文验证码邮件。
 - [x] 后端 `internal/auth`：`GenerateLoginCode`、`HashLoginCode`、`EvaluateLoginRisk`、`EmailCodeStore`/`EmailSender` 接口、`LoginDeps` 依赖注入；登录接口风险判定与挑战响应；新增 `POST /api/v1/auth/mfa/verify`、`POST /api/v1/auth/mfa/resend`；`token.go` 新增 `mfa_challenge` 类型签发与解析。
 - [x] 后端配置：`SMTP_HOST/PORT/USERNAME/PASSWORD/FROM`、`LOGIN_MFA_ENABLED`（默认跟随 SMTP）、`LOGIN_MFA_DEV_LOG`。
-- [x] 后端测试：风险判定边界（连续失败、成功重置、IP 变更）、验证码格式与哈希、挑战签发（IP 变更/连续失败/无风险跳过/发送失败/小时上限/dev log）、校验（正确发 token、错误计数、超限、过期、重复占用、坏 challengeToken）、重发（间隔限流、作废旧码）。
+- [x] 后端测试：风险判定边界（连续失败、成功重置、IP 变更）、验证码格式与哈希、挑战签发（IP 变更/连续失败/无风险跳过/发送失败/小时上限/dev log/间隔内复用现有验证码）、校验（正确发 token、错误消耗尝试并记 `mfa_invalid_code` 失败、超限、过期、重复占用、坏 challengeToken、存储层错误 500、无激活验证码 401）、重发（间隔限流、小时配额拒绝不作废旧码、作废旧码、无旧码直接创建）。
+- [x] PR 代码检视：已按检视意见修复并发绕过单码校验上限（原子消耗尝试）、统一 60 秒发送间隔口径、验证码猜错计入登录锁定、重发先发送后作废旧码、区分数据库错误与 401、dev 模板补 `LOGIN_MFA_ENABLED`、挑战过期前端自动返回第一步、补充后端端口不暴露公网的部署边界。
 - [x] 前端 API：`loginAdmin` 返回可辨识联合（`mfaRequired` 挑战分支 / 完整 token 分支），新增 `verifyLoginCode`、`resendLoginCode`。
 - [x] 登录页两步表单：第二步 `Input.OTP` 6 位输入、60 秒重发倒计时、返回重新登录；验证通过后才持久化 token 并跳转。
 - [x] `docs/apis/auth.md`、`docs/sql/schema.md`、`docs/operations/deployment.md`、`docs/operations/development-environment.md`、`docs/operations/production-access.md`、`docs/guides/go-backend-guide.md`、`docs/guides/frontend-architecture.md`、`scripts/env/dev.env.example`、`deploy/production.env.example` 已同步。
@@ -47,8 +48,10 @@
 ## 行为说明
 
 - 登录接口 `200` 响应以 `mfaRequired` 字段区分两种结果：直接登录成功（`token`/`refreshToken`/`user`）或验证码挑战（`challengeToken`/`email`/`expiresIn`）。
-- 验证码校验失败、过期、尝试次数用尽、已使用统一返回 `401` `验证码错误或已过期`；`challengeToken` 无效或过期返回 `401` `登录验证已失效，请重新登录`。
-- 重发在 60 秒间隔内或小时配额超限时返回 `429` `验证码发送过于频繁，请稍后再试`。
+- 验证码校验失败、过期、尝试次数用尽、已使用统一返回 `401` `验证码错误或已过期`；`challengeToken` 无效或过期返回 `401` `登录验证已失效，请重新登录`，前端收到该错误自动返回密码登录步骤。
+- 验证码猜错计入 `login_attempts` 失败（`mfa_invalid_code`），触发三级锁定时密码登录同样被拒绝；过期/尝试用尽等状态拒绝不额外记失败。
+- 重发在 60 秒间隔内或小时配额超限时返回 `429` `验证码发送过于频繁，请稍后再试`；配额拒绝不作废旧验证码，用户仍可输入现有验证码。
+- 登录路径 60 秒内重复命中风险条件时复用现有验证码，只重新返回挑战响应，不重复发信。
 - 登录触发验证码发送超过小时配额时，登录接口返回 `429`（密码已验证正确也不发放令牌）。
 - `tokenType` 为 `mfa_challenge` 的 JWT 不能作为 access 或 refresh token 使用，后台 API 鉴权天然拒绝。
 

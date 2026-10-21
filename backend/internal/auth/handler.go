@@ -138,21 +138,7 @@ func NewLoginHandler(deps LoginDeps) http.HandlerFunc {
 			return
 		}
 		if required {
-			if err := svc.dispatchLoginCode(r.Context(), user); err != nil {
-				svc.writeDispatchError(w, err)
-				return
-			}
-			challengeToken, err := IssueMFAChallengeToken(svc.secret, user.UserID, user.Role, user.Email, svc.now)
-			if err != nil {
-				writeAuthError(w, http.StatusInternalServerError, "登录令牌生成失败")
-				return
-			}
-			writeJSON(w, http.StatusOK, MFAChallengeResponse{
-				MFARequired:    true,
-				ChallengeToken: challengeToken,
-				Email:          user.Email,
-				ExpiresIn:      int(loginCodeTTL.Seconds()),
-			})
+			svc.issueChallengeResponse(w, r, user)
 			return
 		}
 		svc.completeLogin(w, r, user, ipHash)

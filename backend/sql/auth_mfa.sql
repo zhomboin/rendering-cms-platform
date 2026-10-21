@@ -17,18 +17,20 @@ select code_id, user_id, email, code_hash, expires_at, attempts, used_at, create
 from login_email_codes
 where email = sqlc.arg(email)
   and used_at is null
-order by created_at desc
+order by created_at desc, code_id desc
 limit 1;
+
+-- name: ConsumeLoginEmailCodeAttempt :one
+update login_email_codes
+set attempts = attempts + 1
+where code_id = sqlc.arg(code_id)
+  and used_at is null
+  and attempts < sqlc.arg(max_attempts)
+returning attempts;
 
 -- name: ClaimLoginEmailCode :execrows
 update login_email_codes
 set used_at = now()
-where code_id = sqlc.arg(code_id)
-  and used_at is null;
-
--- name: IncrementLoginEmailCodeAttempts :execrows
-update login_email_codes
-set attempts = attempts + 1
 where code_id = sqlc.arg(code_id)
   and used_at is null;
 

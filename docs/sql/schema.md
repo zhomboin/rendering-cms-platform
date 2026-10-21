@@ -59,7 +59,7 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - 邮箱验证码由 `000012_login_email_mfa` migration 引入：密码验证成功后，登录 IP 哈希与 `users.last_login_ip_hash` 基线不同，或该邮箱自上次成功以来连续失败达到 3 次时，要求输入邮箱验证码；首次登录无基线视为未变更。
 - 验证码哈希存 `login_email_codes.code_hash`（`sha256(JWT_SECRET + ":" + code)`），不存明文；有效期 10 分钟，单码最多校验 5 次，仅可使用一次（`used_at` 原子占用）。
 - `login_email_codes_email_created_at_idx` 支持按邮箱取最新验证码与小时发送量限流（60 秒重发间隔、每小时 5 封）。
-- 完整登录成功（含验证码路径）才更新 `users.last_login_ip_hash` 并在 `login_attempts` 记录成功。
+- 完整登录成功（含验证码路径）才更新 `users.last_login_ip_hash` 并在 `login_attempts` 记录成功；验证码猜错以失败原因 `mfa_invalid_code` 计入 `login_attempts`，与密码失败共享锁定规则。
 
 ## 文章版本规则
 
