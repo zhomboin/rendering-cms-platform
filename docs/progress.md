@@ -11,12 +11,14 @@
 | 日期 | 变更主题 | 范围 | 摘要与关联文档 |
 | --- | --- | --- | --- |
 | 2026-10-21 | 落地项目管理规范 | 文档 / 规范 | 明确所有项目文件 UTF-8 无 BOM；确立 `docs/`、`reports/`、`temp/` 目录约定，确认 `reports/` 与 `temp/` 均被 `.gitignore` 覆盖（本次新增 `reports/` 规则）；建立本主进度记录与 `docs/change-log.md` 变更记录机制；确立新功能分支开发 + PR 合入 + 代码检视流程。规范见 `AGENTS.md`。变更经分支 `docs/project-conventions` 提交，代码检视修复 4 项问题后经 PR #7 合入 `main`。 |
+| 2026-10-21 | 登录邮箱验证码（两步登录） | 后端 / 前端 / 数据库 / 文档 | 密码验证成功后按风险判定（登录 IP 变更或连续失败 3 次）触发 6 位邮箱验证码，验证通过才发放登录令牌；新增 migration `000012_login_email_mfa`、`internal/mail` SMTP 发信、`/api/v1/auth/mfa/verify|resend` 接口、登录页两步表单；验证码 10 分钟有效、单码 5 次原子校验上限、60 秒发送间隔、每小时 5 封，猜错计入登录锁定；SMTP 未配置自动关闭。变更经分支 `feat/login-email-mfa` 提交，两轮代码检视（修复并发绕过校验上限等 7 项问题）后经 PR #8 合入 `main`。生产启用需配置 SMTP 授权码并执行 migration，详见 `docs/plans/2026-10-21-login-email-mfa.md` 与 `docs/apis/auth.md`。 |
 
 ## 专项进度入口
 
 - `docs/plans/2026-07-13-public-article-api-ddos-hardening.md`：公开文章接口防滥用加固计划。
 - `docs/plans/2026-10-14-article-unpublish-republish.md`：文章下线与重新发布计划。
 - `docs/plans/2026-10-18-article-private-status.md`：私有文章状态计划。
+- `docs/plans/2026-10-21-login-email-mfa.md`：登录邮箱验证码（两步登录）计划，生产 SMTP 配置与 migration 验收未完成。
 - 已完成并投产的计划归档在 `docs/archive/plans/`，仅作追溯，不作为当前进度入口。
 
 ## 维护要求
