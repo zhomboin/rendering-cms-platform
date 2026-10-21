@@ -10,7 +10,7 @@
 
 | 日期 | 变更主题 | 范围 | 摘要与关联文档 |
 | --- | --- | --- | --- |
-| 2026-10-21 | 落地项目管理规范 | 文档 / 规范 | 明确所有项目文件 UTF-8 无 BOM；确立 `docs/`、`reports/`、`temp/` 目录约定，确认 `reports/` 与 `temp/` 均被 `.gitignore` 覆盖（本次新增 `reports/` 规则）；建立本主进度记录与 `docs/change-log.md` 变更记录机制；确立新功能分支开发 + PR 合入 + 代码检视流程。规范见 `AGENTS.md`。 |
+| 2026-10-21 | 落地项目管理规范 | 文档 / 规范 | 明确所有项目文件 UTF-8 无 BOM；确立 `docs/`、`reports/`、`temp/` 目录约定，确认 `reports/` 与 `temp/` 均被 `.gitignore` 覆盖（本次新增 `reports/` 规则）；建立本主进度记录与 `docs/change-log.md` 变更记录机制；确立新功能分支开发 + PR 合入 + 代码检视流程。规范见 `AGENTS.md`。变更经分支 `docs/project-conventions` 提交，代码检视修复 4 项问题后经 PR #7 合入 `main`。 |
 
 ## 专项进度入口
 
