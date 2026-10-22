@@ -12,6 +12,7 @@
 | --- | --- | --- | --- |
 | 2026-10-21 | 落地项目管理规范 | 文档 / 规范 | 明确所有项目文件 UTF-8 无 BOM；确立 `docs/`、`reports/`、`temp/` 目录约定，确认 `reports/` 与 `temp/` 均被 `.gitignore` 覆盖（本次新增 `reports/` 规则）；建立本主进度记录与 `docs/change-log.md` 变更记录机制；确立新功能分支开发 + PR 合入 + 代码检视流程。规范见 `AGENTS.md`。变更经分支 `docs/project-conventions` 提交，代码检视修复 4 项问题后经 PR #7 合入 `main`。 |
 | 2026-10-21 | 登录邮箱验证码（两步登录） | 后端 / 前端 / 数据库 / 文档 | 密码验证成功后按风险判定（登录 IP 变更或连续失败 3 次）触发 6 位邮箱验证码，验证通过才发放登录令牌；新增 migration `000012_login_email_mfa`、`internal/mail` SMTP 发信、`/api/v1/auth/mfa/verify|resend` 接口、登录页两步表单；验证码 10 分钟有效、单码 5 次原子校验上限、60 秒发送间隔、每小时 5 封，猜错计入登录锁定；SMTP 未配置自动关闭。变更经分支 `feat/login-email-mfa` 提交，两轮代码检视（修复并发绕过校验上限等 7 项问题）后经 PR #8 合入 `main`。生产启用需配置 SMTP 授权码并执行 migration，详见 `docs/plans/2026-10-21-login-email-mfa.md` 与 `docs/apis/auth.md`。 |
+| 2026-10-22 | Go 工具链安全升级与认证测试时钟修复 | 后端 / 部署 / 文档 | 修复 `govulncheck` 检出的 23 个可达漏洞（含 CVE-2026-111943 crypto/x509 信任链缺陷）：`backend/go.mod` 升级 `go 1.26.10`，`golang.org/x/text` v0.41.0、`golang.org/x/sync` v0.22.0，生产构建与本地开发镜像固定 `golang:1.26.10-alpine`；同时修复 `internal/auth/mfa_test.go` 硬编码时钟导致的定时失败并补齐 `config`、`logging` 的 gofmt。升级后 `govulncheck` 可达漏洞为 0，`go test ./...` 全绿。 |
 
 ## 专项进度入口
 
