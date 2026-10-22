@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultLogPrefix   = "backend"
+	defaultLogPrefix     = "backend"
 	defaultRetentionDays = 30
 	dateLayout           = "2006-01-02"
 )
