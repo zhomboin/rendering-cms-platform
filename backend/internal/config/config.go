@@ -9,14 +9,14 @@ import (
 )
 
 type Config struct {
-	HTTPAddr                  string
-	DatabaseURL               string
-	JWTSecret                 string
-	FrontendOrigin            string
-	FrontendOrigins           []string
-	LogDir                    string
+	HTTPAddr        string
+	DatabaseURL     string
+	JWTSecret       string
+	FrontendOrigin  string
+	FrontendOrigins []string
+	LogDir          string
 	// LogRetentionDays 按日日志文件保留天数，0 或非法值时使用后端默认 30。
-	LogRetentionDays int
+	LogRetentionDays          int
 	AppEnv                    string
 	DevBootstrapAdmin         bool
 	DevAdminEmail             string

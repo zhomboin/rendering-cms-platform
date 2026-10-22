@@ -45,7 +45,7 @@ services:
       "
 
   backend:
-    image: golang:1.26-alpine
+    image: golang:1.26.10-alpine
     container_name: rendering-cms-backend
     profiles:
       - backend

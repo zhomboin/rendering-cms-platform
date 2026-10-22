@@ -247,7 +247,7 @@ scripts/env/docker-compose.dev.yml
 | `postgres` | 本地 PostgreSQL 数据库 | `127.0.0.1:5432` |
 | `minio` | 本地 S3 兼容对象存储 | `127.0.0.1:9000` |
 | `minio-init` | 初始化 MinIO bucket | 无对外端口 |
-| `backend` | Go API 开发服务，使用 `golang:1.26-alpine` | `127.0.0.1:8080` |
+| `backend` | Go API 开发服务，使用 `golang:1.26.10-alpine` | `127.0.0.1:8080` |
 | `frontend` | Vite 前端开发服务，使用 `node:22-alpine` | `127.0.0.1:5173` |
 
 `backend` 和 `frontend` 使用 Docker Compose profile，不会随前置依赖服务自动启动。这样可以先启动数据库和 MinIO，再按需要单独启动后端或前端。

@@ -130,7 +130,7 @@ func TestHashLoginCode(t *testing.T) {
 }
 
 func TestLoginHandlerIssuesMFAChallengeOnIPChange(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
 	attempts := &loginAttemptStoreStub{}
 	codes := &emailCodeStoreStub{}
@@ -172,7 +172,7 @@ func TestLoginHandlerIssuesMFAChallengeOnIPChange(t *testing.T) {
 }
 
 func TestLoginHandlerSkipsResendWithinInterval(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
 	codes := &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, 0)}
 	recent := codes.activeCode
@@ -200,7 +200,7 @@ func TestLoginHandlerSkipsResendWithinInterval(t *testing.T) {
 }
 
 func TestLoginHandlerIssuesMFAChallengeAfterConsecutiveFailures(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("192.0.2.10"))}
 	attempts := &loginAttemptStoreStub{outcomes: []bool{false, false, false}}
 	handler := NewLoginHandler(testMFADeps(finder, attempts, &emailCodeStoreStub{}, &emailSenderStub{}, now))
@@ -221,7 +221,7 @@ func TestLoginHandlerIssuesMFAChallengeAfterConsecutiveFailures(t *testing.T) {
 }
 
 func TestLoginHandlerSkipsMFAWhenNoRisk(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("192.0.2.10"))}
 	attempts := &loginAttemptStoreStub{outcomes: []bool{true, false, false}}
 	codes := &emailCodeStoreStub{}
@@ -253,7 +253,7 @@ func TestLoginHandlerSkipsMFAWhenNoRisk(t *testing.T) {
 }
 
 func TestLoginHandlerMFASendFailure(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
 	handler := NewLoginHandler(testMFADeps(finder, &loginAttemptStoreStub{}, &emailCodeStoreStub{}, &emailSenderStub{err: errBoom}, now))
 
@@ -266,7 +266,7 @@ func TestLoginHandlerMFASendFailure(t *testing.T) {
 }
 
 func TestLoginHandlerMFAHourlyLimit(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
 	handler := NewLoginHandler(testMFADeps(finder, &loginAttemptStoreStub{}, &emailCodeStoreStub{recentCount: 5}, &emailSenderStub{}, now))
 
@@ -279,7 +279,7 @@ func TestLoginHandlerMFAHourlyLimit(t *testing.T) {
 }
 
 func TestLoginHandlerMFADevLog(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
 	logged := []string{}
 	deps := testMFADeps(finder, &loginAttemptStoreStub{}, &emailCodeStoreStub{}, nil, now)
@@ -329,7 +329,7 @@ func testMFAChallengeToken(now time.Time) string {
 }
 
 func TestMFAVerifyHandlerIssuesTokensOnCorrectCode(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), sha256String("198.51.100.7"))}
 	attempts := &loginAttemptStoreStub{}
 	codes := &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, 0), claimResults: 1}
@@ -363,7 +363,7 @@ func TestMFAVerifyHandlerIssuesTokensOnCorrectCode(t *testing.T) {
 }
 
 func TestMFAVerifyHandlerRejectsWrongCodeAndRecordsFailure(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	codes := &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, 0)}
 	attempts := &loginAttemptStoreStub{}
@@ -390,7 +390,7 @@ func TestMFAVerifyHandlerRejectsWrongCodeAndRecordsFailure(t *testing.T) {
 }
 
 func TestMFAVerifyHandlerRejectsExhaustedCode(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	codes := &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, loginCodeMaxVerifyAttempts), consumeErr: pgx.ErrNoRows}
 	attempts := &loginAttemptStoreStub{}
@@ -411,7 +411,7 @@ func TestMFAVerifyHandlerRejectsExhaustedCode(t *testing.T) {
 }
 
 func TestMFAVerifyHandlerRejectsExpiredCode(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	expired := testMFACodeRecord("654321", now, 0)
 	expired.ExpiresAt = pgtype.Timestamptz{Time: now.Add(-time.Minute), Valid: true}
@@ -430,7 +430,7 @@ func TestMFAVerifyHandlerRejectsExpiredCode(t *testing.T) {
 }
 
 func TestMFAVerifyHandlerRejectsClaimedCode(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	codes := &emailCodeStoreStub{activeCode: testMFACodeRecord("654321", now, 0), claimResults: 0}
 	handler := NewMFAVerifyHandler(testMFADeps(finder, &loginAttemptStoreStub{}, codes, &emailSenderStub{}, now))
@@ -444,7 +444,7 @@ func TestMFAVerifyHandlerRejectsClaimedCode(t *testing.T) {
 }
 
 func TestMFAVerifyHandlerRejectsInvalidChallengeToken(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	handler := NewMFAVerifyHandler(testMFADeps(&userFinderStub{}, &loginAttemptStoreStub{}, &emailCodeStoreStub{}, &emailSenderStub{}, now))
 
 	rec := httptest.NewRecorder()
@@ -456,7 +456,7 @@ func TestMFAVerifyHandlerRejectsInvalidChallengeToken(t *testing.T) {
 }
 
 func TestMFAVerifyHandlerReturnsServerErrorOnStoreFailure(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 
 	codes := &emailCodeStoreStub{activeErr: errBoom}
@@ -477,7 +477,7 @@ func TestMFAVerifyHandlerReturnsServerErrorOnStoreFailure(t *testing.T) {
 }
 
 func TestMFAVerifyHandlerTreatsMissingCodeAsUnauthorized(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	codes := &emailCodeStoreStub{activeErr: pgx.ErrNoRows}
 	handler := NewMFAVerifyHandler(testMFADeps(finder, &loginAttemptStoreStub{}, codes, &emailSenderStub{}, now))
@@ -499,7 +499,7 @@ func newMFAResendRequest(challengeToken string) *http.Request {
 }
 
 func TestMFAResendHandlerRateLimitsWithinInterval(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	latest := testMFACodeRecord("654321", now, 0)
 	latest.CreatedAt = pgtype.Timestamptz{Time: now.Add(-30 * time.Second), Valid: true}
@@ -519,7 +519,7 @@ func TestMFAResendHandlerRateLimitsWithinInterval(t *testing.T) {
 }
 
 func TestMFAResendHandlerHourlyLimitKeepsOldCode(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	latest := testMFACodeRecord("654321", now, 0)
 	latest.CreatedAt = pgtype.Timestamptz{Time: now.Add(-2 * time.Minute), Valid: true}
@@ -539,7 +539,7 @@ func TestMFAResendHandlerHourlyLimitKeepsOldCode(t *testing.T) {
 }
 
 func TestMFAResendHandlerIssuesNewCode(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	latest := testMFACodeRecord("654321", now, 0)
 	latest.CreatedAt = pgtype.Timestamptz{Time: now.Add(-2 * time.Minute), Valid: true}
@@ -569,7 +569,7 @@ func TestMFAResendHandlerIssuesNewCode(t *testing.T) {
 }
 
 func TestMFAResendHandlerWithoutActiveCode(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	finder := &userFinderStub{user: testMFAUser(testMFAPasswordHash(t), "")}
 	codes := &emailCodeStoreStub{activeErr: pgx.ErrNoRows}
 	sender := &emailSenderStub{}
