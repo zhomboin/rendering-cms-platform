@@ -120,12 +120,17 @@ type analyticsStoreStub struct {
 	siteTrendRows         []dbgen.ListSiteViewTrendRow
 	articleTrendRows      []dbgen.ListArticleViewTrendRow
 	byArticleNameArticle  dbgen.GetArticleByArticleNameRow
+	publishedAlbum        dbgen.GetPublishedPhotoAlbumBySlugRow
+	albumLookupErr        error
 	createEventErr        error
 	createdEvents         []dbgen.CreateAnalyticsEventParams
 	lastArticleNameLookup string
 	lastArticleViewID     pgtype.UUID
 	articleViewCalls      int
 	siteViewCalls         int
+	albumViewCalls        int
+	lastAlbumViewID       pgtype.UUID
+	lastAlbumSlugLookup   string
 	lastSiteTrendDays     int32
 	lastArticleTrendDays  int32
 }
@@ -133,6 +138,12 @@ type analyticsStoreStub struct {
 func (s *analyticsStoreStub) UpsertArticleViewDaily(ctx context.Context, arg dbgen.UpsertArticleViewDailyParams) error {
 	s.lastArticleViewID = arg.ArticleID
 	s.articleViewCalls++
+	return nil
+}
+
+func (s *analyticsStoreStub) UpsertAlbumViewDaily(ctx context.Context, arg dbgen.UpsertAlbumViewDailyParams) error {
+	s.lastAlbumViewID = arg.AlbumID
+	s.albumViewCalls++
 	return nil
 }
 
@@ -147,6 +158,17 @@ func (s *analyticsStoreStub) CreateAnalyticsEvent(ctx context.Context, arg dbgen
 		return dbgen.CreateAnalyticsEventRow{}, s.createEventErr
 	}
 	return dbgen.CreateAnalyticsEventRow{}, nil
+}
+
+func (s *analyticsStoreStub) GetPublishedPhotoAlbumBySlug(ctx context.Context, slug string) (dbgen.GetPublishedPhotoAlbumBySlugRow, error) {
+	s.lastAlbumSlugLookup = slug
+	if s.albumLookupErr != nil {
+		return dbgen.GetPublishedPhotoAlbumBySlugRow{}, s.albumLookupErr
+	}
+	if s.publishedAlbum.AlbumID.Valid {
+		return s.publishedAlbum, nil
+	}
+	return dbgen.GetPublishedPhotoAlbumBySlugRow{}, pgx.ErrNoRows
 }
 
 func (s *analyticsStoreStub) GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error) {

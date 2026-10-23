@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 type Client struct {
 	bucket    string
+	api       *s3.Client
 	presigner *s3.PresignClient
 }
 
@@ -43,6 +45,7 @@ func NewS3Client(cfg config.S3Config) (*Client, error) {
 
 	return &Client{
 		bucket:    cfg.Bucket,
+		api:       s3Client,
 		presigner: s3.NewPresignClient(s3Client),
 	}, nil
 }
@@ -71,4 +74,25 @@ func (c *Client) PresignDownloadURL(ctx context.Context, key string, expires tim
 		return "", err
 	}
 	return request.URL, nil
+}
+
+// PutObject 由后端直接写入对象，用于照片等内容需要服务端处理后再落存储的场景。
+// cacheControl 写入对象元数据，公开访问时由对象存储原样返回。
+func (c *Client) PutObject(ctx context.Context, key string, body []byte, contentType string, cacheControl string) error {
+	_, err := c.api.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:       aws.String(c.bucket),
+		Key:          aws.String(key),
+		Body:         bytes.NewReader(body),
+		ContentType:  aws.String(contentType),
+		CacheControl: aws.String(cacheControl),
+	})
+	return err
+}
+
+func (c *Client) DeleteObject(ctx context.Context, key string) error {
+	_, err := c.api.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(key),
+	})
+	return err
 }

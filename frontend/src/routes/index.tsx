@@ -4,6 +4,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AdminLayout from '../layouts/AdminLayout';
 
 const AssetsPage = lazy(() => import('../pages/assets/AssetsPage'));
+const AlbumEditPage = lazy(() => import('../pages/albums/AlbumEditPage'));
+const AlbumsPage = lazy(() => import('../pages/albums/AlbumsPage'));
 const ArticleEditorPage = lazy(() => import('../pages/articles/ArticleEditorPage'));
 const ArticleListPage = lazy(() => import('../pages/articles/ArticleListPage'));
 const ArticleReadingPage = lazy(() => import('../pages/articles/ArticleReadingPage'));
@@ -34,6 +36,9 @@ export function AppRoutes() {
             <Route path="articles/:id/edit" element={<ArticleEditorPage />} />
             <Route path="comments" element={<CommentsPage />} />
             <Route path="assets" element={<AssetsPage />} />
+            <Route path="albums" element={<AlbumsPage />} />
+            <Route path="albums/new" element={<AlbumEditPage />} />
+            <Route path="albums/:id/edit" element={<AlbumEditPage />} />
           </Route>
         </Routes>
       </Suspense>

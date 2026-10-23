@@ -141,6 +141,48 @@ func (ns NullCommentStatus) Value() (driver.Value, error) {
 	return string(ns.CommentStatus), nil
 }
 
+type PhotoAlbumStatus string
+
+const (
+	PhotoAlbumStatusDraft     PhotoAlbumStatus = "draft"
+	PhotoAlbumStatusPublished PhotoAlbumStatus = "published"
+)
+
+func (e *PhotoAlbumStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PhotoAlbumStatus(s)
+	case string:
+		*e = PhotoAlbumStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PhotoAlbumStatus: %T", src)
+	}
+	return nil
+}
+
+type NullPhotoAlbumStatus struct {
+	PhotoAlbumStatus PhotoAlbumStatus
+	Valid            bool // Valid is true if PhotoAlbumStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPhotoAlbumStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.PhotoAlbumStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PhotoAlbumStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPhotoAlbumStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PhotoAlbumStatus), nil
+}
+
 type UserRole string
 
 const (
@@ -183,6 +225,25 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 	return string(ns.UserRole), nil
 }
 
+type AlbumPhoto struct {
+	PhotoID   pgtype.UUID
+	AlbumID   pgtype.UUID
+	AssetID   pgtype.UUID
+	Alt       string
+	Caption   pgtype.Text
+	Width     int32
+	Height    int32
+	TakenAt   pgtype.Timestamptz
+	Position  int32
+	CreatedAt pgtype.Timestamptz
+}
+
+type AlbumViewDaily struct {
+	AlbumID  pgtype.UUID
+	ViewDate pgtype.Date
+	Views    int32
+}
+
 type AnalyticsEvent struct {
 	EventID   pgtype.UUID
 	ArticleID pgtype.UUID
@@ -191,6 +252,7 @@ type AnalyticsEvent struct {
 	UserAgent pgtype.Text
 	CreatedAt pgtype.Timestamptz
 	EventDate pgtype.Date
+	AlbumID   pgtype.UUID
 }
 
 type Article struct {
@@ -263,6 +325,8 @@ type Asset struct {
 	CreatedAt   pgtype.Timestamptz
 	Status      AssetStatus
 	DeletedAt   pgtype.Timestamptz
+	Width       pgtype.Int4
+	Height      pgtype.Int4
 }
 
 type Comment struct {
@@ -304,6 +368,22 @@ type LoginEmailCode struct {
 	Attempts  int32
 	UsedAt    pgtype.Timestamptz
 	CreatedAt pgtype.Timestamptz
+}
+
+type PhotoAlbum struct {
+	AlbumID       pgtype.UUID
+	Slug          string
+	Title         string
+	TitleEn       pgtype.Text
+	Description   string
+	DescriptionEn pgtype.Text
+	Status        PhotoAlbumStatus
+	Tags          []string
+	CoverPhotoID  pgtype.UUID
+	PublishedAt   pgtype.Timestamptz
+	CreatedBy     pgtype.UUID
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
 }
 
 type SiteViewDaily struct {

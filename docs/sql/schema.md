@@ -9,6 +9,7 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - `article_status`：文章状态，当前包含 `draft`、`published`、`private`、`archived`；`private` 由 `000011_article_private_status` migration 加入，仅后台可见。
 - `comment_status`：评论审核状态，当前包含 `pending`、`approved`、`rejected`。
 - `asset_status`：资源生命周期状态，当前包含 `active`、`archived`、`deleted`。
+- `photo_album_status`：相册状态，包含 `draft`、`published`；仅 `published` 相册对外可见。
 
 ## 核心表
 
@@ -22,9 +23,12 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - `article_view_history`：文章历史日访问量表，每天统计完成后把当日访问量归档到该表。
 - `site_view_daily`：站点当日访问量聚合表，只保留当天写入中的访问量，以 `view_date` 作为主键。
 - `site_view_history`：站点历史日访问量表，每天统计完成后把当日访问量归档到该表。
-- `analytics_events`：访问事件明细表，保存事件类型、文章关联、IP 哈希、User-Agent、事件日期和创建时间，用于公开统计去重及后续更细粒度分析。
-- `assets`：上传文件元数据表，保存文件名、内容类型、字节数、对象存储 key、可选公开地址、创建人、创建时间、生命周期状态和软删除时间。
+- `analytics_events`：访问事件明细表，保存事件类型、文章关联、相册关联、IP 哈希、User-Agent、事件日期和创建时间，用于公开统计去重及后续更细粒度分析。
+- `album_view_daily`：相册当日访问量聚合表，以 `album_id` 和 `view_date` 作为联合主键。
+- `assets`：上传文件元数据表，保存文件名、内容类型、字节数、对象存储 key、可选公开地址、创建人、创建时间、生命周期状态、软删除时间，以及图片类资产的像素宽高 `width`、`height`（由服务端从图片字节提取，非图片为空）。
 - `download_events`：文件下载审计表，记录资产、访问端哈希、User-Agent 和发生时间。
+- `photo_albums`：相册主表，保存 slug（`^[a-z0-9]+(-[a-z0-9]+)*$`，全站唯一，发布后不可改）、中英文标题与导语、状态、标签、封面照片引用 `cover_photo_id`（可空，缺省取第一张照片）、发布时间（首次发布写入并保持稳定）、创建人与时间戳。
+- `album_photos`：相册照片表，保存照片 `alt`（必填）、可选说明 `caption`、服务端提取的像素宽高、可选拍摄时间 `taken_at`、相册内顺序 `position`（新照片追加到末尾），并引用 `assets` 保存文件元数据。
 
 ## 关联关系
 
@@ -37,6 +41,12 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - `analytics_events.article_id` 可选引用 `articles.article_id`，文章删除时级联删除关联事件。
 - `assets.created_by` 引用 `users.user_id`。
 - `download_events.asset_id` 引用 `assets.asset_id`，资产删除时级联删除下载审计。
+- `photo_albums.created_by` 引用 `users.user_id`。
+- `photo_albums.cover_photo_id` 可选引用 `album_photos.photo_id`，指向相册内某张照片作为封面。
+- `album_photos.album_id` 引用 `photo_albums.album_id`，相册删除时级联删除照片记录。
+- `album_photos.asset_id` 引用 `assets.asset_id`，保存照片文件本体元数据。
+- `album_view_daily.album_id` 引用 `photo_albums.album_id`，相册删除时级联删除统计聚合。
+- `analytics_events.album_id` 可选引用 `photo_albums.album_id`，相册删除时级联删除关联事件。
 
 ## 隐私规则
 
@@ -94,7 +104,17 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - 如果访问请求和归档任务并发，归档后才写入旧日期 daily 表的记录会保留到下一次归档继续累加，不允许用“先写 history 再 delete daily”的两步 SQL。
 - 历史查询、趋势统计和长期总量应优先读取 history 表，并按需要合并当天 daily 表。
 - `analytics_events` 是公开统计接口的去重基础，不替代 daily/history 聚合表；后台趋势接口默认读取聚合表。
-- `analytics_events_unique_daily_idx` 使用 `event_type + ip_hash + article_id + event_date` 防止同一来源在同一天对同一文章或站点访问无限刷量。
+- `analytics_events_unique_daily_idx` 使用 `event_type + ip_hash + article_id + album_id + event_date` 防止同一来源在同一天对同一文章、相册或站点访问无限刷量。
+
+## 相册规则
+
+- 公开接口只返回 `published` 相册，公开读取 SQL 一律带 `status = 'published'` 过滤；未发布或已下架相册的公开访问返回 `404`。
+- 状态流转只有 `draft -> published`（发布）与 `published -> draft`（下架），SQL 在 `where` 中校验前置状态；发布要求相册至少有一张照片。
+- `photo_albums.published_at` 首次发布写入并保持稳定（`coalesce(published_at, now())`），下架与重新发布不修改，保证相册列表按 `published_at` 倒序的顺序稳定。
+- 相册照片总数 `photoCount` 不落库，由查询按 `album_photos` 实时计算，永远与照片表一致。
+- 封面解析规则：优先 `cover_photo_id` 指定的照片，未指定或被删除时回退相册内第一张照片（`position` 升序）；被删除的照片如果正是封面，删除接口同步清空封面引用。
+- 照片上传为后端代理链路：写入对象存储前完成魔数校验（仅 PNG / JPEG / WebP）、像素宽高提取与 EXIF 剥离（含 GPS），`assets.width` / `height` 保存权威尺寸。
+- 照片对象存储在 `S3_PHOTO_PREFIX`（默认 `photos`）前缀下，key 含 UUID、内容不可变；删除相册或照片时软删 `assets` 并尽力删除对象。
 
 ## 文件治理规则
 
