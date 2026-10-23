@@ -14,6 +14,7 @@ import (
 const createAnalyticsEvent = `-- name: CreateAnalyticsEvent :one
 insert into analytics_events (
   article_id,
+  album_id,
   event_type,
   ip_hash,
   user_agent
@@ -21,13 +22,15 @@ insert into analytics_events (
   $1,
   $2,
   $3,
-  $4
+  $4,
+  $5
 )
-returning event_id, article_id, event_type, ip_hash, user_agent, created_at
+returning event_id, article_id, album_id, event_type, ip_hash, user_agent, created_at
 `
 
 type CreateAnalyticsEventParams struct {
 	ArticleID pgtype.UUID
+	AlbumID   pgtype.UUID
 	EventType string
 	IpHash    string
 	UserAgent pgtype.Text
@@ -36,6 +39,7 @@ type CreateAnalyticsEventParams struct {
 type CreateAnalyticsEventRow struct {
 	EventID   pgtype.UUID
 	ArticleID pgtype.UUID
+	AlbumID   pgtype.UUID
 	EventType string
 	IpHash    string
 	UserAgent pgtype.Text
@@ -45,6 +49,7 @@ type CreateAnalyticsEventRow struct {
 func (q *Queries) CreateAnalyticsEvent(ctx context.Context, arg CreateAnalyticsEventParams) (CreateAnalyticsEventRow, error) {
 	row := q.db.QueryRow(ctx, createAnalyticsEvent,
 		arg.ArticleID,
+		arg.AlbumID,
 		arg.EventType,
 		arg.IpHash,
 		arg.UserAgent,
@@ -53,6 +58,7 @@ func (q *Queries) CreateAnalyticsEvent(ctx context.Context, arg CreateAnalyticsE
 	err := row.Scan(
 		&i.EventID,
 		&i.ArticleID,
+		&i.AlbumID,
 		&i.EventType,
 		&i.IpHash,
 		&i.UserAgent,

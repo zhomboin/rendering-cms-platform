@@ -22,7 +22,7 @@ insert into assets (
 ) values (
   $1, $2, $3, $4, $5, $6
 )
-returning asset_id, filename, content_type, byte_size, storage_key, public_url, created_by, created_at, status, deleted_at
+returning asset_id, filename, content_type, byte_size, storage_key, public_url, created_by, created_at, status, deleted_at, width, height
 `
 
 type CreateAssetParams struct {
@@ -55,6 +55,8 @@ func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset
 		&i.CreatedAt,
 		&i.Status,
 		&i.DeletedAt,
+		&i.Width,
+		&i.Height,
 	)
 	return i, err
 }
@@ -90,7 +92,7 @@ func (q *Queries) CreateDownloadEvent(ctx context.Context, arg CreateDownloadEve
 }
 
 const getAssetByID = `-- name: GetAssetByID :one
-select asset_id, filename, content_type, byte_size, storage_key, public_url, created_by, created_at, status, deleted_at
+select asset_id, filename, content_type, byte_size, storage_key, public_url, created_by, created_at, status, deleted_at, width, height
 from assets
 where asset_id = $1
 `
@@ -109,12 +111,14 @@ func (q *Queries) GetAssetByID(ctx context.Context, assetID pgtype.UUID) (Asset,
 		&i.CreatedAt,
 		&i.Status,
 		&i.DeletedAt,
+		&i.Width,
+		&i.Height,
 	)
 	return i, err
 }
 
 const listAssets = `-- name: ListAssets :many
-select asset_id, filename, content_type, byte_size, storage_key, public_url, created_by, created_at, status, deleted_at
+select asset_id, filename, content_type, byte_size, storage_key, public_url, created_by, created_at, status, deleted_at, width, height
 from assets
 order by created_at desc
 `
@@ -139,6 +143,8 @@ func (q *Queries) ListAssets(ctx context.Context) ([]Asset, error) {
 			&i.CreatedAt,
 			&i.Status,
 			&i.DeletedAt,
+			&i.Width,
+			&i.Height,
 		); err != nil {
 			return nil, err
 		}
@@ -156,7 +162,7 @@ set
   status = $1::asset_status,
   deleted_at = $2
 where asset_id = $3
-returning asset_id, filename, content_type, byte_size, storage_key, public_url, created_by, created_at, status, deleted_at
+returning asset_id, filename, content_type, byte_size, storage_key, public_url, created_by, created_at, status, deleted_at, width, height
 `
 
 type UpdateAssetStatusParams struct {
@@ -179,6 +185,8 @@ func (q *Queries) UpdateAssetStatus(ctx context.Context, arg UpdateAssetStatusPa
 		&i.CreatedAt,
 		&i.Status,
 		&i.DeletedAt,
+		&i.Width,
+		&i.Height,
 	)
 	return i, err
 }

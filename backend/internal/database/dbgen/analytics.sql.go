@@ -252,6 +252,24 @@ func (q *Queries) ListSiteViewsLast7Days(ctx context.Context) ([]ListSiteViewsLa
 	return items, nil
 }
 
+const upsertAlbumViewDaily = `-- name: UpsertAlbumViewDaily :exec
+insert into album_view_daily (album_id, view_date, views)
+values ($1, $2, $3)
+on conflict (album_id, view_date)
+do update set views = album_view_daily.views + excluded.views
+`
+
+type UpsertAlbumViewDailyParams struct {
+	AlbumID  pgtype.UUID
+	ViewDate pgtype.Date
+	Views    int32
+}
+
+func (q *Queries) UpsertAlbumViewDaily(ctx context.Context, arg UpsertAlbumViewDailyParams) error {
+	_, err := q.db.Exec(ctx, upsertAlbumViewDaily, arg.AlbumID, arg.ViewDate, arg.Views)
+	return err
+}
+
 const upsertArticleViewDaily = `-- name: UpsertArticleViewDaily :exec
 insert into article_view_daily (article_id, view_date, views)
 values ($1, $2, $3)

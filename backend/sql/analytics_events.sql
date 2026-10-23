@@ -1,16 +1,18 @@
 -- name: CreateAnalyticsEvent :one
 insert into analytics_events (
   article_id,
+  album_id,
   event_type,
   ip_hash,
   user_agent
 ) values (
   sqlc.narg(article_id),
+  sqlc.narg(album_id),
   sqlc.arg(event_type),
   sqlc.arg(ip_hash),
   sqlc.narg(user_agent)
 )
-returning event_id, article_id, event_type, ip_hash, user_agent, created_at;
+returning event_id, article_id, album_id, event_type, ip_hash, user_agent, created_at;
 
 -- name: ListSiteViewTrend :many
 with days as (
