@@ -29,6 +29,8 @@ backend/
   internal/analytics/         # 访问统计
   internal/comments/          # 评论提交与审核
   internal/assets/            # 文件上传下载与审计
+  internal/albums/            # 相册与照片管理（公开查询 + 后台管理）
+  internal/imaging/           # 照片处理：魔数嗅探、尺寸提取、EXIF 剥离
   internal/storage/           # S3 / MinIO 客户端
   migrations/                 # PostgreSQL migration
   sql/                        # sqlc 查询文件
@@ -70,6 +72,7 @@ cp scripts/env/dev.env.example .env
 - `S3_PUBLIC_BASE_URL`：公开访问对象的基础 URL，例如 `https://assets.rendering.me`，用于文章图片回填。
 - `S3_BLOG_IMAGE_PREFIX`：文章图片对象 key 前缀，默认 `blog`。
 - `S3_ASSET_FILE_PREFIX`：后台资源文件对象 key 前缀，默认 `assets`。
+- `S3_PHOTO_PREFIX`：相册照片对象 key 前缀，默认 `photos`；照片为公开内容，依赖 `S3_PUBLIC_BASE_URL` 拼接公开地址，未配置公共基地址时照片上传接口返回 `503`。
 
 ## 本地开发
 

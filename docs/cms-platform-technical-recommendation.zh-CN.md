@@ -140,10 +140,18 @@ rendering-cms-platform/
 - `article_logs` 字段与 `articles` 一致，使用 `article_id + version` 作为联合主键，不再单独生成日志主键。
 - 当前仓库的 `content/posts/*.mdx` 只作为导入来源和备份格式，不作为新项目运行时内容源。
 
+## 相册模型
+
+- 相册存 `photo_albums`（slug、中英文标题与导语、状态、标签、封面照片引用、发布时间），照片存 `album_photos`（alt、说明、服务端提取的像素宽高、拍摄时间、相册内顺序），文件本体元数据复用 `assets` 表。
+- 相册状态只有 `draft` 与 `published`；仅 `published` 相册对外可见，发布要求至少一张照片，`published_at` 首次发布写入并保持稳定。
+- 相册 slug 由管理员指定（小写字母、数字、中划线），发布后不可修改，保证博客路由 `/photos/{slug}` 稳定。
+- 照片上传走后端代理链路（区别于通用文件的预签名直传）：服务端完成魔数校验、像素尺寸提取、EXIF GPS 剥离后写入对象存储，对象携带长缓存头且内容不可变；接口契约见 `docs/apis/photos.md`。
+
 ## 统计模型
 
 - 第一版使用日聚合，不记录每一次明细访问。
 - 文章访问量写入 `article_view_daily`，该表只保存当天实时计数。
+- 相册访问量写入 `album_view_daily`，与文章访问共用每日 IP 哈希去重（`analytics_events` 唯一索引），同时计入站点访问量。
 - 站点访问量写入 `site_view_daily`，该表只保存当天实时计数。
 - 后端服务启动后先清理过期 daily 数据，之后每天本地时间 `00:05` 将历史日期访问量分别归档到 `article_view_history` 与 `site_view_history`。
 - 归档使用 `DELETE ... RETURNING` 原子搬迁 daily 数据，并在 history 已存在同日记录时累加访问量，避免并发访问和归档任务同时发生时丢失计数。

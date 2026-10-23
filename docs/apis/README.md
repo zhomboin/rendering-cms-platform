@@ -7,6 +7,7 @@
 - [统计 API](./analytics.md)
 - [评论 API](./comments.md)
 - [文件 API](./assets.md)
+- [相册 API](./photos.md)
 
 ## 通用规则
 
