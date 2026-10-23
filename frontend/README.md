@@ -22,6 +22,7 @@ frontend/
     app/                      # 应用级 Provider 和主题配置
     layouts/                  # 跨路由布局
     pages/                    # 路由页面
+      albums/
       articles/
       assets/
       auth/
@@ -47,6 +48,9 @@ frontend/
 - `/admin/articles/:id/edit`：编辑文章。
 - `/admin/comments`：评论审核。
 - `/admin/assets`：资源管理。
+- `/admin/albums`：相册管理。
+- `/admin/albums/new`：新建相册。
+- `/admin/albums/:id/edit`：相册编辑（元数据表单 + 照片墙管理）。
 
 后台页面使用 `src/layouts/AdminLayout.tsx` 作为统一壳层。访问 `/admin` 及其子路由时，如果本地没有登录 token，会跳转到 `/admin/login`；登录成功后回到原目标后台页面。
 
@@ -59,6 +63,7 @@ API client 位于 `src/api/client.ts`，使用 axios 实例统一封装请求。
 - `analytics.ts`：后台统计看板。
 - `comments.ts`：后台评论审核。
 - `assets.ts`：后台资源列表、预签名上传和下载。
+- `albums.ts`：相册管理与照片后端代理上传。
 
 页面和组件不得直接调用 `apiGet`、`apiPost`、`apiPatch`、`apiClient`、`fetch` 或 `axios` 方法，只能调用这些业务 API 文件暴露的类型化函数。
 

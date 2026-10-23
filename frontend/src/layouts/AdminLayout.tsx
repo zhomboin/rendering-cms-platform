@@ -8,6 +8,7 @@ import {
   FolderOutlined,
   LogoutOutlined,
   MenuOutlined,
+  PictureOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
@@ -22,6 +23,7 @@ const logoSrc = '/logo/icon.png';
 const menuItems = [
   { key: '/admin', icon: <DashboardOutlined />, label: '仪表盘' },
   { key: '/admin/articles', icon: <FileTextOutlined />, label: '文章管理' },
+  { key: '/admin/albums', icon: <PictureOutlined />, label: '相册管理' },
   { key: '/admin/comments', icon: <MessageOutlined />, label: '评论审核' },
   { key: '/admin/assets', icon: <FolderOutlined />, label: '资源管理' },
 ];
@@ -29,6 +31,7 @@ const menuItems = [
 const pageTitleMap: Record<string, string> = {
   '/admin': '仪表盘',
   '/admin/articles': '文章管理',
+  '/admin/albums': '相册管理',
   '/admin/comments': '评论审核',
   '/admin/assets': '资源管理',
 };
