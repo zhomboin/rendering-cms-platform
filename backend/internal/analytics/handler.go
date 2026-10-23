@@ -26,8 +26,10 @@ type Handler struct {
 type analyticsStore interface {
 	GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error)
 	GetArticleByArticleName(ctx context.Context, articleName string) (dbgen.GetArticleByArticleNameRow, error)
+	GetPublishedPhotoAlbumBySlug(ctx context.Context, slug string) (dbgen.GetPublishedPhotoAlbumBySlugRow, error)
 	CreateAnalyticsEvent(ctx context.Context, arg dbgen.CreateAnalyticsEventParams) (dbgen.CreateAnalyticsEventRow, error)
 	UpsertArticleViewDaily(ctx context.Context, arg dbgen.UpsertArticleViewDailyParams) error
+	UpsertAlbumViewDaily(ctx context.Context, arg dbgen.UpsertAlbumViewDailyParams) error
 	UpsertSiteViewDaily(ctx context.Context, arg dbgen.UpsertSiteViewDailyParams) error
 	GetTodaySiteViews(ctx context.Context) (int32, error)
 	ListSiteViewsLast7Days(ctx context.Context) ([]dbgen.ListSiteViewsLast7DaysRow, error)
@@ -40,6 +42,7 @@ type analyticsStore interface {
 const (
 	analyticsEventArticleView = "article_view"
 	analyticsEventSiteView    = "site_view"
+	analyticsEventAlbumView   = "album_view"
 )
 
 func NewHandler(queries analyticsStore) Handler {
@@ -48,6 +51,7 @@ func NewHandler(queries analyticsStore) Handler {
 
 func (h Handler) RegisterPublicRoutes(router chi.Router) {
 	router.Post("/api/v1/articles/{slug}/views", h.recordArticleView)
+	router.Post("/api/v1/photos/{slug}/views", h.recordAlbumView)
 	router.Post("/api/v1/analytics/site-views", h.recordSiteView)
 }
 
@@ -67,7 +71,7 @@ func (h Handler) recordArticleView(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "文章读取失败")
 		return
 	}
-	counted, err := h.recordAnalyticsEvent(r, analyticsEventArticleView, articleID)
+	counted, err := h.recordAnalyticsEvent(r, analyticsEventArticleView, articleID, pgtype.UUID{})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "访问事件记录失败")
 		return
@@ -112,6 +116,48 @@ func (h Handler) resolveArticleID(ctx context.Context, identifier string) (pgtyp
 	return article.ArticleID, nil
 }
 
+// recordAlbumView 与文章浏览上报对称：仅对已发布相册计数，
+// 计入相册日聚合与站点日聚合，返回 204。
+func (h Handler) recordAlbumView(w http.ResponseWriter, r *http.Request) {
+	album, err := h.queries.GetPublishedPhotoAlbumBySlug(r.Context(), chi.URLParam(r, "slug"))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "相册不存在")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "相册读取失败")
+		return
+	}
+	counted, err := h.recordAnalyticsEvent(r, analyticsEventAlbumView, pgtype.UUID{}, album.AlbumID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "访问事件记录失败")
+		return
+	}
+	if !counted {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	today := pgtype.Date{Time: time.Now(), Valid: true}
+	if err := h.queries.UpsertAlbumViewDaily(r.Context(), dbgen.UpsertAlbumViewDailyParams{
+		AlbumID:  album.AlbumID,
+		ViewDate: today,
+		Views:    1,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "相册访问统计写入失败")
+		return
+	}
+	if err := h.queries.UpsertSiteViewDaily(r.Context(), dbgen.UpsertSiteViewDailyParams{
+		ViewDate: today,
+		Views:    1,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "站点访问统计写入失败")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h Handler) recordSiteView(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Path     string `json:"path"`
@@ -120,7 +166,7 @@ func (h Handler) recordSiteView(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil && !errors.Is(err, io.EOF) {
 		// Rendering 静态站上报失败不应影响访问；扩展字段无效时仍记录一次站点 PV。
 	}
-	counted, err := h.recordAnalyticsEvent(r, analyticsEventSiteView, pgtype.UUID{})
+	counted, err := h.recordAnalyticsEvent(r, analyticsEventSiteView, pgtype.UUID{}, pgtype.UUID{})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "访问事件记录失败")
 		return
@@ -142,9 +188,10 @@ func (h Handler) recordSiteView(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h Handler) recordAnalyticsEvent(r *http.Request, eventType string, articleID pgtype.UUID) (bool, error) {
+func (h Handler) recordAnalyticsEvent(r *http.Request, eventType string, articleID pgtype.UUID, albumID pgtype.UUID) (bool, error) {
 	_, err := h.queries.CreateAnalyticsEvent(r.Context(), dbgen.CreateAnalyticsEventParams{
 		ArticleID: articleID,
+		AlbumID:   albumID,
 		EventType: eventType,
 		IpHash:    httpapi.ClientIPHash(r),
 		UserAgent: nullableText(r.UserAgent()),

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"rendering-cms-platform/backend/internal/albums"
 	"rendering-cms-platform/backend/internal/analytics"
 	"rendering-cms-platform/backend/internal/articles"
 	"rendering-cms-platform/backend/internal/assets"
@@ -84,6 +85,11 @@ func main() {
 		BlogImagePrefix: cfg.S3.BlogImagePrefix,
 		AssetFilePrefix: cfg.S3.AssetFilePrefix,
 	})
+	// 相册照片为公开内容：走独立 photos 前缀并要求配置公共访问基地址。
+	albumHandler := albums.NewHandlerWithOptions(queries, storageClient, albums.HandlerOptions{
+		PublicBaseURL: cfg.S3.PublicBaseURL,
+		PhotoPrefix:   cfg.S3.PhotoPrefix,
+	})
 
 	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
 	defer stopScheduler()
@@ -110,12 +116,14 @@ func main() {
 			}),
 			httpapi.WithPublicArticleReadRoutes(articleHandler.RegisterPublicReadRoutes),
 			httpapi.WithPublicArticleSearchRoutes(articleHandler.RegisterPublicSearchRoutes),
+			httpapi.WithPublicPhotoReadRoutes(albumHandler.RegisterPublicReadRoutes),
 			httpapi.WithPublicRoutes(analyticsHandler.RegisterPublicRoutes),
 			httpapi.WithPublicRoutes(commentHandler.RegisterPublicRoutes),
 			httpapi.WithAdminRoutes(articleHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(analyticsHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(commentHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(assetHandler.RegisterAdminRoutes),
+			httpapi.WithAdminRoutes(albumHandler.RegisterAdminRoutes),
 		),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

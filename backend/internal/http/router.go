@@ -22,6 +22,7 @@ type RouterConfig struct {
 	PublicRoutes              []RouteRegistrar
 	PublicArticleReadRoutes   []RouteRegistrar
 	PublicArticleSearchRoutes []RouteRegistrar
+	PublicPhotoReadRoutes     []RouteRegistrar
 	PublicTrafficLimits       PublicTrafficLimits
 	AdminRoutes               []RouteRegistrar
 }
@@ -107,6 +108,12 @@ func WithPublicArticleSearchRoutes(registrar RouteRegistrar) RouterOption {
 	}
 }
 
+func WithPublicPhotoReadRoutes(registrar RouteRegistrar) RouterOption {
+	return func(config *RouterConfig) {
+		config.PublicPhotoReadRoutes = append(config.PublicPhotoReadRoutes, registrar)
+	}
+}
+
 func WithPublicTrafficLimits(limits PublicTrafficLimits) RouterOption {
 	return func(config *RouterConfig) {
 		config.PublicTrafficLimits = limits
@@ -174,7 +181,9 @@ func NewRouter(options ...RouterOption) http.Handler {
 }
 
 func registerLimitedPublicRoutes(router chi.Router, config RouterConfig) {
-	if len(config.PublicArticleReadRoutes) == 0 && len(config.PublicArticleSearchRoutes) == 0 {
+	if len(config.PublicArticleReadRoutes) == 0 &&
+		len(config.PublicArticleSearchRoutes) == 0 &&
+		len(config.PublicPhotoReadRoutes) == 0 {
 		return
 	}
 	limits := config.PublicTrafficLimits
@@ -210,11 +219,15 @@ func registerLimitedPublicRoutes(router chi.Router, config RouterConfig) {
 	})
 	concurrencyLimit := ConcurrencyLimitMiddleware(limits.MaxInFlight)
 
-	if len(config.PublicArticleReadRoutes) > 0 {
+	// 相册公开读取与文章读取共享同一限流组：均为博客 ISR 低频访问。
+	if len(config.PublicArticleReadRoutes) > 0 || len(config.PublicPhotoReadRoutes) > 0 {
 		router.Group(func(public chi.Router) {
 			public.Use(concurrencyLimit)
 			public.Use(RateLimitMiddleware(readLimiter))
 			for _, registrar := range config.PublicArticleReadRoutes {
+				registrar(public)
+			}
+			for _, registrar := range config.PublicPhotoReadRoutes {
 				registrar(public)
 			}
 		})
