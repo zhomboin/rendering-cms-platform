@@ -5,16 +5,16 @@ import (
 	"encoding/binary"
 )
 
-// StripEXIF 从图片中删除 EXIF 元数据（含 GPS 等隐私信息），不做像素重编码、无损保持画质。
-// 返回处理后的数据；changed 表示是否实际移除了内容。无法剥离时返回错误，调用方应拒绝存储。
-func StripEXIF(data []byte, contentType string) ([]byte, bool, error) {
+// StripMetadata 从图片中删除 EXIF 与 XMP 等元数据段（含 GPS 等隐私信息），不做像素重编码、无损保持画质。
+// 返回处理后的数据；changed 表示是否实际移除或改写了内容。无法剥离时返回错误，调用方应拒绝存储。
+func StripMetadata(data []byte, contentType string) ([]byte, bool, error) {
 	switch contentType {
 	case TypeJPEG:
-		return stripJPEGEXIF(data)
+		return stripJPEGMetadata(data)
 	case TypePNG:
-		return stripPNGEXIF(data)
+		return stripPNGMetadata(data)
 	case TypeWebP:
-		return stripWebPEXIF(data)
+		return stripWebPMetadata(data)
 	default:
 		return nil, false, ErrUnknownFormat
 	}
@@ -39,8 +39,10 @@ func exifPayload(data []byte, contentType string) ([]byte, bool) {
 	}
 }
 
-// JPEG：按段结构遍历到 SOS 为止，删除 "Exif\0\0" 开头的 APP1 段，其余字节原样保留。
-func stripJPEGEXIF(data []byte) ([]byte, bool, error) {
+// JPEG：按段结构遍历到 SOS 为止，丢弃元数据段，其余字节原样保留。
+// 丢弃：APP1（EXIF / XMP / 扩展 XMP）、APP3–APP13、APP15（厂商私有元数据，含 Photoshop IRB）、COM（注释）。
+// 保留：APP0（JFIF）、APP2（ICC 色彩描述）、APP14（Adobe 色彩变换，影响解码）及全部解码段。
+func stripJPEGMetadata(data []byte) ([]byte, bool, error) {
 	if len(data) < 4 || data[0] != 0xFF || data[1] != 0xD8 {
 		return nil, false, ErrCorrupted
 	}
@@ -74,7 +76,7 @@ func stripJPEGEXIF(data []byte) ([]byte, bool, error) {
 		if segmentLength < 2 || pos+segmentLength > len(data) {
 			return nil, false, ErrCorrupted
 		}
-		if marker == 0xE1 && segmentLength >= 8 && string(data[pos+2:pos+8]) == "Exif\x00\x00" {
+		if jpegMetadataMarker(marker) {
 			changed = true
 		} else {
 			out = append(out, 0xFF, marker)
@@ -88,6 +90,18 @@ func stripJPEGEXIF(data []byte) ([]byte, bool, error) {
 		pos += segmentLength
 	}
 	return out, changed, nil
+}
+
+// jpegMetadataMarker 判定段是否为可安全丢弃的元数据段（APP1/APP3..APP13/APP15/COM）。
+// APP0（JFIF）、APP2（ICC）、APP14（Adobe 色彩变换）参与解码或色彩还原，不在其列。
+func jpegMetadataMarker(marker byte) bool {
+	if marker == 0xFE {
+		return true
+	}
+	if marker >= 0xE1 && marker <= 0xEF && marker != 0xE0 && marker != 0xE2 && marker != 0xEE {
+		return true
+	}
+	return false
 }
 
 func findJPEGExifSegment(data []byte) (start int, end int, ok bool) {
@@ -129,8 +143,9 @@ func findJPEGExifSegment(data []byte) (start int, end int, ok bool) {
 	return 0, 0, false
 }
 
-// PNG：按 chunk 表删除 eXIf chunk，其余 chunk（含 CRC）原样保留。
-func stripPNGEXIF(data []byte) ([]byte, bool, error) {
+// PNG：按 chunk 表丢弃 eXIf 与文本元数据 chunk（tEXt / zTXt / iTXt，XMP 位于
+// iTXt 的 "XML:com.adobe.xmp" 关键字），其余 chunk（含 CRC、iCCP 色彩描述）原样保留。
+func stripPNGMetadata(data []byte) ([]byte, bool, error) {
 	if !bytes.HasPrefix(data, pngSignature) {
 		return nil, false, ErrCorrupted
 	}
@@ -146,7 +161,7 @@ func stripPNGEXIF(data []byte) ([]byte, bool, error) {
 		if length < 0 || pos+total > len(data) {
 			return nil, false, ErrCorrupted
 		}
-		if chunkType == "eXIf" {
+		if chunkType == "eXIf" || chunkType == "tEXt" || chunkType == "zTXt" || chunkType == "iTXt" {
 			changed = true
 		} else {
 			out = append(out, data[pos:pos+total]...)
@@ -177,8 +192,9 @@ func findPNGChunk(data []byte, chunkType string) ([]byte, bool) {
 	return nil, false
 }
 
-// WebP：删除 RIFF 容器中的 EXIF chunk，并同步清除 VP8X 标志位中的 EXIF 位、修正 RIFF 总长。
-func stripWebPEXIF(data []byte) ([]byte, bool, error) {
+// WebP：删除 RIFF 容器中的 EXIF 与 XMP chunk，并同步清除 VP8X 标志位中的
+// EXIF 位（0x08）与 XMP 位（0x04）、修正 RIFF 总长；ICCP 等其余 chunk 原样保留。
+func stripWebPMetadata(data []byte) ([]byte, bool, error) {
 	if !isWebP(data) {
 		return nil, false, ErrCorrupted
 	}
@@ -196,15 +212,16 @@ func stripWebPEXIF(data []byte) ([]byte, bool, error) {
 			return nil, false, ErrCorrupted
 		}
 		chunk := data[pos : pos+8+padded]
-		if fourCC == "EXIF" {
+		if fourCC == "EXIF" || fourCC == "XMP " {
 			changed = true
 			pos += 8 + padded
 			continue
 		}
-		if fourCC == "VP8X" && size >= 4 && data[pos+8]&0x08 != 0 {
+		if fourCC == "VP8X" && size >= 4 && (data[pos+8]&0x0C) != 0 {
 			modified := append([]byte{}, chunk...)
-			modified[8] &^= 0x08 // 清除 EXIF 标志位。
+			modified[8] &^= 0x08 | 0x04 // 清除 EXIF 与 XMP 标志位。
 			chunk = modified
+			changed = true
 		}
 		out = append(out, chunk...)
 		pos += 8 + padded

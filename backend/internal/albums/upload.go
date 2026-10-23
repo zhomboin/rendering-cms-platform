@@ -17,7 +17,7 @@ import (
 )
 
 // uploadAlbumPhoto 是后端代理上传：multipart 直传后端，服务端完成魔数校验、
-// 尺寸提取、EXIF GPS 剥离与拍摄时间提取后写入对象存储与数据库。
+// 尺寸提取、EXIF/XMP 元数据剥离与拍摄时间提取后写入对象存储与数据库。
 // 照片天然公开可读，未配置公开访问基地址时直接拒绝上传。
 func (h Handler) uploadAlbumPhoto(w http.ResponseWriter, r *http.Request) {
 	user, ok := userFromRequest(w, r)
@@ -94,8 +94,8 @@ func (h Handler) uploadAlbumPhoto(w http.ResponseWriter, r *http.Request) {
 		takenAt = pgtype.Timestamptz{Time: exifTaken, Valid: true}
 	}
 
-	// 存储前剥离 EXIF（含 GPS 等隐私信息），不重编码像素。
-	cleaned, _, err := imaging.StripEXIF(data, contentType)
+	// 存储前剥离 EXIF/XMP 等元数据（含 GPS 等隐私信息），不重编码像素。
+	cleaned, _, err := imaging.StripMetadata(data, contentType)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "照片处理失败")
 		return

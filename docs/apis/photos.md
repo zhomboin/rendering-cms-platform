@@ -126,8 +126,8 @@ POST /api/v1/photos/{slug}/views
 
 ## 图片内容与隐私规则
 
-- 照片上传采用后端代理链路：后端完成魔数校验（只接受 PNG / JPEG / WebP，不信任客户端 Content-Type）、像素尺寸提取、EXIF 剥离后再写入对象存储；文件本体与元数据不经过浏览器直传。
-- 存储前剥离 EXIF（含 GPS 等隐私信息）：JPEG 删除 `Exif\0\0` APP1 段、PNG 删除 `eXIf` chunk、WebP 删除 EXIF chunk 并清除 VP8X 标志位；不做像素重编码，画质无损。
+- 照片上传采用后端代理链路：后端完成魔数校验（只接受 PNG / JPEG / WebP，不信任客户端 Content-Type）、像素尺寸提取、元数据剥离后再写入对象存储；文件本体与元数据不经过浏览器直传。
+- 存储前剥离 EXIF 与 XMP 等元数据段（含 GPS 等隐私信息）：JPEG 丢弃 APP1（EXIF/XMP）与 APP3–APP13、APP15 厂商元数据段及 COM 注释段（保留 APP0 JFIF、APP2 ICC 色彩描述、APP14 Adobe 色彩变换），PNG 丢弃 `eXIf` 与 tEXt/zTXt/iTXt 文本 chunk（XMP 位于 iTXt 的 `XML:com.adobe.xmp`），WebP 删除 EXIF/XMP chunk 并清除 VP8X 对应标志位；不做像素重编码，画质无损。
 - 对象 key 形如 `photos/{年}/{月}/{uuid}.{权威扩展名}`，写入时携带长缓存头；key 含随机 UUID，内容永不覆盖。
 - 照片对象前缀由 `S3_PHOTO_PREFIX` 配置（默认 `photos`），公开 URL 由 `S3_PUBLIC_BASE_URL` 拼接并写入 `assets.public_url`；未配置公共基地址时上传接口直接拒绝（`503`）。
 - 单张照片上限 `20MB`。
@@ -184,7 +184,7 @@ Content-Type: multipart/form-data
 
 说明：
 
-- 后端处理链：魔数校验 → 尺寸提取 → `takenAt` 解析（表单优先，EXIF 兜底）→ EXIF 剥离 → 写对象存储（长缓存头）→ 写 `assets`（含宽高）与 `album_photos`（position 追加到相册末尾）。
+- 后端处理链：魔数校验 → 尺寸提取 → `takenAt` 解析（表单优先，EXIF 兜底）→ 元数据剥离 → 写对象存储（长缓存头）→ 写 `assets`（含宽高）与 `album_photos`（position 追加到相册末尾）。
 - 非图片类型、超过 20MB、alt 缺失等返回 `400`；未配置 `S3_PUBLIC_BASE_URL` 返回 `503`。
 - 成功返回 `201` 与照片对象（`photoId`、`url`、`alt`、`caption`、`width`、`height`、`takenAt`、`position`、`filename`、`contentType`、`byteSize`）。
 
