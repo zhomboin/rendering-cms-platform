@@ -48,6 +48,7 @@ type S3Config struct {
 	PublicBaseURL   string
 	BlogImagePrefix string
 	AssetFilePrefix string
+	PhotoPrefix     string
 }
 
 type SMTPConfig struct {
@@ -109,6 +110,7 @@ func Load() (Config, error) {
 			PublicBaseURL:   strings.TrimRight(os.Getenv("S3_PUBLIC_BASE_URL"), "/"),
 			BlogImagePrefix: cleanPrefixEnv("S3_BLOG_IMAGE_PREFIX", "blog"),
 			AssetFilePrefix: cleanPrefixEnv("S3_ASSET_FILE_PREFIX", "assets"),
+			PhotoPrefix:     cleanPrefixEnv("S3_PHOTO_PREFIX", "photos"),
 		},
 	}
 
