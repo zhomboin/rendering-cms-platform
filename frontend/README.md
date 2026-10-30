@@ -125,6 +125,14 @@ cd /home/ubuntu/workspace/rendering-cms-platform/frontend
 npm run preview
 ```
 
+## 相册路由回归
+
+相册路由回归入口为 scripts/test-album-routes.mjs，通过 npm run test:albums 执行。测试使用 Playwright Chromium；首次使用需通过 npx playwright install chromium 准备浏览器，并按 Playwright 要求准备 Ubuntu 运行库。
+
+测试启动临时 Vite 服务与无头浏览器，结束时自动关闭。接口使用隔离响应，不连接生产；覆盖列表进入新建、直接打开新建、创建失败重试、创建后编辑与刷新、已有相册更新及返回列表继续新建，并检查错误接口路径。
+
+新建页没有相册 ID，不查询详情或照片，也不提供发布或上传操作；保存成功后使用创建接口返回的真实 ID 进入编辑页。生产验收须另行验证真实草稿的创建、读取及清理。
+
 ## 设计规范
 
 后台管理界面设计规范见 `docs/guides/frontend-design.md`，前端目录结构与代码规则见 `docs/guides/frontend-architecture.md`。
