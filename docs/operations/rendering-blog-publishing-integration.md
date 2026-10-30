@@ -2,6 +2,12 @@
 
 本文档定义 Rendering CMS Platform 中已发布文章如何在 Rendering 博客平台访问。该方案用于后续实现 Rendering 前台读取 CMS API 的改造。
 
+## 消费端字段兼容与修复归属
+
+CMS 允许摘要为空，Rendering 消费端不得因此丢弃已发布文章；展示摘要和 SEO 描述可以回退到标题。必要的文章状态、标识符及正文校验仍应保留。
+
+Rendering 仓库 lib/cms-content.js 的 normalizeCMSPost 存在空摘要过滤问题，列表和详情均受影响；本仓库不修改或部署博客，由博客项目修复。回归须覆盖空摘要文章的列表、详情与元数据，再验收首页最新文章、站点地图、RSS 并重建 Pagefind。不得修改生产文章数据来绕过消费端错误，备份策略保持不变。
+
 ## 背景
 
 当前 CMS 后台的文章发布功能只完成 CMS 内部发布：

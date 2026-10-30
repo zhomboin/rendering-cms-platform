@@ -80,7 +80,7 @@ export default function AlbumEditPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const isCreating = id === 'new';
+  const isCreating = !id;
   const [form] = Form.useForm<AlbumFormValues>();
   const [editForm] = Form.useForm<PhotoEditValues>();
   const [editingPhoto, setEditingPhoto] = useState<AlbumPhoto | null>(null);
