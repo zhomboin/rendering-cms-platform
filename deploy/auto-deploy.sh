@@ -69,7 +69,20 @@ LOCK_FILE="$LOCK_DIR/deploy.lock"
 # ---------------------------------------------------------------------------
 mkdir -p "$LOG_DIR" "$STATE_DIR" "$BACKUP_DIR" "$LOCK_DIR"
 LOG_FILE="$LOG_DIR/deploy.log"
+# 保存原输出端，退出时先关闭日志写端，再等待消费者排空，避免 systemd 清理末行。
+exec {LOG_STDOUT_FD}>&1 {LOG_STDERR_FD}>&2
 exec > >(tee -a "$LOG_FILE") 2>&1
+LOG_TEE_PID=$!
+
+finish_logging() {
+  local status=$?
+  trap - EXIT ERR
+  exec 1>&"$LOG_STDOUT_FD" 2>&"$LOG_STDERR_FD"
+  exec {LOG_STDOUT_FD}>&- {LOG_STDERR_FD}>&-
+  wait "$LOG_TEE_PID" || true
+  exit "$status"
+}
+trap finish_logging EXIT
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 

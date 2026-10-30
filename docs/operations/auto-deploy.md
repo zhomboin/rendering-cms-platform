@@ -94,6 +94,12 @@ sudo systemctl start cms-rendering-deploy.timer
 cat /var/lib/rendering-cms/deploy-state.env
 ```
 
+## 日志完整性验证
+
+部署脚本在退出前关闭日志管道写端，并等待日志同时写入标准输出和 `deploy.log`，随后按原始退出码结束。无新提交、锁冲突跳过和意外错误路径都使用相同的退出处理；systemd 的进程清理策略保持不变。
+
+本地验证入口为 `scripts/env/test-auto-deploy-logging.py`，使用 Python 3 运行。测试在 `temp/` 内创建隔离 Git 仓库，模拟日志消费者延迟和服务进程组清理，检查末行、双路日志一致性、退出码及子进程回收；不连接生产，也不启动容器。
+
 ## 失败处理
 
 `auto-deploy.sh` 对不同失败阶段的处理策略：
