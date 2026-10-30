@@ -25,3 +25,6 @@ postgres-data
 minio-data
 data/postgres
 data/minio
+**/*.local.md
+.worktrees
+reports

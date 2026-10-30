@@ -13,7 +13,8 @@ CMS 相册新建与编辑的浏览器回归入口见 [前端说明](../frontend/
 - `docs/operations/auto-deploy.md`：systemd timer 自动部署机制、失败回滚策略与手动回滚。
 - `docs/operations/maintenance.md`：运维速查卡（定期检查清单、目录地图、手动部署、异常第一反应）。
 - `docs/operations/runbook.md`：生产固定运维 SOP。
-- `docs/operations/production-access.md`：生产登录、后台用户、PostgreSQL 和 Cloudflare R2 访问 SOP。
+- [生产访问与安全规范](operations/production-access.md)：本地配置入口与隔离要求、固定操作边界，以及后台、PostgreSQL 和 Cloudflare R2 访问 SOP。
+- 本机专用配置统一记录在 `docs/operations/local-config.local.md`，仅在主工作区本地保存，不随仓库分发。
 - `docs/operations/backup.md`：PostgreSQL 备份与 Cloudflare R2 对象备份要求。
 - `docs/operations/restore.md`：恢复流程。
 - `docs/operations/observability.md`：日志与可观测性约定。
