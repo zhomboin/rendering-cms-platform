@@ -128,12 +128,19 @@ postgres_running() {
 }
 
 backup_postgres() {
-  local file
+  local file bytes
   file="$BACKUP_DIR/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
-  compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$file"
+  # 本函数由条件调用，不能依赖 set -e；pipefail 会捕获导出或压缩失败。
+  if ! compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$file"; then
+    log "错误：PostgreSQL 导出或压缩失败：$file"
+    return 1
+  fi
   [ -s "$file" ] || { log "错误：备份文件为空：$file"; return 1; }
   gzip -t "$file" || { log "错误：备份文件 gzip 校验失败：$file"; return 1; }
-  chmod 600 "$file"
+  # 读完解压流再判断字节数，避免消费者提前结束导致 gzip 收到 SIGPIPE。
+  bytes="$(gzip -dc "$file" | wc -c)" || { log "错误：备份文件解压校验失败：$file"; return 1; }
+  [ "$bytes" -gt 0 ] || { log "错误：PostgreSQL 导出内容为空：$file"; return 1; }
+  chmod 600 "$file" || { log "错误：备份文件权限设置失败：$file"; return 1; }
   log "PostgreSQL 备份完成：$file（$(du -h "$file" | cut -f1)）"
 }
 
