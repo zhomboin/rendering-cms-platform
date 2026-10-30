@@ -76,3 +76,6 @@ deploy/production.env
 
 # Git 隔离工作区
 .worktrees/
+
+# 本机配置记录，仅限本地
+/docs/operations/local-config.local.md
