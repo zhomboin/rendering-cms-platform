@@ -53,7 +53,7 @@ frontend/
 - `/admin/albums/:id/edit`：相册基本信息与发布状态。
 - `/admin/albums/:id/photos`：图片管理（上传进度、预览、URL 展示与复制、排序、封面、编辑与删除）。
 
-后台页面使用 `src/layouts/AdminLayout.tsx` 作为统一壳层。访问 `/admin` 及其子路由时，如果本地没有登录 token，会跳转到 `/admin/login`；登录成功后回到原目标后台页面。
+后台管理页面使用 `src/layouts/AdminLayout.tsx` 作为统一壳层；文章阅读页独立为全屏布局，并自行检查登录态。访问 `/admin` 及其子路由时，如果本地没有登录 token，会跳转到 `/admin/login`；登录成功后回到原目标后台页面。
 
 ## API 配置
 

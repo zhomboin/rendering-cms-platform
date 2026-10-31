@@ -23,8 +23,8 @@ bash scripts/env/check-env.sh
 
 | 工具 | 项目要求 | 说明 |
 | --- | --- | --- |
-| Go | Go 1.22+ | 用于本机后端开发和 CLI 工具安装；也可以使用 Docker Go 容器执行测试。 |
-| Node.js | Node.js 20+，推荐 22 LTS | 用于本机前端开发；也可以使用 Docker Node 容器执行构建。 |
+| Go | Go 1.26.10，与 backend/go.mod 一致 | 用于本机后端开发和 CLI 工具安装；也可以使用 Docker Go 容器执行测试。 |
+| Node.js | 使用符合锁文件要求的 Linux 版本，CI 使用 24 | 用于本机前端开发；也可以使用 Docker Node 容器执行构建。 |
 | npm | npm 10+ | 与 Node.js 配套使用。 |
 | Docker | Docker Engine 或 Docker Desktop WSL integration | 用于依赖服务、后端容器、前端容器和生产镜像验证。 |
 | Docker Compose | Docker Compose v2 | 使用 `docker compose`，不使用旧版 `docker-compose`。 |
@@ -50,7 +50,7 @@ sudo apt-get install -y golang-go
 go version
 ```
 
-如果 apt 源中的 Go 版本低于 1.22，使用 Go 官方安装包或版本管理工具安装。
+Go 工具链与 backend/go.mod 和构建镜像保持一致；系统包不足时使用官方安装包、版本管理工具或项目固定版本的 Docker 镜像。自动化终端应确认 PATH 指向 Linux Go 与 Node.js，避免调用 WSL 继承的 Windows npm。
 
 ### Node.js 和 npm
 
@@ -69,7 +69,7 @@ node --version
 npm --version
 ```
 
-如果 apt 源版本过低，使用 NodeSource、nvm 或 fnm 安装 Node.js 20+。
+系统包版本不足时，使用 Linux 版本管理工具安装满足 frontend/package-lock.json 中工具要求的 Node.js；CI 使用 Node.js 24。
 
 ### Docker 和 Docker Compose
 
@@ -360,6 +360,7 @@ bash scripts/env/stop-dev-services.sh
 ## 注意事项
 
 - 本项目运行环境以 WSL2 Ubuntu 24.04 为准。
+- 任务结束前关闭本次临时开启的服务、浏览器、辅助进程及容器；保留任务开始前已存在的服务。
 - 不维护 PowerShell 环境脚本。
 - 不要把 `.env` 提交到 Git。
 - 不要把上传文件写入 Git 或 `frontend/public/`。

@@ -4,7 +4,7 @@ import { Alert, Button, Empty, Skeleton, Space, Tag } from 'antd';
 import { ArrowLeftOutlined, EditOutlined, CalendarOutlined, HistoryOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { listAdminArticles } from '../../api/articles';
-import type { AdminArticleRecord, ArticleStatus } from '../../api/articles';
+import type { ArticleStatus } from '../../api/articles';
 import { MdxBlockRenderer, collectHeadingAnchors } from './MdxBlockRenderer';
 import { parsePreviewBlocks } from './MdxPreviewParser';
 import './ArticleReadingPage.css';

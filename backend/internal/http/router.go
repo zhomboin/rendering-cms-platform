@@ -84,12 +84,6 @@ func WithLogger(logger *slog.Logger) RouterOption {
 	}
 }
 
-func WithRequestBodyLimit(limit int64) RouterOption {
-	return func(config *RouterConfig) {
-		config.RequestBodyLimit = limit
-	}
-}
-
 func WithPublicRoutes(registrar RouteRegistrar) RouterOption {
 	return func(config *RouterConfig) {
 		config.PublicRoutes = append(config.PublicRoutes, registrar)

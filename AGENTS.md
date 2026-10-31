@@ -10,7 +10,8 @@
 - API 文档放在 `docs/apis/`，SQL 与迁移说明放在 `docs/sql/`，部署和备份说明放在 `docs/operations/`。
 - 除仓库根目录与各模块的 `README.md`、`AGENTS.md` 外，正式文档只放在 `docs/` 目录下；各类过程报告放在 `reports/` 目录下；所有临时文件和临时代码放在 `temp/` 目录下。
 - `reports/` 和 `temp/` 已加入 `.gitignore`，只在本地存在，不提交进 Git，也不在仓库中维护。
-- 整个项目只维护一份主进度记录文档 `docs/progress.md`，用于记录每次修改，Agent 必须在每次变更后定期维护更新；各专项进度独立成文（如 `docs/plans/` 下的阶段计划），从主进度文档通过链接进入，不在主进度文档内展开。
+- 整个项目只维护一份主进度记录文档 `docs/progress.md`，维护当前能力与验证状态；未关闭任务统一从 `docs/plans/current-tasks.md` 进入，变更摘要记录在 `docs/change-log.md`。
+- 代码实现、本地验证与生产验收分别核对；没有当前环境证据的验收项不得勾选。
 - 每次用户提出的后续注意事项和新增约束，都必须整合进本文件和 `docs/` 下的对应权威文档，保证规范始终只有最新版本。
 
 ## Git 工作流与变更管理
@@ -50,7 +51,7 @@
 
 ## 架构约束
 
-- 后端使用 Go 1.22+，优先采用 `Chi + pgx + sqlc + golang-migrate`。
+- 后端使用 Go 1.26.10，采用 `Chi + pgx + sqlc + golang-migrate`。
 - 前端使用 React + TypeScript + Vite。
 - 后台展示遵循前端设计规范：标题、字段与提示保持简洁，不拼接重复业务名称或堆叠技术说明；上传展示逐文件真实进度与处理结果，照片缩略图及相册封面支持放大预览。
 - 数据库使用 PostgreSQL，业务数据以 SQL migration 管理。
@@ -114,22 +115,17 @@ rendering-cms-platform/
 - 文件上传必须校验文件名、内容类型和大小。
 - 第一版允许上传类型为 `image/png`、`image/jpeg`、`image/webp`、`application/pdf`、`text/plain`、`application/zip`。
 - 第一版上传大小上限为 `20MB`。
-- 发布文章和保存草稿时必须写入 `article_revisions`。
+- 文章插入、编辑和状态更新必须由数据库触发器写入 `article_logs` 修订快照，并维护文章版本号。
 - 生产 migration 前必须先备份 PostgreSQL。
 
 ## 实施顺序
 
-1. 先维护并细化 `docs/cms-platform-technical-recommendation.zh-CN.md`；当前执行中的新阶段计划应放在 `docs/plans/`，已完成计划归档到 `docs/archive/plans/`。
-2. 搭建 Go 后端骨架、配置、健康检查和数据库连接。
-3. 建立 SQL migration、`sqlc` 查询和核心数据表。
-4. 搭建 React + TypeScript 前端骨架和后台壳层。
-5. 实现登录、鉴权和管理员初始化。
-6. 编写 MDX 导入工具，迁移现有文章。
-7. 实现公开文章读取和后台文章编辑发布。
-8. 实现文章统计和后台看板。
-9. 实现评论提交与审核。
-10. 实现文件上传、下载和审计。
-11. 补齐部署、备份、接口和运维文档。
+1. 对照 docs/progress.md、docs/plans/current-tasks.md 和当前代码确认任务状态，技术基线以对应权威文档为准。
+2. 优先处理隐私、登录安全和公开链接问题，再处理数据一致性、容量与跨仓库集成。
+3. 进行中的计划只保留当前结果、待办和验收条件；功能完成后删除详细执行稿，未关闭问题与验收项必须迁入当前任务清单。
+4. 已完成计划、阶段拆分、过期检视报告和无关项目提案不在仓库长期保存；清理摘要统一写入 docs/change-log.md，通过 Git 查询具体过程。
+5. 清理代码先核对全仓引用、路由、脚本和测试，保留仍使用的接口、生成代码及已发布 migration；同步清理失效引用和用例。
+6. 完成变更后同步接口、数据、运维、索引与主进度，按 Git 工作流完成检视和 PR。
 
 ## 验证要求
 

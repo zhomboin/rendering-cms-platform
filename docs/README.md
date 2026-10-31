@@ -1,48 +1,26 @@
 # 文档索引
 
-本文档是 Rendering CMS Platform 的当前文档入口，用于区分权威文档、运维文档、历史归档和临时材料。
+文档只维护当前契约、操作入口与未关闭事项。项目进度见 [主进度](progress.md)，变更摘要见 [变更记录](change-log.md)。
 
-CMS 相册新建、基本信息及独立图片管理的浏览器回归入口见 [前端说明](../frontend/README.md)，页面行为约定见 [相册 API](apis/photos.md)。
+## 接口与架构
 
-首页的模块、统计口径与验证入口见 [数据驾驶舱说明](guides/dashboard.md)，接口契约见 [首页 API](apis/dashboard.md)。
+- [技术基线](cms-platform-technical-recommendation.zh-CN.md)：项目边界、技术栈与能力。
+- [API 索引](apis/README.md)：认证、文章、首页、统计、评论、文件与相册契约。
+- [数据库说明](sql/schema.md)：数据表、索引、隐私字段与迁移规则。
+- [Go 后端导读](guides/go-backend-guide.md)、[前端架构](guides/frontend-architecture.md)、[前端设计](guides/frontend-design.md)。
+- [首页说明](guides/dashboard.md)：模块、统计口径与验证入口。
 
-## 当前权威文档
+## 开发与运维
 
-- `docs/apis/`：后端接口契约，接口行为变更时必须同步更新。
-- `docs/sql/schema.md`：数据库表、索引、隐私字段和迁移规则说明。
-- `docs/operations/development-environment.md`：WSL2 Ubuntu 24.04 本地开发环境。
-- `docs/operations/deployment.md`：生产 Docker 部署入口（含首次部署与自动部署启用）。
-- `docs/operations/auto-deploy.md`：systemd timer 自动部署机制、失败回滚策略与手动回滚。
-- `docs/operations/maintenance.md`：运维速查卡（定期检查清单、目录地图、手动部署、异常第一反应）。
-- `docs/operations/runbook.md`：生产固定运维 SOP。
-- [生产访问与安全规范](operations/production-access.md)：本地配置入口与隔离要求、固定操作边界，以及后台、PostgreSQL 和 Cloudflare R2 访问 SOP。
-- 本机专用配置统一记录在 `docs/operations/local-config.local.md`，仅在主工作区本地保存，不随仓库分发。
-- `docs/operations/backup.md`：PostgreSQL 备份与 Cloudflare R2 对象备份要求。
-- `docs/operations/restore.md`：恢复流程。
-- `docs/operations/observability.md`：日志与可观测性约定。
-- `docs/operations/rendering-blog-publishing-integration.md`：Rendering 博客读取 CMS 已发布内容的对接方案。
-- `docs/operations/rendering-blog-analytics-integration.md`：Rendering 博客访问统计上报对接方案。
-- `docs/cms-platform-technical-recommendation.zh-CN.md`：项目架构边界和技术路线基线。
-- `docs/guides/go-backend-guide.md`：Go 后端代码导读。
-- `docs/guides/frontend-architecture.md`：前端目录结构与代码开发规范。
-- `docs/guides/frontend-design.md`：后台管理界面设计规范，包含相册上传进度、图片预览及简洁文案约定。
+- [本地开发](operations/development-environment.md)。
+- [生产部署](operations/deployment.md)、[自动部署](operations/auto-deploy.md)、[运维速查](operations/maintenance.md)、[固定运维流程](operations/runbook.md)。
+- [生产访问与安全](operations/production-access.md)：操作授权与配置隔离；本机专用配置仅保存在主工作区本地，不随仓库分发。
+- [备份](operations/backup.md)、[恢复](operations/restore.md)、[日志与监控](operations/observability.md)。
+- [博客发布对接](operations/rendering-blog-publishing-integration.md)、[博客统计对接](operations/rendering-blog-analytics-integration.md)。
 
-## 进度与变更记录
+## 任务与维护
 
-- `docs/progress.md`：项目主进度记录，记录每次修改，Agent 定期维护；各专项进度通过该文档链接进入。
-- `docs/change-log.md`：被推翻、废弃和清理内容的唯一记录文档；其它文档一律只保留最新版本，不书写历史版本标注。
-
-## 执行中计划与专项沉淀
-
-- `docs/plans/`：执行中或待生产验收的实施计划；全部完成并投产的计划归档到 `docs/archive/plans/`。
-- `docs/web-tools-platform-analysis.zh-CN.md`：Web 工具平台独立项目的前期可行性分析（决策为不并入本仓库，文档作为可迁移的需求沉淀）。
-
-## 历史归档
-
-`docs/archive/` 只保存已完成或阶段性材料，不作为当前执行入口：
-
-- `docs/archive/plans/`：已完成的 MVP 与 enhancement 实施计划。
-- `docs/archive/spec/`：已完成的 MVP 阶段拆分文档。
-- `docs/archive/reviews/`：已处理或阶段性的代码审查报告。
-
-归档文档中的命令、状态、路径和待办可能反映当时上下文。需要执行当前任务时，以本文档“当前权威文档”中的入口为准。
+- [当前任务](plans/current-tasks.md)：待修复问题、优先级、代码依据和环境验收条件。
+- 进行中的实施计划放在 docs/plans，完成后删除执行详情；未关闭事项先迁入当前任务。
+- 过程报告仅在本地 reports 保存，临时材料放在 temp；任务结束后清理本次产生的临时材料和进程。
+- 文档使用中文 Markdown 和 UTF-8 无 BOM，链接使用项目相对路径。
