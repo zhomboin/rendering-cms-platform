@@ -35,12 +35,16 @@ frontend/
       analytics.ts
       comments.ts
       assets.ts
+      albums.ts
     app/
       providers.tsx
       theme.ts
     layouts/
       AdminLayout.tsx
     pages/
+      albums/AlbumsPage.tsx
+      albums/AlbumEditPage.tsx
+      albums/AlbumPhotosPage.tsx
       articles/ArticleEditorPage.tsx
       articles/ArticleListPage.tsx
       assets/AssetsPage.tsx

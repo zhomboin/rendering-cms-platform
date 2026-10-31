@@ -9,11 +9,13 @@
 - 公开 GET 携带 `ETag`、`Cache-Control: public, max-age=60, stale-while-revalidate=300`，支持 `If-None-Match` 协商返回 `304`；与文章公开接口一致，并共用同一公开读限流组。
 - 相册不存在或未发布返回 `404`；服务异常返回 `5xx`；错误响应结构为 `{"error": "错误说明"}`。
 
-## 后台新建页面约定
+## 后台页面约定
 
-后台新建入口为 /admin/albums/new，该路由不带相册 ID。进入页面只显示创建表单，不发送详情与照片查询，也不显示发布或照片上传操作。提交使用创建接口；创建成功后，使用响应中的 albumId 进入 /admin/albums/{id}/edit，再读取相册及照片。创建失败时保留表单并允许重试。
+后台新建入口为 /admin/albums/new，不带相册 ID，只显示创建表单，不查询详情或照片，不显示发布和上传操作；创建失败保留表单并允许重试。创建成功后使用响应中的 albumId 进入 /admin/albums/{id}/edit。
 
-页面回归入口见 [前端说明](../../frontend/README.md)，生产创建与读取结果以实际环境验收为准。
+基本信息页 /admin/albums/{id}/edit 维护标题、slug、导语、标签和发布状态，不查询照片列表。图片管理页 /admin/albums/{id}/photos 独立负责上传、排序、封面、照片说明编辑和删除；相册列表提供两个入口，两页可互相跳转并直接刷新。
+
+图片卡片显示接口返回的完整 url，并提供复制按钮；复制失败时提示手动复制，无 url 时说明公开访问配置需要检查。图片 URL 为公开资源地址，草稿相册状态不改变对象存储图片的可读性。
 
 ## 分页约定
 
@@ -180,6 +182,8 @@ DELETE /api/v1/admin/albums/{id}
 - 删除相册会级联删除照片记录、软删关联 `assets`（`status=deleted`）、尽力删除对象存储文件；返回 `204`。
 
 ### 照片上传（后端代理）
+
+前端提交 FormData 时须清除共用客户端的 JSON Content-Type 默认值，由浏览器生成 multipart/form-data 与 boundary；不得将文件序列化为 JSON，也不得手工拼接 boundary。上传失败显示后端错误说明，可重新选择或拖入文件重试。
 
 ```http
 POST /api/v1/admin/albums/{id}/photos

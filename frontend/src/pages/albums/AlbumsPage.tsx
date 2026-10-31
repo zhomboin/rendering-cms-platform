@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Table, Button, Tag, Input, Select, Space, Typography, Alert, Popconfirm, message, Image } from 'antd';
-import { PlusOutlined, EditOutlined, ReloadOutlined, StopOutlined, CloudUploadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, PictureOutlined, EditOutlined, ReloadOutlined, StopOutlined, CloudUploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteAdminAlbum, listAdminAlbums, publishAdminAlbum, unpublishAdminAlbum } from '../../api/albums';
@@ -179,11 +179,14 @@ export default function AlbumsPage() {
     {
       title: '操作',
       key: 'action',
-      width: 260,
+      width: 340,
       render: (_: unknown, record: AdminAlbum) => (
         <Space size={0}>
           <Button type="link" size="small" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/albums/${record.albumId}/edit`); }}>
-            管理
+            基本信息
+          </Button>
+          <Button aria-label="图片管理" type="link" size="small" icon={<PictureOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/albums/${record.albumId}/photos`); }}>
+            图片管理
           </Button>
           {record.status === 'draft' && (
             <Button type="link" size="small" icon={<CloudUploadOutlined />} onClick={(e) => { e.stopPropagation(); publishMutation.mutate(record.albumId); }}>
