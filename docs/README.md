@@ -21,6 +21,7 @@ CMS 相册新建、基本信息及独立图片管理的浏览器回归入口见 
 - `docs/operations/restore.md`：恢复流程。
 - `docs/operations/observability.md`：日志与可观测性约定。
 - `docs/operations/rendering-blog-publishing-integration.md`：Rendering 博客读取 CMS 已发布内容的对接方案。
+- [相册、照片与文章封面对接](operations/rendering-blog-media-integration.md)：可直接交给博客会话的接口字段、分页懒加载要求、封面映射及验收清单。
 - `docs/operations/rendering-blog-analytics-integration.md`：Rendering 博客访问统计上报对接方案。
 - `docs/cms-platform-technical-recommendation.zh-CN.md`：项目架构边界和技术路线基线。
 - `docs/guides/go-backend-guide.md`：Go 后端代码导读。

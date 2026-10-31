@@ -2,6 +2,10 @@
 
 本文档定义 Rendering CMS Platform 中已发布文章如何在 Rendering 博客平台访问。该方案用于后续实现 Rendering 前台读取 CMS API 的改造。
 
+## 相册、照片与封面
+
+博客相册公开查询、相册和照片分页、两层懒加载、文章封面 `coverImageUrl` 映射与分享图片处理，统一见 [媒体对接文档](rendering-blog-media-integration.md)。该文档可直接提供给 Rendering 项目会话，包含当前消费位置和待实施验收清单；源码核对不代表博客已部署或通过生产联调。
+
 ## 消费端字段兼容与修复归属
 
 CMS 允许摘要为空，Rendering 消费端不得因此丢弃已发布文章；展示摘要和 SEO 描述可以回退到标题。必要的文章状态、标识符及正文校验仍应保留。

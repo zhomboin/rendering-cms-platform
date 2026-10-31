@@ -81,6 +81,10 @@ GET /api/v1/articles
 
 列表明确不返回 `bodyMdx`、`articleId`、`authorId`、`version` 和其他后台字段。
 
+## 博客封面读取
+
+公开文章列表每项和详情对象均返回 `coverImageUrl`，为空时返回 `null`；不提供独立封面查询接口或封面尺寸字段。地址可为绝对图片 URL 或导入保留的站内路径，站内路径按博客站点解析。Rendering 的解析层应将正式字段映射到内部 `coverImage`，空值或坏图使用默认展示，不丢弃文章；不要混用相册的 `coverUrl`。完整接入位置、懒加载和分享图规则见 [媒体对接](../operations/rendering-blog-media-integration.md)。
+
 ## Rendering 博客文章详情
 
 ```http

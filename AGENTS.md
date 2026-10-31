@@ -57,6 +57,7 @@
 - 上传文件只在数据库保存元数据和 object key，不写入 Git，也不写入前端 `public/`。
 - 后台登录态可使用 JWT 或安全 Cookie Session，密码必须使用 bcrypt 哈希。
 - 后端 API 统一使用 `/api/v1` 前缀。
+- 博客相册与照片消费必须使用公开分页接口，首屏只取目标页，后续按需加载数据并延迟下载屏幕外图片，禁止为页面展示预取全部相册或照片。文章封面使用公开文章字段 `coverImageUrl`，相册封面使用 `coverUrl`；对接与验收统一见 `docs/operations/rendering-blog-media-integration.md`。
 
 ## 推荐目录结构
 
