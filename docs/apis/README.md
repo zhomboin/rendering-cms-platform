@@ -5,6 +5,7 @@
 - [认证 API](./auth.md)
 - [文章 API](./articles.md)
 - [统计 API](./analytics.md)
+- [首页数据驾驶舱 API](./dashboard.md)
 - [评论 API](./comments.md)
 - [文件 API](./assets.md)
 - [相册 API](./photos.md)

@@ -33,6 +33,7 @@ frontend/
       auth.ts
       articles.ts
       analytics.ts
+      dashboard.ts
       comments.ts
       assets.ts
       albums.ts
@@ -135,3 +136,8 @@ npm audit --omit=dev
 cd /home/ubuntu/workspace/rendering-cms-platform
 grep -RIn -E '\bapi(Get|Post|Patch)\b|\bapiClient\b|\bfetch\s*[(]|\baxios\b' frontend/src/pages frontend/src/layouts
 ```
+
+
+## 首页模块
+
+首页由 dashboard 目录内的页面、趋势、图文集合、概况区块、共享状态和格式工具组合。所有数据请求封装在 [dashboard API](../../frontend/src/api/dashboard.ts) 与 [analytics API](../../frontend/src/api/analytics.ts)，按统计区间区分查询缓存。模块职责与验证入口见 [首页说明](dashboard.md)。
