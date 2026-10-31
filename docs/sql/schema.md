@@ -130,3 +130,8 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - schema 来源：`backend/migrations/`。
 - 查询来源：`backend/sql/`。
 - 生成包路径：`backend/internal/database/dbgen`。
+
+
+## 首页只读汇总
+
+首页通过现有访问聚合表、文章、相册、评论及资源数据输出有限摘要，不增加表或修改数据结构。文章与站点合并日表和历史表，相册读取相册日表；资源仅统计 active 且删除时间为空的记录。查询入口为 [dashboard.sql](../../backend/sql/dashboard.sql)，字段与统计口径见 [首页 API](../apis/dashboard.md)。

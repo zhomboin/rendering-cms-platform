@@ -27,6 +27,7 @@ backend/
   internal/auth/              # 登录、JWT、密码哈希
   internal/articles/          # 文章管理
   internal/analytics/         # 访问统计
+  internal/dashboard/         # 首页只读汇总、图文排行与相册摘要
   internal/comments/          # 评论提交与审核
   internal/assets/            # 文件上传下载与审计
   internal/albums/            # 相册与照片管理（公开查询 + 后台管理）
@@ -92,12 +93,7 @@ cd /home/ubuntu/workspace/rendering-cms-platform
 bash scripts/env/start-backend-docker.sh
 ```
 
-运行测试：
-
-```bash
-cd /home/ubuntu/workspace/rendering-cms-platform/backend
-go test ./...
-```
+本地仅运行受改动影响的包测试，完整验证由 GitHub CI 执行，具体要求见下方验证章节。
 
 也可以在 WSL 中直接启动后端：
 
@@ -142,17 +138,10 @@ sqlc generate
 
 ## 验证要求
 
-后端变更后至少运行：
+本地按改动影响范围运行相关包测试，必要时做静态检查；涉及 SQL 时用 sqlc 重新生成查询并验证生成文件一致。全量检查由 GitHub CI 承担。
 
-```bash
-cd /home/ubuntu/workspace/rendering-cms-platform/backend
-go test ./...
-```
+## 首页汇总与验证
 
-涉及 SQL、migration 或查询文件时运行：
+首页三个只读接口由 internal/dashboard 装配在后台鉴权路由下，查询位于 sql/dashboard.sql，生成文件由 sqlc v1.31.1 维护。字段、数量上限、资源状态与统计口径见 [首页 API](../docs/apis/dashboard.md)。不新增数据库 schema，不改变公开访问上报。
 
-```bash
-cd /home/ubuntu/workspace/rendering-cms-platform/backend
-sqlc generate
-go test ./...
-```
+本地按改动范围运行相关包测试。dashboard 的数据库集成测试通过 TEST_DATABASE_URL 显式连接专用 PostgreSQL，逐项应用现有 migration 并清理隔离 schema；没有配置时会跳过。全量 Go 测试、静态检查、查询生成一致性与真实数据库验证由 [GitHub CI](../.github/workflows/verify.yml) 执行。

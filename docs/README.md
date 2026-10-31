@@ -4,6 +4,8 @@
 
 CMS 相册新建、基本信息及独立图片管理的浏览器回归入口见 [前端说明](../frontend/README.md)，页面行为约定见 [相册 API](apis/photos.md)。
 
+首页的模块、统计口径与验证入口见 [数据驾驶舱说明](guides/dashboard.md)，接口契约见 [首页 API](apis/dashboard.md)。
+
 ## 当前权威文档
 
 - `docs/apis/`：后端接口契约，接口行为变更时必须同步更新。
