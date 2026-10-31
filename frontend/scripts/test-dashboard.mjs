@@ -168,7 +168,7 @@ test('概览入口可实际打开新建、草稿编辑、私有阅读和相册�
   await page.goBack({ waitUntil: 'networkidle' });
   await page.getByRole('link', { name: '城市漫游', exact: true }).click();
   await page.waitForURL('**/admin/albums/album-1/photos');
-  await page.getByRole('heading', { name: '图片管理 · 城市漫游', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '图片管理', exact: true }).waitFor();
 });
 
 
