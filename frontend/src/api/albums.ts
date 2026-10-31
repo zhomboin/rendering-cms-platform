@@ -99,6 +99,8 @@ export async function uploadAdminAlbumPhoto(albumId: string, file: File, input: 
   }
   // 照片最大 20MB，放宽默认超时。
   const response = await apiClient.post<AlbumPhoto>(`/admin/albums/${albumId}/photos`, form, {
+    // 清除 JSON 默认值，由浏览器生成 multipart boundary。
+    headers: { 'Content-Type': undefined },
     timeout: 120000,
   });
   return response.data;

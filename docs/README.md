@@ -2,7 +2,7 @@
 
 本文档是 Rendering CMS Platform 的当前文档入口，用于区分权威文档、运维文档、历史归档和临时材料。
 
-CMS 相册新建与编辑的浏览器回归入口见 [前端说明](../frontend/README.md)，页面行为约定见 [相册 API](apis/photos.md)。
+CMS 相册新建、基本信息及独立图片管理的浏览器回归入口见 [前端说明](../frontend/README.md)，页面行为约定见 [相册 API](apis/photos.md)。
 
 ## 当前权威文档
 
