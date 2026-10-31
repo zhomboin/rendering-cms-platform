@@ -52,6 +52,7 @@
 
 - 后端使用 Go 1.22+，优先采用 `Chi + pgx + sqlc + golang-migrate`。
 - 前端使用 React + TypeScript + Vite。
+- 后台展示遵循前端设计规范：标题、字段与提示保持简洁，不拼接重复业务名称或堆叠技术说明；上传展示逐文件真实进度与处理结果，照片缩略图及相册封面支持放大预览。
 - 数据库使用 PostgreSQL，业务数据以 SQL migration 管理。
 - 文件上传下载使用 S3 兼容对象存储，例如 Cloudflare R2、AWS S3 或 MinIO。
 - 上传文件只在数据库保存元数据和 object key，不写入 Git，也不写入前端 `public/`。

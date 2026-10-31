@@ -54,7 +54,7 @@ export default function AlbumEditPage() {
     mutationFn: (values: AlbumFormValues) =>
       isCreating ? createAdminAlbum(values) : updateAdminAlbum(id, values),
     onSuccess: (saved) => {
-      message.success(isCreating ? '相册已创建，可进入图片管理上传照片' : '相册信息已保存');
+      message.success(isCreating ? '相册已创建' : '相册信息已保存');
       if (isCreating) {
         navigate(`/admin/albums/${saved.albumId}/edit`);
         return;
@@ -102,7 +102,7 @@ export default function AlbumEditPage() {
         {!isCreating && isPublished && (
           <Popconfirm
             title="确认下架该相册？"
-            description="下架后公开接口立即返回 404。"
+            description="下架后不再公开展示。"
             okText="下架"
             okButtonProps={{ danger: true }}
             cancelText="取消"
@@ -114,7 +114,7 @@ export default function AlbumEditPage() {
         {!isCreating && !isPublished && (
           <Popconfirm
             title="确认发布该相册？"
-            description="发布后立即出现在公开接口；已发布相册的 slug 不可再修改。"
+            description="发布后公开展示，访问标识不可修改。"
             okText="发布"
             cancelText="取消"
             onConfirm={() => publishMutation.mutate()}
@@ -137,7 +137,7 @@ export default function AlbumEditPage() {
 
       <Card loading={!isCreating && albumQuery.isLoading} style={{ marginBottom: 24 }}>
         <Title level={2} style={{ marginTop: 0, marginBottom: 20, fontSize: 18 }}>
-          {isCreating ? '新建相册' : `相册信息${album ? ` · ${album.title}` : ''}`}
+          {isCreating ? '新建相册' : '相册信息'}
         </Title>
         <Form
           form={form}
@@ -149,9 +149,9 @@ export default function AlbumEditPage() {
             <Col xs={24} md={8}>
               <Form.Item
                 name="slug"
-                label="slug（公开路由 /photos/{slug}）"
+                label="访问标识"
                 rules={[
-                  { required: true, message: '请输入 slug' },
+                  { required: true, message: '请输入访问标识' },
                   {
                     pattern: /^[a-z0-9]+(-[a-z0-9]+)*$/,
                     message: '仅小写字母、数字和中划线，发布后不可修改',
@@ -162,29 +162,29 @@ export default function AlbumEditPage() {
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item name="title" label="标题（中文，必填）" rules={[{ required: true, message: '请输入标题' }]}>
+              <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
                 <Input placeholder="城市夜色" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item name="titleEn" label="英文标题（可选，镜像页回退中文）">
+              <Form.Item name="titleEn" label="英文标题">
                 <Input placeholder="City Nights" />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col xs={24} md={12}>
-              <Form.Item name="description" label="导语（中文，必填）" rules={[{ required: true, message: '请输入导语' }]}>
+              <Form.Item name="description" label="导语" rules={[{ required: true, message: '请输入导语' }]}>
                 <TextArea rows={3} placeholder="一组夜景。" />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item name="descriptionEn" label="英文导语（可选）">
+              <Form.Item name="descriptionEn" label="英文导语">
                 <TextArea rows={3} placeholder="A set of night shots." />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="tags" label="标签（仅展示用途）">
+          <Form.Item name="tags" label="标签">
             <Select mode="tags" placeholder="photography、city…" tokenSeparators={[',', ' ']} open={false} />
           </Form.Item>
           <Button
