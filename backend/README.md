@@ -31,7 +31,7 @@ backend/
   internal/comments/          # 评论提交与审核
   internal/assets/            # 文件上传下载与审计
   internal/albums/            # 相册与照片管理（公开查询 + 后台管理）
-  internal/imaging/           # 照片处理：魔数嗅探、尺寸提取、EXIF 剥离
+  internal/imaging/           # 照片处理：魔数嗅探、尺寸提取、EXIF/XMP 等元数据剥离
   internal/storage/           # S3 / MinIO 客户端
   migrations/                 # PostgreSQL migration
   sql/                        # sqlc 查询文件

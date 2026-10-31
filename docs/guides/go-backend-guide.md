@@ -45,6 +45,9 @@ backend/
     analytics/     # 访问统计
     comments/      # 评论提交和审核
     assets/        # 文件上传下载和审计
+    albums/        # 相册与照片管理
+    imaging/       # 照片魔数、尺寸和元数据处理
+    logging/       # 结构化日志与按日文件
     storage/       # S3 / MinIO 客户端
     mail/          # SMTP 验证码邮件发送
   migrations/      # PostgreSQL migration
@@ -171,6 +174,13 @@ golang.org/x/crypto/bcrypt
 github.com/golang-jwt/jwt/v5
 ```
 
+### albums、imaging 与 logging
+
+- albums 负责相册管理、公开分页、缓存和上传。
+- imaging 负责图片校验、尺寸与拍摄时间提取、EXIF/XMP 元数据剥离。
+- logging 负责结构化日志、按日文件和过期日志清理。
+- 契约见 [相册 API](../apis/photos.md)，未关闭问题见 [当前任务](../plans/current-tasks.md)。
+
 ### articles
 
 路径：
@@ -185,8 +195,9 @@ backend/internal/articles/
 - 公开文章详情。
 - 后台文章列表。
 - 创建草稿。
-- 更新草稿。
-- 发布文章。
+- 编辑草稿与私有文章。
+- 发布、下架、设为私有和转为草稿。
+- 修订列表、修订正文读取与保留清理。
 - 通过数据库触发器写入文章版本日志。
 
 对应接口：

@@ -18,7 +18,7 @@
 
 后端：
 
-- Go 1.22+
+- Go 1.26.10
 - Chi
 - pgx
 - sqlc
@@ -90,7 +90,7 @@ bash scripts/env/stop-dev-services.sh
 
 ## 文档入口
 
-- `docs/README.md`：当前文档索引，说明权威文档、进度与变更记录、历史归档。
+- `docs/README.md`：当前文档索引，说明权威文档、任务与进度入口。
 - `docs/progress.md`：项目主进度记录，由 Agent 定期维护。
 - `AGENTS.md`：Agent 协作规则、技术约束和本地环境约束。
 - `docs/cms-platform-technical-recommendation.zh-CN.md`：CMS 平台技术架构建议。
@@ -99,23 +99,7 @@ bash scripts/env/stop-dev-services.sh
 - `docs/operations/development-environment.md`：WSL2 Ubuntu 24.04 开发环境配置指南。
 - `docs/operations/deployment.md`：生产 Docker 部署方案。
 - `docs/operations/runbook.md`：生产运维 SOP。
-- `docs/archive/`：已完成计划、MVP 阶段拆分和阶段性评审报告归档。
-
-## MVP 子任务
-
-当前 MVP 拆分为以下阶段：
-
-1. 项目骨架与基础工程。
-2. 数据库 schema 与 migration。
-3. 管理员认证与后台访问控制。
-4. 文章管理与 MDX 导入。
-5. 访问统计与后台仪表盘。
-6. 评论提交与审核。
-7. 文件上传下载。
-8. 前端后台壳层与路由。
-9. 运维、验证与交付检查。
-
-各阶段详细任务已完成并归档到 `docs/archive/spec/`。
+- [当前任务](docs/plans/current-tasks.md)：待修复问题与环境验收条件。
 
 ## 推荐目录结构
 
@@ -129,7 +113,7 @@ rendering-cms-platform/
   frontend/
     src/
   docs/
-    archive/
+    plans/
     apis/
     guides/
     operations/
@@ -148,11 +132,6 @@ rendering-cms-platform/
 
 ## 当前状态
 
-当前仓库已完成 MVP 主要工程骨架、MVP 后增强任务和生产运维文档收口。已完成计划与阶段拆分文档统一归档到 `docs/archive/`，当前接口、数据库和运维说明以 `docs/apis/`、`docs/sql/` 和 `docs/operations/` 为准。
+CMS 提供认证、文章管理、修订与私有阅读、统计、评论、文件、相册及后台首页；管理端根路径进入仪表盘，公开阅读由 Rendering 博客负责。完整能力见 [技术基线](docs/cms-platform-technical-recommendation.zh-CN.md)。
 
-当前实现与文档同步口径如下：
-
-- MVP 主体代码已具备：Go 后端、React + TypeScript 前端、PostgreSQL migration、`sqlc` 查询、API 文档和 WSL2 Ubuntu 24.04 本地环境脚本。
-- CMS 前端是纯管理平台，`/` 默认跳转到后台仪表盘 `/admin`；文章展示由另一个 `Rendering` 博客项目读取 CMS 已发布内容后完成。
-- MVP 与 enhancement 实施计划已完成，归档到 `docs/archive/plans/`。
-- 本地和生产运维入口已收敛到 `docs/operations/`。
+代码实现、本地验证和生产验收分别记录。当前待办统一见 [任务清单](docs/plans/current-tasks.md)，整体状态见 [项目进度](docs/progress.md)。

@@ -4,8 +4,7 @@
 
 ## 参考依据
 
-- React 官方旧版 FAQ 说明 React 不强制唯一目录结构，但常见做法包括按 feature 或 route 分组，同时建议避免过深目录嵌套。
-- React 官方新版文档说明组件是 UI 构建单元，大文件难以浏览时应拆出独立组件文件。
+- React 官方文档说明组件是 UI 构建单元，大文件难以浏览时应拆出独立组件文件。
 - React TypeScript 文档要求包含 JSX 的文件使用 `.tsx`，组件 props 应使用 `type` 或 `interface` 描述。
 - Vite 静态资源文档区分源码内被引用的资源和 `public/` 中按原文件名服务的资源。
 - TanStack Query 文档建议 query function 返回明确类型，query key 应唯一描述数据，并把变化变量纳入 query key。
@@ -13,7 +12,6 @@
 
 参考链接：
 
-- https://legacy.reactjs.org/docs/faq-structure.html
 - https://react.dev/learn/describing-the-ui
 - https://react.dev/learn/typescript
 - https://vite.dev/guide/assets
@@ -38,6 +36,7 @@ frontend/
       assets.ts
       albums.ts
     app/
+      ErrorBoundary.tsx
       providers.tsx
       theme.ts
     layouts/
@@ -49,6 +48,11 @@ frontend/
       albums/AlbumPhotoUpload.tsx
       articles/ArticleEditorPage.tsx
       articles/ArticleListPage.tsx
+      articles/ArticleReadingPage.tsx
+      articles/MdxPreview.tsx
+      articles/MdxPreviewParser.ts
+      articles/MdxBlockRenderer.tsx
+      articles/revisionDiff.ts
       assets/AssetsPage.tsx
       auth/LoginPage.tsx
       comments/CommentsPage.tsx
@@ -56,8 +60,7 @@ frontend/
     routes/
       index.tsx
     main.tsx
-    types/
-      vite-env.d.ts
+    vite-env.d.ts
 ```
 
 ## 目录职责
@@ -143,3 +146,5 @@ grep -RIn -E '\bapi(Get|Post|Patch)\b|\bapiClient\b|\bfetch\s*[(]|\baxios\b' fro
 ## 首页模块
 
 首页由 dashboard 目录内的页面、趋势、图文集合、概况区块、共享状态和格式工具组合。所有数据请求封装在 [dashboard API](../../frontend/src/api/dashboard.ts) 与 [analytics API](../../frontend/src/api/analytics.ts)，按统计区间区分查询缓存。模块职责与验证入口见 [首页说明](dashboard.md)。
+
+TypeScript 构建启用未使用局部声明和参数检查，删除失效请求时同步移除其专用类型，保留仍被调用的接口。
