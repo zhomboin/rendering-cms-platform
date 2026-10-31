@@ -519,14 +519,7 @@ func TestValidateUpload(t *testing.T) {
 }
 ```
 
-运行全部后端测试：
-
-```bash
-cd /home/ubuntu/workspace/rendering-cms-platform/backend
-go test ./...
-```
-
-`./...` 表示当前目录下所有 package，类似 Maven 或 Gradle 的全模块测试。
+本地按本次改动影响范围运行相关包测试，涉及查询时补充专用数据库验证。全量 Go 测试、静态检查和查询生成一致性由 [GitHub CI](../../.github/workflows/verify.yml) 执行。
 
 ## 建议阅读顺序
 
@@ -547,4 +540,9 @@ go test ./...
 - Go 不用异常处理常规错误，而是显式返回和检查 `error`。
 - Go 的 HTTP 标准库能力较强，Chi 这类框架更多是薄路由层。
 - Go 项目常把 SQL 作为一等公民，配合 sqlc 生成类型安全访问代码。
-- Go 编译和测试命令简单，`go test ./...` 是日常开发的基础验证命令。
+- Go 编译和测试入口按包组织，本地验证相关包，全量检查由 CI 执行。
+
+
+## 首页汇总模块
+
+[dashboard 模块](../../backend/internal/dashboard/handler.go)负责首页概况、文章排行和相册摘要，只在后台鉴权路由装配，所有查询来自 [dashboard.sql](../../backend/sql/dashboard.sql)。它复用访问聚合表、文章、相册、评论和资源数据，输出有限摘要，不读取文章正文、不申请资源下载签名。接口口径见 [首页 API](../apis/dashboard.md)，测试通过专用 PostgreSQL 验证日期、归档、权限及资源生命周期边界。

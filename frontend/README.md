@@ -156,3 +156,12 @@ npm run build
 ```
 
 涉及 API 对接时，应同时确认 `src/api/client.ts` 的路径、错误处理和认证头策略是否符合后端接口约定。
+
+
+## 首页数据驾驶舱
+
+后台首页默认展示近 30 天，可选择 7／30／90 天。概况、趋势、文章图文排行、相册表现、待办和资源摘要均来自后台只读接口；当前快照与区间统计明确区分，访问计数不是标准 PV 或 UV。完整说明见 [首页说明](../docs/guides/dashboard.md)，接口见 [首页 API](../docs/apis/dashboard.md)。
+
+首页浏览器回归入口为 scripts/test-dashboard.mjs，通过 npm run test:dashboard 执行。用例在隔离响应下验证日期切换、空数据、分区失败与重试、刷新失败保留上次成功数据、图片失败、管理导航和移动端布局；运行结束自动关闭 Vite 与浏览器。测试依赖 Playwright Chromium 及 Ubuntu 运行库，不连接生产。
+
+本地按影响范围运行用例和构建；[GitHub CI](../.github/workflows/verify.yml) 执行前端构建、MDX、相册与首页全部回归。

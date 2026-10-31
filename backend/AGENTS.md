@@ -45,25 +45,9 @@
 - 新增表、字段、枚举或索引后，同步更新 `docs/sql/schema.md`。
 - 涉及接口行为的数据库变更，同步更新 `docs/apis/`。
 
-## 验证命令
+## 验证要求
 
-后端常规验证：
-
-```bash
-cd /home/ubuntu/workspace/rendering-cms-platform/backend
-go test ./...
-```
-
-涉及 SQL 或 migration 时：
-
-```bash
-cd /home/ubuntu/workspace/rendering-cms-platform/backend
-sqlc generate
-go test ./...
-```
-
-必要时增加：
-
-```bash
-go vet ./...
-```
+- 本地只运行本次变更影响的包测试和必要静态检查，覆盖正常、边界与异常路径。
+- SQL 查询变更后使用 sqlc v1.31.1 生成查询，检查生成一致性，并在专用测试数据库验证边界。
+- 全量测试与静态检查由 GitHub CI 执行，入口为 .github/workflows/verify.yml。
+- 数据库测试仅使用显式指定的测试库，不连接生产；临时服务完成后关闭。

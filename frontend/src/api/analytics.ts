@@ -39,3 +39,13 @@ export function getAdminAnalyticsSummary() {
 export function getAdminArticleAnalytics(days = 7) {
   return apiGet<ArticleAnalyticsResponse>(`/admin/analytics/articles?days=${days}`);
 }
+
+export interface AnalyticsTrend {
+  days: number;
+  site: DailyView[];
+  articles: { date: string; slug: string; title: string; views: number }[];
+}
+
+export function getAdminAnalyticsTrend(days: number) {
+  return apiGet<AnalyticsTrend>('/admin/analytics/trend?days=' + days);
+}
