@@ -25,7 +25,7 @@ CMS 相册新建、基本信息及独立图片管理的浏览器回归入口见 
 - `docs/cms-platform-technical-recommendation.zh-CN.md`：项目架构边界和技术路线基线。
 - `docs/guides/go-backend-guide.md`：Go 后端代码导读。
 - `docs/guides/frontend-architecture.md`：前端目录结构与代码开发规范。
-- `docs/guides/frontend-design.md`：后台管理界面设计规范。
+- `docs/guides/frontend-design.md`：后台管理界面设计规范，包含相册上传进度、图片预览及简洁文案约定。
 
 ## 进度与变更记录
 

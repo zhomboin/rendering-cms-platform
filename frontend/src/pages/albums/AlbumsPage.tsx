@@ -47,7 +47,7 @@ export default function AlbumsPage() {
   const publishMutation = useMutation({
     mutationFn: publishAdminAlbum,
     onSuccess: () => {
-      message.success('相册已发布，公开接口即刻可见');
+      message.success('相册已发布');
       void invalidate();
     },
     onError: (mutationError) => {
@@ -58,7 +58,7 @@ export default function AlbumsPage() {
   const unpublishMutation = useMutation({
     mutationFn: unpublishAdminAlbum,
     onSuccess: () => {
-      message.success('相册已下架，公开接口不再返回');
+      message.success('相册已下架');
       void invalidate();
     },
     onError: (mutationError) => {
@@ -96,16 +96,19 @@ export default function AlbumsPage() {
       dataIndex: 'coverUrl',
       key: 'coverUrl',
       width: 96,
-      render: (url: string | null) =>
+      render: (url: string | null, record: AdminAlbum) =>
         url ? (
-          <Image
-            src={url}
-            alt="相册封面"
-            width={64}
-            height={44}
-            style={{ objectFit: 'cover', borderRadius: 6 }}
-            preview={false}
-          />
+          <div onClick={event => event.stopPropagation()}>
+            <Image
+              src={url}
+              alt="相册封面"
+              width={64}
+              height={44}
+              style={{ objectFit: 'cover', borderRadius: 6 }}
+              aria-label={'预览' + record.title + '封面'}
+              preview={{ cover: '预览' }}
+            />
+          </div>
         ) : (
           <div
             style={{
@@ -196,7 +199,7 @@ export default function AlbumsPage() {
           {record.status === 'published' && (
             <Popconfirm
               title="确认下架该相册？"
-              description="下架后公开接口立即返回 404，可再次发布。"
+              description="下架后不再公开展示，可再次发布。"
               okText="下架"
               okButtonProps={{ danger: true }}
               cancelText="取消"
@@ -213,7 +216,7 @@ export default function AlbumsPage() {
           )}
           <Popconfirm
             title="确认删除该相册？"
-            description="相册与照片记录将被删除，关联资源软删除，对象存储文件尽力清理；操作不可恢复。"
+            description="相册及照片将被删除，此操作不可恢复。"
             okText="删除"
             okButtonProps={{ danger: true }}
             cancelText="取消"

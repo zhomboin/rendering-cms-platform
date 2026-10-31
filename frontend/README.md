@@ -51,7 +51,7 @@ frontend/
 - `/admin/albums`：相册管理。
 - `/admin/albums/new`：新建相册。
 - `/admin/albums/:id/edit`：相册基本信息与发布状态。
-- `/admin/albums/:id/photos`：图片管理（上传、URL 展示与复制、排序、封面、编辑与删除）。
+- `/admin/albums/:id/photos`：图片管理（上传进度、预览、URL 展示与复制、排序、封面、编辑与删除）。
 
 后台页面使用 `src/layouts/AdminLayout.tsx` 作为统一壳层。访问 `/admin` 及其子路由时，如果本地没有登录 token，会跳转到 `/admin/login`；登录成功后回到原目标后台页面。
 
@@ -131,7 +131,7 @@ npm run preview
 
 相册路由回归入口为 scripts/test-album-routes.mjs，通过 npm run test:albums 执行。测试使用 Playwright Chromium；首次使用需通过 npx playwright install chromium 准备浏览器，并按 Playwright 要求准备 Ubuntu 运行库。
 
-测试启动临时 Vite 服务与无头浏览器，结束时自动关闭。接口使用隔离响应，不连接生产；覆盖新建与失败重试、已有相册保存、两页独立加载和刷新、文件选择与拖拽的真实 multipart 内容、上传失败重试、类型和大小限制、URL 复制及失败提示，以及照片编辑、排序、封面和删除。
+测试启动临时 Vite 服务与无头浏览器，结束时自动关闭。接口使用隔离响应，不连接生产；覆盖新建与失败重试、已有相册保存、两页独立加载和刷新、文件选择与拖拽的真实 multipart 内容、上传失败重试、类型和大小限制、URL 复制及失败提示，以及照片编辑、排序、封面和删除；上传用例受控触发 XHR 进度事件并延迟接口响应，覆盖逐文件百分比、等待处理、混合成功失败、未知总量、离页取消和重新进入；预览覆盖键盘、切换、缩放、关闭与封面行跳转隔离，并检查窄屏长文件名。
 
 新建页没有相册 ID，不查询详情或照片，也不提供发布或上传操作；保存成功后使用创建接口返回的真实 ID 进入编辑页。生产验收须另行验证真实草稿的创建、读取及清理。
 
