@@ -164,4 +164,10 @@ npm run build
 
 首页浏览器回归入口为 scripts/test-dashboard.mjs，通过 npm run test:dashboard 执行。用例在隔离响应下验证日期切换、空数据、分区失败与重试、刷新失败保留上次成功数据、图片失败、管理导航和移动端布局；运行结束自动关闭 Vite 与浏览器。测试依赖 Playwright Chromium 及 Ubuntu 运行库，不连接生产。
 
-本地按影响范围运行用例和构建；[GitHub CI](../.github/workflows/verify.yml) 执行前端构建、MDX、相册与首页全部回归。
+本地按影响范围运行用例和构建；[GitHub CI](../.github/workflows/verify.yml) 执行前端构建、MDX、相册、首页与文章插图全部回归。
+
+## 文章插图
+
+编辑器的“插入图片”支持上传或手动链接，也可从相册和资源中搜索、预览并多选图片，确认后插入打开弹窗时的正文选区。图库只读取已有长期公开地址；资源须为 active、删除时间为空且为支持的图片格式，不调用下载签名、不创建公开副本或改变权限。说明见 [文章插图](../docs/guides/article-images.md)。
+
+相关回归通过 npm run test:article-images 执行，覆盖公开范围、懒加载、跨来源多选、选区与特殊字符、取消及跨文章清理、分页预览、错误重试、上传与手动链接，以及窄屏显示。测试使用隔离响应，结束自动关闭 Vite 和浏览器；GitHub CI 执行全部回归。

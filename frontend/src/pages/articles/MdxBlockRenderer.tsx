@@ -268,7 +268,7 @@ function CodeBlock({
 }
 
 function renderInlineMarkdown(text: string): ReactNode[] {
-  const pattern = /(!\[([^\]]*)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)|\*\*([^*]+)\*\*|~~([^~]+)~~|<u>(.*?)<\/u>|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+|mailto:[^)\s]+)\)|\*([^*\n]+)\*)/g;
+  const pattern = /(!\[((?:\\.|[^\]\\])*)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)|\*\*([^*]+)\*\*|~~([^~]+)~~|<u>(.*?)<\/u>|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+|mailto:[^)\s]+)\)|\*([^*\n]+)\*)/g;
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -284,7 +284,7 @@ function renderInlineMarkdown(text: string): ReactNode[] {
         <img
           key={key}
           src={match[3]}
-          alt={match[2]}
+          alt={match[2].replace(/\\([\\[\]\x60*_{}<>])/g, '$1')}
           style={{
             display: 'block',
             maxWidth: '100%',

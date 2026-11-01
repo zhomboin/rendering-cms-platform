@@ -1,0 +1,24 @@
+.article-image-library { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.article-image-library__note { color: #64748b; margin: 0; font-size: 13px; }
+.article-image-library__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.article-image-library__item { min-width: 0; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 8px; }
+.article-image-library__preview.ant-btn { width: 100%; height: 110px; padding: 0; border: 0; border-radius: 0; display: block; overflow: hidden; position: relative; }
+.article-image-library__preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.article-image-library__preview > span { position: absolute; bottom: 5px; right: 5px; background: #0f172acc; color: white; padding: 1px 7px; border-radius: 4px; font-size: 12px; }
+.article-image-library__caption { display: flex; gap: 8px; align-items: center; min-width: 0; padding: 9px; }
+.article-image-library__caption > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.article-image-library__caption .ant-checkbox-wrapper { flex: 0 0 auto; }
+.article-image-library__pagination { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.article-image-library__pagination > span { font-size: 13px; color: #64748b; }
+.article-image-library__state { min-height: 120px; display: flex; align-items: center; justify-content: center; gap: 12px; color: #64748b; }
+.article-image-library__large { display: block; max-width: 100%; max-height: 65vh; margin: auto; object-fit: contain; }
+.article-image-library__name { overflow-wrap: anywhere; }
+.article-image-dialog .ant-tabs-nav-list { max-width: 100%; }
+.article-image-dialog .ant-select-selection-item { overflow: hidden; text-overflow: ellipsis; }
+.article-image-dialog__selection { margin-top: 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+@media (max-width: 480px) {
+  .article-image-library__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .article-image-library__preview.ant-btn { height: 95px; }
+  .article-image-library__pagination { gap: 6px; }
+  .article-image-dialog .ant-tabs-tab + .ant-tabs-tab { margin-left: 18px; }
+}

@@ -47,6 +47,10 @@ frontend/
       albums/AlbumPhotosPage.tsx
       albums/AlbumPhotoUpload.tsx
       articles/ArticleEditorPage.tsx
+      articles/ArticleImageDialog.tsx
+      articles/ArticleImageLibrary.tsx
+      articles/ArticleImageLibrary.css
+      articles/articleImageUtils.ts
       articles/ArticleListPage.tsx
       articles/ArticleReadingPage.tsx
       articles/MdxPreview.tsx
@@ -77,6 +81,7 @@ frontend/
 
 - 页面可以导入 `src/api/`、`src/layouts/`、`src/components/` 和自身目录内的局部组件。
 - 页面不得导入其他页面目录内的私有组件或工具。
+- 文章插图由 ArticleImageDialog 管理弹窗来源与选择；ArticleImageLibrary 维护图库读取及筛选，articleImageUtils 负责地址过滤、去重、Markdown 编排和选区插入；编辑器只接收插入结果。业务边界见 [文章插图](article-images.md)。
 - `src/api/client.ts` 只能被 `src/api/*.ts` 调用，页面不得直接导入。
 - `src/app/` 可以导入 `src/routes/` 和全局 provider，不导入具体页面内部实现。
 - `src/routes/` 可以导入 `src/pages/` 和 `src/layouts/`，不调用 API。

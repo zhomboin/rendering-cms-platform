@@ -16,6 +16,8 @@ export interface AssetFile {
   contentType: string;
   byteSize: number;
   publicUrl: string | null;
+  status: 'active' | 'archived' | 'deleted';
+  deletedAt: string | null;
   createdBy: string;
   createdAt: string;
 }

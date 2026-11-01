@@ -77,3 +77,4 @@ jobs:
           npm run test:mdx-preview
           npm run test:albums
           npm run test:dashboard
+          npm run test:article-images

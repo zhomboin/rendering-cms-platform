@@ -9,7 +9,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "test:mdx-preview": "mkdir -p .tmp/mdx-preview-parser && rm -rf .tmp/mdx-preview-parser && tsc src/pages/articles/MdxPreviewParser.ts --target ES2022 --module NodeNext --moduleResolution NodeNext --outDir .tmp/mdx-preview-parser --skipLibCheck --strict && node scripts/test-mdx-preview-parser.mjs",
     "test:albums": "node --test scripts/test-album-routes.mjs",
-    "test:dashboard": "node --test scripts/test-dashboard.mjs"
+    "test:dashboard": "node --test scripts/test-dashboard.mjs",
+    "test:article-images": "node --test scripts/test-article-images.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.7",
