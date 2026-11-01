@@ -122,7 +122,7 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - 归档资源时设置 `status=archived`，不删除对象存储文件。
 - 软删除资源时设置 `status=deleted` 和 `deleted_at`，不立即删除对象存储文件。
 - 状态恢复为 `active` 或 `archived` 时应清空 `deleted_at`。
-- 申请上传 URL 时必须校验文件类型和大小；预签名 PUT 必须绑定 `Content-Length`，避免直传对象绕过 20MB 上限。
+- 申请上传 URL 时必须校验文件类型和大小；预签名 PUT 必须绑定 `Content-Length`，避免直传对象绕过图片 50MB、其它允许文件 20MB 的对应上限。
 
 ## sqlc 入口
 

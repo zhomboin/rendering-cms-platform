@@ -14,6 +14,7 @@ import (
 	"rendering-cms-platform/backend/internal/database/dbgen"
 	httpapi "rendering-cms-platform/backend/internal/http"
 	"rendering-cms-platform/backend/internal/imaging"
+	"rendering-cms-platform/backend/internal/uploadpolicy"
 )
 
 // uploadAlbumPhoto 是后端代理上传：multipart 直传后端，服务端完成魔数校验、
@@ -45,19 +46,43 @@ func (h Handler) uploadAlbumPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 即使独立注册 handler，也限制分块请求并回收解析产生的临时文件。
+	if r.ContentLength > uploadpolicy.PhotoRequestBytes {
+		writeError(w, http.StatusRequestEntityTooLarge, "请求体过大")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, uploadpolicy.PhotoRequestBytes)
+	defer func() {
+		if r.MultipartForm != nil {
+			_ = r.MultipartForm.RemoveAll()
+		}
+	}()
+	if err := r.ParseMultipartForm(8 << 20); err != nil {
+		var sizeError *http.MaxBytesError
+		if errors.As(err, &sizeError) {
+			writeError(w, http.StatusRequestEntityTooLarge, "请求体过大")
+		} else {
+			writeError(w, http.StatusBadRequest, "照片表单无效")
+		}
+		return
+	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "缺少照片文件")
 		return
 	}
 	defer file.Close()
+	if header.Size <= 0 || header.Size > maxPhotoUploadBytes {
+		writeError(w, http.StatusBadRequest, "图片大小必须大于 0 且不超过 50MB")
+		return
+	}
 	data, err := io.ReadAll(io.LimitReader(file, maxPhotoUploadBytes+1))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "照片文件读取失败")
 		return
 	}
 	if !ValidPhotoUploadSize(len(data)) {
-		writeError(w, http.StatusBadRequest, "照片大小必须在 20MB 以内")
+		writeError(w, http.StatusBadRequest, "图片大小必须大于 0 且不超过 50MB")
 		return
 	}
 

@@ -128,7 +128,7 @@ func main() {
 			httpapi.WithAdminRoutes(assetHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(albumHandler.RegisterAdminRoutes),
 		),
-		// 照片上传走 20MB 后端代理链路，ReadTimeout/WriteTimeout 需覆盖慢速
+		// 照片上传走 50MB 后端代理链路，ReadTimeout/WriteTimeout 需覆盖慢速
 		// 上行的整个请求周期（与前端 120s 超时对齐）；slowloris 头部防护由
 		// ReadHeaderTimeout 单独承担。
 		ReadHeaderTimeout: 5 * time.Second,

@@ -3,12 +3,12 @@ package albums
 import (
 	"errors"
 	"regexp"
+	"rendering-cms-platform/backend/internal/uploadpolicy"
 	"strings"
 	"unicode/utf8"
 )
 
-// 照片上传沿用平台统一的 20MB 上限，类型限定为三种图片格式。
-const maxPhotoUploadBytes = 20 * 1024 * 1024
+const maxPhotoUploadBytes = uploadpolicy.ImageBytes
 
 var (
 	allowedPhotoTypes = map[string]bool{

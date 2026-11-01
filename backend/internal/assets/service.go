@@ -1,8 +1,9 @@
 package assets
 
-import "errors"
-
-const MaxUploadBytes = 20 * 1024 * 1024
+import (
+	"errors"
+	"rendering-cms-platform/backend/internal/uploadpolicy"
+)
 
 const (
 	StatusActive   = "active"
@@ -26,7 +27,7 @@ func ValidateUpload(filename string, contentType string, byteSize int) error {
 	if !allowedTypes[contentType] {
 		return errors.New("content type is not allowed")
 	}
-	if byteSize <= 0 || byteSize > MaxUploadBytes {
+	if byteSize <= 0 || byteSize > uploadpolicy.MaxBytes(contentType) {
 		return errors.New("file size is invalid")
 	}
 	return nil

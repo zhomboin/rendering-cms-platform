@@ -18,7 +18,7 @@
 - `text/plain`
 - `application/zip`
 
-最大文件大小：`20MB`。
+PNG、JPEG、WebP 图片最大 50MB（52,428,800 字节）；PDF、TXT、ZIP 最大 20MB（20,971,520 字节）。恰好上限可上传，零字节或超出对应上限拒绝。
 
 ## 资源模型
 
@@ -94,9 +94,9 @@ Content-Type: application/json
 
 说明：
 
-- 后端先校验文件名、类型和大小，再写入 `assets` 记录。
+- 前端在申请上传地址前校验大小；后端按图片 50MB、其它允许文件 20MB 校验文件名、类型和大小，再写入 `assets` 记录。
 - 客户端使用返回的 `uploadUrl` 和 `headers` 直接上传到对象存储。
-- 预签名 PUT URL 绑定 `Content-Type` 和 `Content-Length`；客户端上传的实际内容长度必须与申请 URL 时的 `byteSize` 一致，否则对象存储应拒绝请求。
+- 预签名 PUT URL 绑定 `Content-Type` 和 `Content-Length`；客户端上传的实际内容长度必须与申请 URL 时的 `byteSize` 一致，否则对象存储应拒绝请求；实际字节数受对应文件类型上限约束。
 - 生产环境对象存储为 Cloudflare R2，`uploadUrl` 会指向 R2 S3 API 端点；前端无需感知具体供应商。
 - R2 bucket 必须配置 CORS，允许后台前端来源使用 `PUT` 并携带 `Content-Type` 和浏览器自动发送的 `Content-Length`。
 - `usage` 可选，默认为 `asset-file`；文章编辑器上传正文图片时传 `blog-image`。

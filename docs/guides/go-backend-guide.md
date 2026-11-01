@@ -49,6 +49,7 @@ backend/
     imaging/       # 照片魔数、尺寸和元数据处理
     logging/       # 结构化日志与按日文件
     storage/       # S3 / MinIO 客户端
+    uploadpolicy/  # 图片、普通文件和相册表单大小策略
     mail/          # SMTP 验证码邮件发送
   migrations/      # PostgreSQL migration
   sql/             # sqlc 查询 SQL
@@ -176,7 +177,7 @@ github.com/golang-jwt/jwt/v5
 
 ### albums、imaging 与 logging
 
-- albums 负责相册管理、公开分页、缓存和上传。
+- albums 负责相册管理、公开分页、缓存和上传；完整表单上限 51MiB，单图最大 50MB，临时文件在处理结束时回收。
 - imaging 负责图片校验、尺寸与拍摄时间提取、EXIF/XMP 元数据剥离。
 - logging 负责结构化日志、按日文件和过期日志清理。
 - 契约见 [相册 API](../apis/photos.md)，未关闭问题见 [当前任务](../plans/current-tasks.md)。
@@ -271,7 +272,7 @@ backend/internal/assets/
 
 职责：
 
-- 校验上传文件类型和大小。
+- 校验上传文件类型和大小，统一使用 [上传策略](../../backend/internal/uploadpolicy/limits.go)：图片最大 50MB，其它允许文件最大 20MB。
 - 申请预签名上传 URL。
 - 查询资源列表。
 - 申请预签名下载 URL。

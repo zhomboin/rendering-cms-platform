@@ -78,3 +78,13 @@ jobs:
           npm run test:albums
           npm run test:dashboard
           npm run test:article-images
+          npm run test:upload-limits
+
+  nginx:
+    name: NGINX 配置
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: 校验容器与公网代理配置
+        run: bash scripts/env/check-nginx-config.sh

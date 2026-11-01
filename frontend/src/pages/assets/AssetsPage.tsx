@@ -271,7 +271,7 @@ function AssetsPage() {
           点击或拖拽文件到此处上传
         </p>
         <p style={{ fontSize: 13, color: '#64748B', margin: 0 }}>
-          支持 PNG、JPEG、WebP、PDF、TXT、ZIP，单文件最大 20MB
+          支持 PNG、JPEG、WebP、PDF、TXT、ZIP，图片最大 50MB，其它文件最大 20MB
         </p>
       </Dragger>
 

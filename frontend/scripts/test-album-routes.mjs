@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { selectSizedFile } from './upload-test-files.mjs';
 import { after, before, test } from 'node:test';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
@@ -275,11 +276,11 @@ test('图片管理保留编辑、排序、封面与删除操作', async (t) => {
   assert.equal(photos.length, 1);
 });
 
-test('超出 20MB 的图片在本地拒绝，不发上传请求', async (t) => {
+test('超出 50MB 的图片在本地拒绝，不发上传请求', async (t) => {
   const { page, uploads } = await setup(t, { existing: true });
   await page.goto(`${origin}/admin/albums/${albumId}/photos`, { waitUntil: 'networkidle' });
-  await page.locator('input[type=file]').setInputFiles({ name: 'large.png', mimeType: 'image/png', buffer: Buffer.alloc(20 * 1024 * 1024 + 1) });
-  await page.getByText('large.png 超过 20MB 上限', { exact: true }).waitFor();
+  await selectSizedFile(page.locator('input[type=file]'), 'large.png', 'image/png', 50 * 1024 * 1024 + 1);
+  await page.getByText('large.png 图片大小必须大于 0 且不超过 50MB', { exact: true }).waitFor();
   assert.equal(uploads.length, 0);
 });
 
@@ -429,4 +430,21 @@ test('图片管理文案简洁，窄屏长文件名不溢出', async (t) => {
   });
   await page.getByRole('list', { name: '上传进度', exact: true }).getByText('已上传', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+});
+
+test('相册上传大小边界：50MB可上传、超限与零字节不发请求', async t => {
+ const { page, uploads } = await setup(t, { existing: true });
+ await page.goto(`${origin}/admin/albums/${albumId}/photos`, { waitUntil: 'networkidle' });
+ const input = page.locator('input[type=file]');
+ for (const size of [50*1024*1024-1,50*1024*1024]) {
+  const uploaded = page.waitForResponse(r => r.request().method() === 'POST');
+  await selectSizedFile(input, `accepted-${size}.png`, 'image/png', size);
+  await uploaded;
+  assert.equal(uploads.at(-1).file.size,size);
+ }
+ for (const size of [50*1024*1024+1,0]) {
+  await selectSizedFile(input, `rejected-${size}.png`, 'image/png', size);
+  await page.getByText(`rejected-${size}.png 图片大小必须大于 0 且不超过 50MB`, {exact:true}).waitFor();
+  assert.equal(uploads.length,2);
+ }
 });

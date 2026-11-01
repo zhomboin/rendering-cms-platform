@@ -34,6 +34,7 @@ frontend/
       dashboard.ts
       comments.ts
       assets.ts
+      uploadLimits.ts
       albums.ts
     app/
       ErrorBoundary.tsx
@@ -91,6 +92,7 @@ frontend/
 - axios 实例、base URL、超时、凭据、请求拦截器和响应拦截器统一放在 `src/api/client.ts`。
 - 登录 token 存取统一放在 `src/api/auth-token.ts`。
 - 登录接口返回可辨识联合：直接成功返回 `token`/`refreshToken`/`user`，需要邮箱验证码时返回 `mfaRequired`/`challengeToken`；登录页为同页两步表单（密码 → 验证码），验证码通过 `verifyLoginCode` 完成登录后才写入 token。
+- 三个上传入口共用 uploadLimits.ts 的大小策略：图片 50MB、其它允许文件 20MB，超限或空文件在请求前拒绝。
 - 相册上传的进度与取消信号由 albums.ts 封装；AlbumPhotoUpload 只维护本页逐文件状态，成功后通知页面更新相册相关查询。
 - 各页面用到的具体 API 必须按领域放在 `src/api/` 下，例如 `articles.ts`、`comments.ts`、`assets.ts`。
 - 页面和组件不得直接调用 `apiGet`、`apiPost`、`apiPatch`、`apiClient`、`fetch` 或 `axios` 方法。

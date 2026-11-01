@@ -114,8 +114,8 @@ rendering-cms-platform/
 - 不得保存原始 IP 地址；如需风控或去重，只保存哈希。
 - 后台登录在密码验证成功后按风险判定（登录 IP 变更或连续失败 3 次）触发邮箱验证码两步校验；验证码数据库只存哈希，校验失败响应不区分错误类型，生产环境不得开启 `LOGIN_MFA_DEV_LOG`。
 - 文件上传必须校验文件名、内容类型和大小。
-- 第一版允许上传类型为 `image/png`、`image/jpeg`、`image/webp`、`application/pdf`、`text/plain`、`application/zip`。
-- 第一版上传大小上限为 `20MB`。
+- 允许上传类型为 `image/png`、`image/jpeg`、`image/webp`、`application/pdf`、`text/plain`、`application/zip`。
+- PNG、JPEG、WebP 图片单文件上限为 50MB，其它允许类型上限为 20MB；大小按 1024 字节进制计算。前后端校验与代理入口必须一致，并为照片表单预留余量。
 - 文章插入、编辑和状态更新必须由数据库触发器写入 `article_logs` 修订快照，并维护文章版本号。
 - 生产 migration 前必须先备份 PostgreSQL。
 
