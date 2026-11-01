@@ -10,10 +10,12 @@
 - [Go 后端导读](guides/go-backend-guide.md)、[前端架构](guides/frontend-architecture.md)、[前端设计](guides/frontend-design.md)。
 - [首页说明](guides/dashboard.md)：模块、统计口径与验证入口。
 - [文章插图](guides/article-images.md)：上传、链接、相册与资源选择，公开图片范围与验证入口。
+- [文件](apis/assets.md)与[相册](apis/photos.md)：图片 50MB、其它文件 20MB 的上传边界及接口规则。
 
 ## 开发与运维
 
 - [本地开发](operations/development-environment.md)。
+- [代理配置检查](../scripts/env/check-nginx-config.sh)：在 CI 临时容器中校验 CMS 两层 Nginx 配置。
 - [生产部署](operations/deployment.md)、[自动部署](operations/auto-deploy.md)、[运维速查](operations/maintenance.md)、[固定运维流程](operations/runbook.md)。
 - [生产访问与安全](operations/production-access.md)：操作授权与配置隔离；本机专用配置仅保存在主工作区本地，不随仓库分发。
 - [备份](operations/backup.md)、[恢复](operations/restore.md)、[日志与监控](operations/observability.md)。

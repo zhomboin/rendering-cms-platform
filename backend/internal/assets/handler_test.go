@@ -132,7 +132,7 @@ func TestCreateUploadURLUsesBlogImagePublicURLAndDatedStorageKey(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/assets/upload-url", strings.NewReader(`{
 		"filename": "Demo Image.webp",
 		"contentType": "image/webp",
-		"byteSize": 2048,
+		"byteSize": 52428800,
 		"usage": "blog-image"
 	}`))
 	token, err := auth.IssueToken("secret-32-characters-minimum-value", "11111111-1111-1111-1111-111111111111", "admin")
@@ -163,12 +163,18 @@ func TestCreateUploadURLUsesBlogImagePublicURLAndDatedStorageKey(t *testing.T) {
 	if signer.uploadKey != store.createAssetArg.StorageKey {
 		t.Fatalf("signed key = %q, want storage key %q", signer.uploadKey, store.createAssetArg.StorageKey)
 	}
-	if signer.uploadByteSize != 2048 {
-		t.Fatalf("signed byte size = %d, want 2048", signer.uploadByteSize)
+	if signer.uploadByteSize != 52428800 {
+		t.Fatalf("signed byte size = %d, want 52428800", signer.uploadByteSize)
+	}
+	if signer.uploadContentType != "image/webp" {
+		t.Fatalf("signed content type = %s", signer.uploadContentType)
 	}
 	var body map[string]interface{}
 	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
+	}
+	if body["method"] != http.MethodPut || body["headers"].(map[string]interface{})["Content-Type"] != "image/webp" {
+		t.Fatal("PUT upload headers no longer match signed type")
 	}
 	asset := body["asset"].(map[string]interface{})
 	if asset["publicUrl"] != wantPublicURL {

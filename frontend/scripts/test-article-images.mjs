@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { selectSizedFile } from './upload-test-files.mjs';
 import { after, before, test } from 'node:test';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
@@ -360,4 +361,23 @@ test('缓存刷新期间隐藏旧候选，资源状态和相册照片以最新�
   assert.equal(await dialog.getByRole('checkbox').count(), 0, '相册刷新完成前不能选择缓存里的旧照片');
   await dialog.getByRole('status').getByText('正在加载图片', { exact: false }).waitFor();
   await dialog.getByText('暂无可用图片', { exact: true }).waitFor();
+});
+
+test('文章上传大小边界：图片50MB以内申请URL，超限与零字节不发请求', async t => {
+ const { page, requests } = await setup(t, { fail: ['/admin/assets/upload-url'] });
+ const dialog = await open(page);
+ const input = dialog.locator('input[type=file]');
+ for (const size of [50*1024*1024-1,50*1024*1024]) {
+  const response = page.waitForResponse('**/admin/assets/upload-url');
+  await selectSizedFile(input, `accepted-${size}.png`, 'image/png', size);
+  await response;
+  await page.getByText('图库暂时不可用',{exact:true}).last().waitFor();
+  assert.equal(requests.at(-1).body.byteSize,size);
+ }
+ const count=requests.length;
+ for (const size of [50*1024*1024+1,0]) {
+  await selectSizedFile(input, `rejected-${size}.png`, 'image/png', size);
+  await page.getByText('图片大小必须大于 0 且不超过 50MB',{exact:true}).last().waitFor();
+  assert.equal(requests.length,count);
+ }
 });

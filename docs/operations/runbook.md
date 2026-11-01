@@ -307,7 +307,7 @@ docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.pr
 2. 检查 `S3_REGION=auto`、`S3_USE_PATH_STYLE=false`、`S3_BUCKET` 是否与 R2 bucket 一致。
 3. 检查 `S3_ACCESS_KEY_ID`、`S3_SECRET_ACCESS_KEY` 是否为 R2 专用访问密钥，并具备该 bucket 的对象读写权限。
 4. 检查 R2 bucket CORS 是否允许生产前端来源发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
-5. 检查上传大小是否超过 `20MB`。
+5. 检查图片是否超过 50MB，其它文件是否超过 20MB；相册表单还须符合 51MiB 的完整请求体上限。
 6. 检查文件类型是否在允许列表内。
 7. 检查预签名 URL 是否指向 R2 endpoint，且没有被浏览器 CORS 拦截。
 8. 检查 `download_events` 是否能写入。

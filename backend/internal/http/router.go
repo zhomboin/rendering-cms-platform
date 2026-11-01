@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"rendering-cms-platform/backend/internal/uploadpolicy"
 )
 
 type RouterConfig struct {
@@ -125,12 +127,21 @@ func NewRouter(options ...RouterOption) http.Handler {
 	for _, option := range options {
 		option(&config)
 	}
-	if config.RequestBodyLimit == 0 {
+	defaultBodyLimit := config.RequestBodyLimit == 0
+	if defaultBodyLimit {
 		config.RequestBodyLimit = 25 << 20
 	}
 
 	router := chi.NewRouter()
-	router.Use(RequestSizeLimitMiddleware(config.RequestBodyLimit))
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			limit := config.RequestBodyLimit
+			if defaultBodyLimit && isPhotoUploadRequest(r) {
+				limit = uploadpolicy.PhotoRequestBytes
+			}
+			RequestSizeLimitMiddleware(limit)(next).ServeHTTP(w, r)
+		})
+	})
 	router.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -235,4 +246,12 @@ func registerLimitedPublicRoutes(router chi.Router, config RouterConfig) {
 			}
 		})
 	}
+}
+
+func isPhotoUploadRequest(r *http.Request) bool {
+	if r.Method != http.MethodPost {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/"), "/")
+	return len(parts) == 6 && parts[0] == "api" && parts[1] == "v1" && parts[2] == "admin" && parts[3] == "albums" && parts[4] != "" && parts[5] == "photos"
 }

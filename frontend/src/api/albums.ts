@@ -102,7 +102,7 @@ export async function uploadAdminAlbumPhoto(albumId: string, file: File, input: 
   if (input.takenAt) {
     form.append('takenAt', input.takenAt);
   }
-  // 照片最大 20MB，放宽默认超时。
+  // 照片最大 50MB，放宽默认超时。
   const response = await apiClient.post<AlbumPhoto>(`/admin/albums/${albumId}/photos`, form, {
     // 清除 JSON 默认值，由浏览器生成 multipart boundary。
     headers: { 'Content-Type': undefined },

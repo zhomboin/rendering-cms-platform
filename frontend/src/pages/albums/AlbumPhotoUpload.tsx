@@ -3,9 +3,9 @@ import { Button, Progress, Space, Typography, Upload, message } from 'antd';
 import { PictureOutlined } from '@ant-design/icons';
 import type { RcFile, UploadRequestOption } from '@rc-component/upload/lib/interface';
 import { photoContentTypes, uploadAdminAlbumPhoto } from '../../api/albums';
+import { validateUploadSize } from '../../api/uploadLimits';
 
 const { Text } = Typography;
-const maxPhotoBytes = 20 * 1024 * 1024;
 
 interface UploadItem {
   uid: string;
@@ -94,8 +94,10 @@ export default function AlbumPhotoUpload({ albumId, disabled, onUploaded }: Albu
             message.error(file.name + ' 不是 PNG/JPEG/WebP 图片');
             return Upload.LIST_IGNORE;
           }
-          if (file.size > maxPhotoBytes) {
-            message.error(file.name + ' 超过 20MB 上限');
+          try {
+            validateUploadSize(file);
+          } catch (error) {
+            message.error(file.name + ' ' + (error instanceof Error ? error.message : '图片大小无效'));
             return Upload.LIST_IGNORE;
           }
           return true;
@@ -104,7 +106,7 @@ export default function AlbumPhotoUpload({ albumId, disabled, onUploaded }: Albu
       >
         <p className="ant-upload-drag-icon"><PictureOutlined /></p>
         <p className="ant-upload-text">点击或拖拽照片到这里上传</p>
-        <p className="ant-upload-hint">PNG / JPEG / WebP，单张不超过 20MB</p>
+        <p className="ant-upload-hint">PNG / JPEG / WebP，单张不超过 50MB</p>
       </Upload.Dragger>
       {uploads.length > 0 && (
         <div style={{ marginTop: 16, minWidth: 0 }}>

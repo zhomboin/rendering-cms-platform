@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { validateUploadSize } from './uploadLimits';
 import { apiGet, apiPost } from './client';
 
 export const allowedAssetContentTypes = [
@@ -47,6 +48,7 @@ export async function getAdminAssetDownloadUrl(assetId: string) {
 }
 
 export async function uploadAdminAsset(file: File, usage: UploadAssetUsage = 'asset-file') {
+  validateUploadSize(file);
   const upload = await apiPost<UploadURLResponse>('/admin/assets/upload-url', {
     filename: file.name,
     contentType: file.type,
