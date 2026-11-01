@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Upload, Switch, InputNumber, Popconfirm, Drawer, Table, Tag } from 'antd';
-import { HistoryOutlined, UploadOutlined, LockOutlined, EyeOutlined, UnlockOutlined } from '@ant-design/icons';
-import type { UploadProps } from 'antd/es/upload/interface';
+import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Switch, InputNumber, Popconfirm, Drawer, Table, Tag } from 'antd';
+import { HistoryOutlined, LockOutlined, EyeOutlined, UnlockOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -19,7 +18,9 @@ import {
 } from '../../api/articles';
 import type { AdminArticlePayload, ArticleFormData, ArticleRevisionSummary } from '../../api/articles';
 import { diffLines } from './revisionDiff';
-import { uploadAdminAsset } from '../../api/assets';
+import { ArticleImageDialog } from './ArticleImageDialog';
+import { insertArticleImages } from './articleImageUtils';
+import type { ArticleImage } from './articleImageUtils';
 import { MdxPreview } from './MdxPreview';
 import './ArticleEditorPage.css';
 
@@ -49,11 +50,6 @@ type MarkdownAction = {
   prefix?: string;
   suffix?: string;
   placeholder?: string;
-};
-
-type ImageInsertForm = {
-  altText: string;
-  imageUrl: string;
 };
 
 const markdownActions: MarkdownAction[] = [
@@ -215,11 +211,10 @@ export default function ArticleEditorPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form] = Form.useForm<ArticleFormData>();
-  const [imageForm] = Form.useForm<ImageInsertForm>();
   const bodyMdx = Form.useWatch('bodyMdx', form) ?? '';
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
-  const [imageUploading, setImageUploading] = useState(false);
+  const imageSelection = useRef({ currentValue: '', selectionStart: 0, selectionEnd: 0, selectedText: '' });
   const [writerFullscreen, setWriterFullscreen] = useState(false);
   const [mobilePane, setMobilePane] = useState<'edit' | 'preview'>('edit');
   const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null);
@@ -257,6 +252,7 @@ export default function ArticleEditorPage() {
 
   useEffect(() => {
     setRestoredDraftAt(null);
+    setImageModalOpen(false);
     if (!isEdit) {
       const draft = loadArticleDraft(draftKey);
       form.setFieldsValue(draft?.values ?? initialFormData);
@@ -467,29 +463,8 @@ export default function ArticleEditorPage() {
     });
   };
 
-  const insertTextIntoEditor = (text: string) => {
-    const { currentValue, selectionStart, selectionEnd } = getEditorSelection();
-    const nextValue = [
-      currentValue.slice(0, selectionStart),
-      text,
-      currentValue.slice(selectionEnd),
-    ].join('');
-    const nextSelection = selectionStart + text.length;
-
-    form.setFieldsValue({ bodyMdx: nextValue });
-    window.requestAnimationFrame(() => {
-      const nextEditor = document.querySelector<HTMLTextAreaElement>('[data-article-body-editor="true"]');
-      nextEditor?.focus();
-      nextEditor?.setSelectionRange(nextSelection, nextSelection);
-    });
-  };
-
   const openImageModal = () => {
-    const { selectedText } = getEditorSelection();
-    imageForm.setFieldsValue({
-      altText: selectedText,
-      imageUrl: '',
-    });
+    imageSelection.current = getEditorSelection();
     setImageModalOpen(true);
   };
 
@@ -501,64 +476,17 @@ export default function ArticleEditorPage() {
     insertIntoEditor(action.prefix ?? '', action.suffix ?? '', action.placeholder ?? '');
   };
 
-  const handleInsertImage = async () => {
-    const values = await imageForm.validateFields();
-    const imageUrl = values.imageUrl.trim();
-    const altText = values.altText.trim() || '图片';
-    const { currentValue, selectionStart, selectionEnd } = getEditorSelection();
-    const beforeSelection = currentValue.slice(0, selectionStart);
-    const afterSelection = currentValue.slice(selectionEnd);
-    const prefix = beforeSelection.trimEnd()
-      ? beforeSelection.endsWith('\n\n')
-        ? ''
-        : beforeSelection.endsWith('\n')
-          ? '\n'
-          : '\n\n'
-      : '';
-    const suffix = afterSelection.trimStart()
-      ? afterSelection.startsWith('\n\n')
-        ? ''
-        : afterSelection.startsWith('\n')
-          ? '\n'
-          : '\n\n'
-      : '';
-    insertTextIntoEditor(`${prefix}![${altText}](${imageUrl})${suffix}`);
+  const handleInsertImages = (images: ArticleImage[]) => {
+    const { currentValue, selectionStart, selectionEnd } = imageSelection.current;
+    const next = insertArticleImages(currentValue, selectionStart, selectionEnd, images);
+    form.setFieldsValue({ bodyMdx: next.value });
+    saveArticleDraft(draftKey, form.getFieldsValue());
     setImageModalOpen(false);
-  };
-
-  const imageUploadProps: UploadProps = {
-    accept: 'image/png,image/jpeg,image/webp',
-    maxCount: 1,
-    showUploadList: false,
-    customRequest: async (options) => {
-      const file = options.file as File;
-      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-        const error = new Error('仅支持 PNG、JPEG、WebP 图片');
-        message.error(error.message);
-        options.onError?.(error);
-        return;
-      }
-
-      setImageUploading(true);
-      try {
-        const asset = await uploadAdminAsset(file, 'blog-image');
-        if (!asset.publicUrl) {
-          throw new Error('图片已上传，但当前存储未返回可公开访问的 URL');
-        }
-        imageForm.setFieldsValue({
-          imageUrl: asset.publicUrl,
-          altText: imageForm.getFieldValue('altText') || file.name.replace(/\.[^.]+$/, ''),
-        });
-        message.success('图片已上传，可插入正文');
-        options.onSuccess?.(asset);
-      } catch (error) {
-        const uploadError = error instanceof Error ? error : new Error('图片上传失败');
-        message.error(uploadError.message);
-        options.onError?.(uploadError);
-      } finally {
-        setImageUploading(false);
-      }
-    },
+    window.requestAnimationFrame(() => {
+      const editor = document.querySelector<HTMLTextAreaElement>('[data-article-body-editor="true"]');
+      editor?.focus();
+      editor?.setSelectionRange(next.cursor, next.cursor);
+    });
   };
 
   const handleEditorShortcut = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -916,44 +844,14 @@ export default function ArticleEditorPage() {
         <p>确定要发布这篇文章吗？发布后将对所有读者可见。</p>
       </Modal>
 
-      <Modal
-        title="插入图片"
-        open={imageModalOpen}
-        onOk={handleInsertImage}
-        onCancel={() => setImageModalOpen(false)}
-        okText="插入正文"
-        cancelText="取消"
-        confirmLoading={imageUploading}
-      >
-        <Form form={imageForm} layout="vertical" initialValues={{ altText: '', imageUrl: '' }}>
-          <Form.Item
-            name="imageUrl"
-            label="图片 URL"
-            rules={[
-              { required: true, message: '请输入图片 URL 或上传图片' },
-              {
-                validator: (_, value: string) => {
-                  if (!value) return Promise.resolve();
-                  if (/^(https?:\/\/|\/)/.test(value.trim())) return Promise.resolve();
-                  return Promise.reject(new Error('图片 URL 必须以 http(s):// 或 / 开头'));
-                },
-              },
-            ]}
-          >
-            <Input placeholder="https://example.com/image.webp" />
-          </Form.Item>
-
-          <Form.Item name="altText" label="替代文本">
-            <Input placeholder="用于无障碍和图片加载失败时展示" />
-          </Form.Item>
-
-          <Upload {...imageUploadProps}>
-            <Button icon={<UploadOutlined />} loading={imageUploading}>
-              上传图片并回填 URL
-            </Button>
-          </Upload>
-        </Form>
-      </Modal>
+      {imageModalOpen && (
+        <ArticleImageDialog
+          key={draftKey}
+          initialAlt={imageSelection.current.selectedText}
+          onInsert={handleInsertImages}
+          onCancel={() => setImageModalOpen(false)}
+        />
+      )}
 
       <Drawer
         title="历史版本"

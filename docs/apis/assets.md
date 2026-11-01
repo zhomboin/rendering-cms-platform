@@ -47,6 +47,7 @@ Authorization: Bearer <jwt-token>
 
 - 返回后台已创建的资源元数据。
 - 按上传时间倒序排列。
+- 列表包含不同状态；文章图库仅选择 active 且 deletedAt 为空、类型为 PNG/JPEG/WebP 并已有有效长期 publicUrl 的资源。临时下载地址不能作为文章图库地址，选择图片不调用下载签名或改变资源权限。
 
 ## 申请预签名上传 URL
 
