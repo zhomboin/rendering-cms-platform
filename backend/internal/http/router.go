@@ -118,7 +118,9 @@ func WithPublicTrafficLimits(limits PublicTrafficLimits) RouterOption {
 
 func WithAdminRoutes(registrar RouteRegistrar) RouterOption {
 	return func(config *RouterConfig) {
-		config.AdminRoutes = append(config.AdminRoutes, registrar)
+		if registrar != nil {
+			config.AdminRoutes = append(config.AdminRoutes, registrar)
+		}
 	}
 }
 

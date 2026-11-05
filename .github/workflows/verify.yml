@@ -79,6 +79,7 @@ jobs:
           npm run test:dashboard
           npm run test:article-images
           npm run test:upload-limits
+          npm run test:postbridge
 
   nginx:
     name: NGINX 配置

@@ -168,6 +168,7 @@ S3_ASSET_FILE_PREFIX=assets
 - `S3_REGION` 使用 `auto`。
 - `S3_USE_PATH_STYLE` 生产环境固定为 `false`，让 AWS SDK 使用 R2 需要的虚拟主机风格寻址。
 - `S3_BLOG_IMAGE_PREFIX` 和 `S3_ASSET_FILE_PREFIX` 分别控制文章图片和普通资源文件的对象 key 前缀。
+- PostBridge 接入为可选配置。启用前先备份 PostgreSQL 并应用迁移 000015，再将 [接入配置](../apis/postbridge.md#后端配置) 注入后端和挂载后端专用的只读密钥文件。部署后核对来源身份绑定、签名代理和投递告警，验收按当前任务 V10 记录。
 - `S3_ACCESS_KEY_ID` 和 `S3_SECRET_ACCESS_KEY` 使用 Cloudflare R2 专用访问密钥，权限限定到 `S3_BUCKET` 的对象读写。
 - `SMTP_*` 用于登录邮箱验证码发信。`SMTP_HOST`、`SMTP_USERNAME`、`SMTP_PASSWORD` 配置齐全即启用验证码功能，未配置齐全时自动关闭（登录不触发验证码）；`SMTP_PASSWORD` 使用个人邮箱的 SMTP 授权码（如 QQ 邮箱、163 邮箱授权码或 Gmail 应用密码）。`SMTP_*` 与 `LOGIN_MFA_*` 变量由 `deploy/docker-compose.prod.yml` 的 backend `environment` 传入容器，新增此类变量时必须同步 compose 透传，否则 `production.env` 中的配置不会生效。
 - `SMTP_PORT` 默认 `465`（隐式 TLS）；使用 587/25 时走 STARTTLS。

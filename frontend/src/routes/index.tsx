@@ -13,6 +13,7 @@ const ArticleReadingPage = lazy(() => import('../pages/articles/ArticleReadingPa
 const CommentsPage = lazy(() => import('../pages/comments/CommentsPage'));
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
+const PostBridgePage = lazy(() => import('../pages/postbridge/PostBridgePage'));
 
 function RouteFallback() {
   return (
@@ -36,6 +37,7 @@ export function AppRoutes() {
             <Route path="articles/new" element={<ArticleEditorPage />} />
             <Route path="articles/:id/edit" element={<ArticleEditorPage />} />
             <Route path="comments" element={<CommentsPage />} />
+            <Route path="postbridge" element={<PostBridgePage />} />
             <Route path="assets" element={<AssetsPage />} />
             <Route path="albums" element={<AlbumsPage />} />
             <Route path="albums/new" element={<AlbumEditPage />} />

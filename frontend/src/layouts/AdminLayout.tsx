@@ -9,6 +9,7 @@ import {
   LogoutOutlined,
   MenuOutlined,
   PictureOutlined,
+  SendOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
@@ -20,7 +21,7 @@ const { Text } = Typography;
 const { useBreakpoint } = Grid;
 const logoSrc = '/logo/icon.png';
 
-const menuItems = [
+const baseMenuItems = [
   { key: '/admin', icon: <DashboardOutlined />, label: '仪表盘' },
   { key: '/admin/articles', icon: <FileTextOutlined />, label: '文章管理' },
   { key: '/admin/albums', icon: <PictureOutlined />, label: '相册管理' },
@@ -34,6 +35,7 @@ const pageTitleMap: Record<string, string> = {
   '/admin/albums': '相册管理',
   '/admin/comments': '评论审核',
   '/admin/assets': '资源管理',
+  '/admin/postbridge': 'PostBridge',
 };
 
 function AdminLayout() {
@@ -45,6 +47,10 @@ function AdminLayout() {
   const isMobile = !screens.md;
   const authToken = getAuthToken();
   const authUser = getAuthUser();
+
+  const menuItems = authUser?.role === 'admin'
+    ? [...baseMenuItems, { key: '/admin/postbridge', icon: <SendOutlined />, label: 'PostBridge' }]
+    : baseMenuItems;
 
   if (!authToken) {
     return <Navigate to="/admin/login" replace state={{ from: location }} />;

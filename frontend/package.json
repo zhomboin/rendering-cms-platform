@@ -11,7 +11,8 @@
     "test:albums": "node --test scripts/test-album-routes.mjs",
     "test:dashboard": "node --test scripts/test-dashboard.mjs",
     "test:article-images": "node --test scripts/test-article-images.mjs",
-    "test:upload-limits": "node --test scripts/test-upload-limits.mjs"
+    "test:upload-limits": "node --test scripts/test-upload-limits.mjs",
+    "test:postbridge": "node --test scripts/test-postbridge.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.7",
