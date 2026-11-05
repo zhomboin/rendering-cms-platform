@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { createSearchParams, Link, useNavigate } from 'react-router-dom';
 import { Table, Button, Tag, Input, Select, Space, Typography, Alert, Popconfirm, message } from 'antd';
 import { PlusOutlined, EditOutlined, ReloadOutlined, StopOutlined, EyeOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listAdminArticles, unpublishAdminArticle, markAdminArticlePrivate, restoreAdminArticleToDraft } from '../../api/articles';
 import type { AdminArticleRecord } from '../../api/articles';
+import { getAuthUser } from '../../api/auth';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -38,6 +39,7 @@ function formatDate(value: string | null) {
 
 export default function ArticleListPage() {
   const navigate = useNavigate();
+  const isAdmin = getAuthUser()?.role === 'admin';
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
@@ -150,9 +152,9 @@ export default function ArticleListPage() {
     {
       title: '操作',
       key: 'action',
-      width: 240,
+      width: isAdmin ? 360 : 240,
       render: (_: unknown, record: AdminArticleRecord) => (
-        <Space size={0}>
+        <Space size={0} wrap>
           <Button type="link" size="small" icon={<EyeOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/articles/${record.articleId}/read`); }}>
             阅读
           </Button>
@@ -192,6 +194,15 @@ export default function ArticleListPage() {
                 转草稿
               </Button>
             </Popconfirm>
+          )}
+          {isAdmin && record.status === 'published' && Boolean(record.version) && (
+            <Link
+              to={{ pathname: '/admin/postbridge', search: createSearchParams({ articleId: record.articleId, prepare: '1' }).toString() }}
+              onClick={(event) => event.stopPropagation()}
+              style={{ paddingInline: 8 }}
+            >
+              保存到 CSDN 草稿箱
+            </Link>
           )}
           {record.status === 'published' && (
             <Popconfirm
@@ -264,7 +275,7 @@ export default function ArticleListPage() {
           showSizeChanger: false,
           showTotal: (total) => `共 ${total} 篇文章`,
         }}
-        scroll={{ x: 1120 }}
+        scroll={{ x: isAdmin ? 1240 : 1120 }}
         onRow={(record) => ({
           onClick: () => navigate(`/admin/articles/${record.articleId}/edit`),
           style: { cursor: 'pointer', height: 48 },

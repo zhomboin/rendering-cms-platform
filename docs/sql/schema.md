@@ -106,6 +106,15 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - `analytics_events` 是公开统计接口的去重基础，不替代 daily/history 聚合表；后台趋势接口默认读取聚合表。
 - `analytics_events_unique_daily_idx` 使用 `event_type + ip_hash + article_id + album_id + event_date` 防止同一来源在同一天对同一文章、相册或站点访问无限刷量。
 
+## PostBridge 分发
+
+迁移 `000015_postbridge` 增加来源状态、分发记录、事务发件箱、注册记录和连接身份绑定。业务查询见 [postbridge.sql](../../backend/sql/postbridge.sql)。
+
+- `postbridge_article_states` 按来源与文章保存已授权快照的版本和状态序列。存量文章在首次授权时初始化。单份撤销独立分配事件序列，保留其他授权的适用状态。
+- `postbridge_attempts` 保存限时授权、冻结的准备和提交请求、远端标识、状态以及轮询或取消租约。来源、文章和请求 ID 联合唯一。文章删除后保留必要的分发记录以撤销远端任务。
+- `postbridge_events` 保存稳定事件 ID、待发正文、租约、退避时间和脱敏错误。文章写入触发器与授权撤销事务登记事件，覆盖后台和导入。兼容性待校验的内容先冻结候选快照，投递前保存最终正文，发送时只带内容指纹和状态字段。
+- `postbridge_registrations` 保存来源与环境对应的注册回执。 `postbridge_connections` 为每个数据库绑定唯一的来源 ID、环境、HTTPS origin 和应用 ID。同一应用轮换密钥沿用绑定。明文密钥由后台受限文件读取。
+
 ## 相册规则
 
 - 公开接口只返回 `published` 相册，公开读取 SQL 一律带 `status = 'published'` 过滤；未发布或已下架相册的公开访问返回 `404`。

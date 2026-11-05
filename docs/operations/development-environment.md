@@ -179,6 +179,8 @@ MINIO_API_CORS_ALLOW_ORIGIN=http://127.0.0.1:3000,http://127.0.0.1:5173,http://l
 
 不要提交 `.env`。
 
+PostBridge 测试环境的可选连接变量与密钥文件要求见 [PostBridge 接入 API](../apis/postbridge.md#后端配置)。
+
 本地 dev 后端启动时会自动 upsert 默认后台管理员：
 
 ```text

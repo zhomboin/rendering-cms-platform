@@ -13,6 +13,10 @@
 | 评论 | 匿名提交、默认待审核与后台审核 | [评论 API](apis/comments.md) |
 | 公开接口与部署 | PostgreSQL 搜索、缓存、应用限流及自动部署保护 | [部署说明](operations/deployment.md)、[自动部署](operations/auto-deploy.md) |
 
+## PostBridge 接入
+
+[PostBridge 单向接入](plans/2026-11-05-postbridge-integration.md)已实现连接、准备稿确认衔接、分发及取消、事务发件箱和管理后台。Go 1.26.10、PostgreSQL 16、CMS 启动及 5 项模拟接口浏览器回归通过。CMS 后端负责冻结分发快照、签名提交、查询结果和可靠投递来源事件；PostBridge 负责平台稿确认和草稿保存。跨系统、真实 CSDN 和生产验收由 [当前任务 V10](plans/current-tasks.md#待环境验收) 跟进，均待验收。
+
 ## 仓库维护
 
 核对日期：2026-11-01。当前契约与指南保留在 docs，任务与验收统一收敛到当前任务清单；详细过程通过 Git 查询。文章图库只复用已有长期公开地址，不生成公开副本或下载签名。TypeScript 构建检查未使用的局部声明和参数。

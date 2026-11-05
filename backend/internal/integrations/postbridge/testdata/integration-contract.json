@@ -1,0 +1,34 @@
+{
+  "synthetic": true,
+  "signature": {
+    "method": "POST",
+    "url": "https://bridge.example/api/integrations/v1/preparations?z=2&a=1",
+    "body": "{\"title\":\"测试\"}",
+    "client_id": "client-test",
+    "key_id": "key-test",
+    "environment": "test",
+    "service_id": "bridge-test",
+    "fixture_secret_base64": "c3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3M=",
+    "timestamp": 1700000000,
+    "nonce": "nonce-0123456789abcdef",
+    "content_digest": "sha-256=:Csvq4zRXQutqJSUUrsmR9tf525ZpBSNjhDrP3FVGK54=:",
+    "signature_input": "sig1=(\"@method\" \"@target-uri\" \"content-digest\" \"x-integration-client\" \"x-integration-environment\" \"x-integration-service\");created=1700000000;keyid=\"key-test\";nonce=\"nonce-0123456789abcdef\";alg=\"hmac-sha256\"",
+    "signature": "sig1=:PnOxIUmNh48OKODhZyf8IADxXtqYEhaDYwdmPQuCLRk=:"
+  },
+  "content": {
+    "snapshot": {
+      "title": "跨系统测试文章",
+      "summary": "<摘要>",
+      "body": "# 正文\r\n\r\n内容",
+      "body_format": "markdown",
+      "tags": [
+        "Go",
+        "接口"
+      ],
+      "cover_image_url": "",
+      "assets": [],
+      "original_url": "https://blog.example/blog/abcdef"
+    },
+    "fingerprint": "f3878a5122b5381528ff6c082e3a3f910fedf4c4dd5044410a629b490325bc2e"
+  }
+}

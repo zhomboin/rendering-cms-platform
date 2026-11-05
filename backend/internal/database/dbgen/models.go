@@ -386,6 +386,66 @@ type PhotoAlbum struct {
 	UpdatedAt     pgtype.Timestamptz
 }
 
+type PostbridgeArticleState struct {
+	SourceID      string
+	ArticleID     pgtype.UUID
+	SourceVersion int64
+	StateSeq      int64
+}
+
+type PostbridgeAttempt struct {
+	ID                     string
+	SourceID               string
+	ArticleID              pgtype.UUID
+	RequestID              string
+	SourceVersion          int64
+	StateSeq               int64
+	TargetAccountID        string
+	AuthorizationID        string
+	AuthorizationExpiresAt pgtype.Timestamptz
+	Status                 string
+	Data                   []byte
+	RevokedAt              pgtype.Timestamptz
+	CancelPending          bool
+	NextSyncAt             pgtype.Timestamptz
+	LeaseToken             string
+	LeaseExpiresAt         pgtype.Timestamptz
+	CreatedAt              pgtype.Timestamptz
+	UpdatedAt              pgtype.Timestamptz
+}
+
+type PostbridgeConnection struct {
+	SourceID    string
+	Environment string
+	Origin      string
+	ClientID    string
+}
+
+type PostbridgeEvent struct {
+	ID             string
+	SourceID       string
+	ArticleID      pgtype.UUID
+	StateSeq       int64
+	EventType      string
+	Body           []byte
+	Snapshot       []byte
+	Attempts       int32
+	LastErrorCode  string
+	NextAttemptAt  pgtype.Timestamptz
+	DeliveredAt    pgtype.Timestamptz
+	LeaseToken     string
+	LeaseExpiresAt pgtype.Timestamptz
+	CreatedAt      pgtype.Timestamptz
+}
+
+type PostbridgeRegistration struct {
+	SourceID       string
+	Environment    string
+	RegistrationID string
+	Status         string
+	UpdatedAt      pgtype.Timestamptz
+}
+
 type SiteViewDaily struct {
 	ViewDate pgtype.Date
 	Views    int32

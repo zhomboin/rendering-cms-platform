@@ -9,6 +9,7 @@
 - [评论 API](./comments.md)
 - [文件 API](./assets.md)
 - [相册 API](./photos.md)
+- [PostBridge 接入 API](./postbridge.md)
 
 ## 通用规则
 

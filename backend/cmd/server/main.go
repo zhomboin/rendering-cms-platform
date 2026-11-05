@@ -18,6 +18,7 @@ import (
 	"rendering-cms-platform/backend/internal/database"
 	"rendering-cms-platform/backend/internal/database/dbgen"
 	httpapi "rendering-cms-platform/backend/internal/http"
+	"rendering-cms-platform/backend/internal/integrations/postbridge"
 	"rendering-cms-platform/backend/internal/logging"
 	"rendering-cms-platform/backend/internal/mail"
 	"rendering-cms-platform/backend/internal/storage"
@@ -98,6 +99,29 @@ func main() {
 	analytics.StartDailyViewArchiveScheduler(schedulerCtx, queries, logger)
 	articles.StartDailyArticleLogPruneScheduler(schedulerCtx, queries, cfg.ArticleLogRetention, logger)
 
+	var postBridgeRoutes httpapi.RouteRegistrar
+	if cfg.PostBridge.Origin != "" {
+		bridge := cfg.PostBridge
+		client, err := postbridge.NewClient(bridge.Origin, postbridge.Identity{
+			ClientID: bridge.ClientID, KeyID: bridge.KeyID, Environment: bridge.Environment,
+			ServiceID: bridge.ServiceID, Secret: bridge.Secret,
+		})
+		if err != nil {
+			log.Fatalf("configure PostBridge: %v", err)
+		}
+		service := postbridge.NewService(postbridge.NewStore(db), client, bridge.SourceID, bridge.Environment)
+		bindCtx, stopBind := context.WithTimeout(context.Background(), 5*time.Second)
+		err = service.BindConnection(bindCtx)
+		stopBind()
+		if err != nil {
+			log.Fatal("PostBridge connection binding failed; check the configured source, environment, origin, and application")
+		}
+		service.Start(schedulerCtx, logger)
+		postBridgeRoutes = httpapi.PostBridgeRoutes(client, postbridge.RegistrationGrant{
+			SourceID: bridge.SourceID, Accounts: bridge.Accounts, Scopes: bridge.Scopes,
+		}, service)
+	}
+
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.NewRouter(
@@ -127,6 +151,7 @@ func main() {
 			httpapi.WithAdminRoutes(commentHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(assetHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(albumHandler.RegisterAdminRoutes),
+			httpapi.WithAdminRoutes(postBridgeRoutes),
 		),
 		// 照片上传走 50MB 后端代理链路，ReadTimeout/WriteTimeout 需覆盖慢速
 		// 上行的整个请求周期（与前端 120s 超时对齐）；slowloris 头部防护由
