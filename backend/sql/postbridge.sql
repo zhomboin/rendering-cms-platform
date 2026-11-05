@@ -176,3 +176,14 @@ on conflict do nothing;
 
 -- name: GetPostBridgeConnection :one
 select * from postbridge_connections;
+
+-- name: AllPostBridgeImageURLsPublished :one
+select count(distinct ast.public_url collate "C") = cardinality(sqlc.arg(urls)::text[]) as all_published
+from assets ast
+join album_photos p on p.asset_id = ast.asset_id
+join photo_albums a on a.album_id = p.album_id
+where ast.public_url collate "C" = any(sqlc.arg(urls)::text[])
+  and ast.status = 'active'
+  and ast.deleted_at is null
+  and ast.content_type in ('image/png', 'image/jpeg', 'image/webp')
+  and a.status = 'published';

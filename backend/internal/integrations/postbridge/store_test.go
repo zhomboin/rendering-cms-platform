@@ -111,7 +111,7 @@ func postBridgeDatabaseFixture(t *testing.T) (*Store, *pgxpool.Pool, string, str
 
 func createDatabaseAttempt(t *testing.T, store *Store, sourceID, articleID, requestID string) AttemptRecord {
 	t.Helper()
-	attempt, err := store.CreateAttempt(context.Background(), sourceID, articleID, requestID, func(article ArticleSource, seq int64) (AttemptRecord, error) {
+	attempt, err := store.CreateAttempt(context.Background(), sourceID, articleID, requestID, func(article ArticleSource, seq int64, _ func([]string) error) (AttemptRecord, error) {
 		if article.ID != articleID || article.Status != "published" || article.Version < 1 || seq < 1 {
 			t.Fatalf("unexpected source: %+v, sequence %d", article, seq)
 		}
@@ -134,7 +134,7 @@ func TestPostBridgeArticleWriteAtomicallyInvalidatesGrants(t *testing.T) {
 	if first.StateSeq != other.StateSeq {
 		t.Fatal("one article revision must reuse its source sequence")
 	}
-	replayed, err := store.CreateAttempt(ctx, sourceID, articleID, first.RequestID, func(ArticleSource, int64) (AttemptRecord, error) {
+	replayed, err := store.CreateAttempt(ctx, sourceID, articleID, first.RequestID, func(ArticleSource, int64, func([]string) error) (AttemptRecord, error) {
 		t.Fatal("idempotent request rebuilt")
 		return AttemptRecord{}, nil
 	})

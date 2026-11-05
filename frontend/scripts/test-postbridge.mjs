@@ -124,7 +124,7 @@ test('已发布文章须确认省略封面，重试保留幂等请求 ID', async
   await page.getByRole('option', { name: '测试账号' }).click();
   const submit = form.getByRole('button', { name: '创建准备稿' });
   assert.equal(await submit.isDisabled(), true);
-  await form.getByRole('checkbox', { name: '仅保存正文，省略封面' }).check();
+  await form.getByRole('checkbox', { name: '省略封面' }).check();
   await submit.click();
   await form.getByText('准备稿响应暂不可用', { exact: true }).waitFor();
   await submit.click();
@@ -186,7 +186,7 @@ test('窄屏下刷新分发详情，确认页返回后查询状态并显示草�
   const form = page.getByRole('dialog', { name: '创建准备稿' });
   await form.getByRole('combobox', { name: '目标账号' }).click();
   await page.getByRole('option', { name: '测试账号' }).click();
-  assert.equal(await form.getByRole('checkbox', { name: '仅保存正文，省略封面' }).count(), 0);
+  assert.equal(await form.getByRole('checkbox', { name: '省略封面' }).count(), 0);
   await form.getByRole('button', { name: '创建准备稿' }).click();
   const detail = page.getByRole('dialog', { name: '分发详情' });
   await detail.getByText('待确认', { exact: true }).waitFor();

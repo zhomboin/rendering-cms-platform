@@ -15,7 +15,7 @@
 
 ## PostBridge 接入
 
-[PostBridge 单向接入](plans/2026-11-05-postbridge-integration.md)已实现连接、准备稿确认衔接、分发及取消、事务发件箱和管理后台。Go 1.26.10、PostgreSQL 16、CMS 启动及 5 项模拟接口浏览器回归通过。CMS 后端负责冻结分发快照、签名提交、查询结果和可靠投递来源事件；PostBridge 负责平台稿确认和草稿保存。跨系统、真实 CSDN 和生产验收由 [当前任务 V10](plans/current-tasks.md#待环境验收) 跟进，均待验收。
+[PostBridge 单向接入](plans/2026-11-05-postbridge-integration.md)已实现连接、准备稿确认衔接、分发及取消、事务发件箱和管理后台。支持图片的 CSDN 目标可保存正文中的已发布相册图片，CMS 在准备与提交时复核照片。Go 1.26.10、PostgreSQL 16、CMS 启动及 5 项模拟接口浏览器回归通过。CMS 后端负责冻结分发快照、签名提交、查询结果和可靠投递来源事件；PostBridge 负责平台稿确认和草稿保存。跨系统、真实 CSDN 和生产验收由 [当前任务 V10](plans/current-tasks.md#待环境验收) 跟进，均待验收。
 
 ## 仓库维护
 

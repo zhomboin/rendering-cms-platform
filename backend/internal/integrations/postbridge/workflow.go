@@ -65,21 +65,25 @@ func (s *Service) Create(ctx context.Context, articleID string, in CreateAttempt
 	if err != nil {
 		return Attempt{}, err
 	}
-	if !slices.ContainsFunc(targets, func(target Target) bool {
+	targetIndex := slices.IndexFunc(targets, func(target Target) bool {
 		return target.Platform == "csdn" && target.AccountID == in.TargetAccountID &&
 			slices.Contains(target.Operations, "save_draft") && slices.Contains(target.BodyFormats, "markdown")
-	}) {
+	})
+	if targetIndex == -1 {
 		return Attempt{}, ErrAttemptInput
 	}
-	record, err := s.store.CreateAttempt(ctx, s.sourceID, articleID, in.RequestID, func(article ArticleSource, seq int64) (AttemptRecord, error) {
+	record, err := s.store.CreateAttempt(ctx, s.sourceID, articleID, in.RequestID, func(article ArticleSource, seq int64, checkImages func([]string) error) (AttemptRecord, error) {
 		if article.Status != "published" || article.Version != in.ExpectedVersion {
 			return AttemptRecord{}, ErrAttemptConflict
 		}
 		if article.CoverImageURL != "" && !in.TextOnly {
 			return AttemptRecord{}, ErrCoverRequiresChoice
 		}
-		snapshot, fingerprint, err := ValidateSnapshot(articleSnapshot(article))
+		snapshot, fingerprint, imageURLs, err := validateSnapshot(articleSnapshot(article), targets[targetIndex].Images)
 		if err != nil {
+			return AttemptRecord{}, err
+		}
+		if err := checkImages(imageURLs); err != nil {
 			return AttemptRecord{}, err
 		}
 		id := uuid.NewString()
@@ -98,7 +102,7 @@ func (s *Service) Create(ctx context.Context, articleID string, in CreateAttempt
 		if err != nil {
 			return AttemptRecord{}, err
 		}
-		record.Data, err = json.Marshal(attemptData{TextOnly: in.TextOnly, ContentFingerprint: fingerprint, PrepareBody: body})
+		record.Data, err = json.Marshal(attemptData{TextOnly: in.TextOnly, ContentFingerprint: fingerprint, PrepareBody: body, ImageURLs: imageURLs})
 		return record, err
 	})
 	if err != nil {
@@ -237,6 +241,15 @@ func (s *Service) Submit(ctx context.Context, id string) (Attempt, error) {
 			return Attempt{}, err
 		}
 		return Attempt{}, ErrCannotSubmit
+	}
+	if err := checkPublishedImages(ctx, s.store.queries, data.ImageURLs); err != nil {
+		if errors.Is(err, ErrUnapprovedImage) {
+			_, err = s.revokeImageAttempt(ctx, record, data)
+			if err == nil {
+				err = ErrUnapprovedImage
+			}
+		}
+		return Attempt{}, err
 	}
 	preparation, err := s.client.GetPreparation(ctx, data.Preparation.ID)
 	if err == nil {

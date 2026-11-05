@@ -11,6 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const allPostBridgeImageURLsPublished = `-- name: AllPostBridgeImageURLsPublished :one
+select count(distinct ast.public_url collate "C") = cardinality($1::text[]) as all_published
+from assets ast
+join album_photos p on p.asset_id = ast.asset_id
+join photo_albums a on a.album_id = p.album_id
+where ast.public_url collate "C" = any($1::text[])
+  and ast.status = 'active'
+  and ast.deleted_at is null
+  and ast.content_type in ('image/png', 'image/jpeg', 'image/webp')
+  and a.status = 'published'
+`
+
+func (q *Queries) AllPostBridgeImageURLsPublished(ctx context.Context, urls []string) (bool, error) {
+	row := q.db.QueryRow(ctx, allPostBridgeImageURLsPublished, urls)
+	var all_published bool
+	err := row.Scan(&all_published)
+	return all_published, err
+}
+
 const claimNextPostBridgeAttempt = `-- name: ClaimNextPostBridgeAttempt :one
 with candidate as (
   select pending.id from postbridge_attempts pending
