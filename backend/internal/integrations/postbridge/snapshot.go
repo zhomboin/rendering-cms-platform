@@ -103,7 +103,8 @@ func validSnapshotText(s string) bool {
 
 func markdownImages(body string, allowImages bool) ([]string, bool) {
 	var fence byte
-	length, occurrences, openBackticks := 0, 0, 0
+	length, occurrences := 0, 0
+	var inlineContext markdownInlineContext
 	var urls []string
 	seen := make(map[string]bool)
 	for line := range strings.SplitSeq(body, "\n") {
@@ -127,7 +128,8 @@ func markdownImages(body string, allowImages bool) ([]string, bool) {
 					if allowImages && hasImageMarker {
 						return nil, false
 					}
-					fence, length, openBackticks = ch, n, 0
+					fence, length = ch, n
+					inlineContext = markdownInlineContext{}
 					continue
 				}
 				if ch == fence && n >= length && strings.Trim(rest, " \t") == "" {
@@ -143,12 +145,12 @@ func markdownImages(body string, allowImages bool) ([]string, bool) {
 			return nil, false
 		}
 		if strings.TrimSpace(line) == "" {
-			openBackticks = 0
+			inlineContext = markdownInlineContext{}
 			continue
 		}
-		lineBackticks := openBackticks
+		lineContext := inlineContext
 		if allowImages {
-			openBackticks = markdownBackticks(line, openBackticks)
+			inlineContext = inlineContext.scan(line)
 		}
 		if !hasImageMarker {
 			continue
@@ -165,7 +167,7 @@ func markdownImages(body string, allowImages bool) ([]string, bool) {
 			occurrences++
 			prefix := line[:match[0]]
 			if occurrences > maxImageOccurrences || !validImageURL(raw) || strings.HasSuffix(prefix, "\\") ||
-				markdownBackticks(prefix, lineBackticks) != 0 || insideLinkDestination(prefix) {
+				lineContext.scan(prefix) != (markdownInlineContext{}) {
 				return nil, false
 			}
 			if !seen[raw] {
@@ -180,48 +182,62 @@ func markdownImages(body string, allowImages bool) ([]string, bool) {
 	return urls, true
 }
 
-func markdownBackticks(line string, open int) int {
-	for i := 0; i < len(line); i++ {
-		if open == 0 && line[i] == '\\' {
-			i++
-			continue
-		}
-		if line[i] != '`' {
-			continue
-		}
-		start := i
-		for i+1 < len(line) && line[i+1] == '`' {
-			i++
-		}
-		length := i - start + 1
-		switch open {
-		case 0:
-			open = length
-		case length:
-			open = 0
-		}
-	}
-	return open
+// Track the inline constructs in which a literal image token is unsupported.
+// Carry the context across soft line breaks so multiline labels are also rejected.
+type markdownInlineContext struct {
+	codeTicks  int
+	linkLabels int
+	linkParens int
 }
 
-// A literal image marker within an ordinary link destination is not an image.
-func insideLinkDestination(prefix string) bool {
-	depth := 0
-	for i := 0; i < len(prefix); i++ {
-		switch prefix[i] {
-		case '\\':
+func (c markdownInlineContext) scan(text string) markdownInlineContext {
+	for i := 0; i < len(text); i++ {
+		ch := text[i]
+		if c.codeTicks == 0 && ch == '\\' {
 			i++
-		case '(':
-			if depth > 0 || (i > 0 && prefix[i-1] == ']') {
-				depth++
+			continue
+		}
+		if c.linkParens > 0 {
+			switch ch {
+			case '(':
+				c.linkParens++
+			case ')':
+				c.linkParens--
 			}
-		case ')':
-			if depth > 0 {
-				depth--
+			continue
+		}
+		if ch == '`' {
+			start := i
+			for i+1 < len(text) && text[i+1] == '`' {
+				i++
+			}
+			length := i - start + 1
+			switch c.codeTicks {
+			case 0:
+				c.codeTicks = length
+			case length:
+				c.codeTicks = 0
+			}
+			continue
+		}
+		if c.codeTicks != 0 {
+			continue
+		}
+		switch ch {
+		case '[':
+			c.linkLabels++
+		case ']':
+			if c.linkLabels == 0 {
+				continue
+			}
+			c.linkLabels--
+			if i+1 < len(text) && text[i+1] == '(' {
+				c.linkParens++
+				i++
 			}
 		}
 	}
-	return depth != 0
+	return c
 }
 
 func validImageURL(raw string) bool {
