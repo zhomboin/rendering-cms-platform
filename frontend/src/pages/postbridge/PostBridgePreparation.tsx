@@ -63,7 +63,7 @@ export function PostBridgePreparation({ article, requestIds, onCreate, onClose }
         </Form.Item>
         {hasCover && (
           <Form.Item name="textOnly" valuePropName="checked">
-            <Checkbox>仅保存正文，省略封面</Checkbox>
+            <Checkbox>省略封面</Checkbox>
           </Form.Item>
         )}
         <Space orientation="vertical" size={12} style={{ display: 'flex' }}>

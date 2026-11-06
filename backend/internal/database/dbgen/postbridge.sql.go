@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const allPostBridgeImageURLsPublished = `-- name: AllPostBridgeImageURLsPublished :one
+select cardinality(postbridge_unavailable_image_urls($1::text[])) = 0 as all_published
+`
+
+func (q *Queries) AllPostBridgeImageURLsPublished(ctx context.Context, urls []string) (bool, error) {
+	row := q.db.QueryRow(ctx, allPostBridgeImageURLsPublished, urls)
+	var all_published bool
+	err := row.Scan(&all_published)
+	return all_published, err
+}
+
 const claimNextPostBridgeAttempt = `-- name: ClaimNextPostBridgeAttempt :one
 with candidate as (
   select pending.id from postbridge_attempts pending
@@ -569,6 +580,15 @@ func (q *Queries) LockPostBridgeArticle(ctx context.Context, articleID pgtype.UU
 	return i, err
 }
 
+const lockPostBridgeImageProvenance = `-- name: LockPostBridgeImageProvenance :exec
+select postbridge_lock_image_provenance()
+`
+
+func (q *Queries) LockPostBridgeImageProvenance(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, lockPostBridgeImageProvenance)
+	return err
+}
+
 const revokePostBridgeAttempt = `-- name: RevokePostBridgeAttempt :one
 update postbridge_attempts
 set revoked_at = clock_timestamp(),
@@ -576,11 +596,18 @@ set revoked_at = clock_timestamp(),
     cancel_pending = true,
     next_sync_at = clock_timestamp()
 where id = $1 and revoked_at is null
+  and ($2::text = '' or
+       (lease_token = $2 and lease_expires_at > clock_timestamp()))
 returning id, source_id, article_id, request_id, source_version, state_seq, target_account_id, authorization_id, authorization_expires_at, status, data, revoked_at, cancel_pending, next_sync_at, lease_token, lease_expires_at, created_at, updated_at
 `
 
-func (q *Queries) RevokePostBridgeAttempt(ctx context.Context, id string) (PostbridgeAttempt, error) {
-	row := q.db.QueryRow(ctx, revokePostBridgeAttempt, id)
+type RevokePostBridgeAttemptParams struct {
+	ID            string
+	ExpectedLease string
+}
+
+func (q *Queries) RevokePostBridgeAttempt(ctx context.Context, arg RevokePostBridgeAttemptParams) (PostbridgeAttempt, error) {
+	row := q.db.QueryRow(ctx, revokePostBridgeAttempt, arg.ID, arg.ExpectedLease)
 	var i PostbridgeAttempt
 	err := row.Scan(
 		&i.ID,

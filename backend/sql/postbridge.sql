@@ -96,7 +96,9 @@ set revoked_at = clock_timestamp(),
     updated_at = clock_timestamp(),
     cancel_pending = true,
     next_sync_at = clock_timestamp()
-where id = $1 and revoked_at is null
+where id = sqlc.arg(id) and revoked_at is null
+  and (sqlc.arg(expected_lease)::text = '' or
+       (lease_token = sqlc.arg(expected_lease) and lease_expires_at > clock_timestamp()))
 returning *;
 
 -- name: EnqueuePostBridgeRevocation :exec
@@ -176,3 +178,9 @@ on conflict do nothing;
 
 -- name: GetPostBridgeConnection :one
 select * from postbridge_connections;
+
+-- name: LockPostBridgeImageProvenance :exec
+select postbridge_lock_image_provenance();
+
+-- name: AllPostBridgeImageURLsPublished :one
+select cardinality(postbridge_unavailable_image_urls(sqlc.arg(urls)::text[])) = 0 as all_published;

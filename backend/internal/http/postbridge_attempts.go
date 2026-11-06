@@ -90,9 +90,11 @@ func writeAttemptError(w http.ResponseWriter, err error) {
 	case errors.Is(err, postbridge.ErrCannotSubmit):
 		writeHTTPError(w, http.StatusConflict, "平台稿尚未确认或授权已失效")
 	case errors.Is(err, postbridge.ErrCoverRequiresChoice):
-		writeHTTPError(w, http.StatusUnprocessableEntity, "请确认只发送文字，原文章封面会保留")
+		writeHTTPError(w, http.StatusUnprocessableEntity, "请确认本次分发省略封面")
+	case errors.Is(err, postbridge.ErrUnapprovedImage):
+		writeHTTPError(w, http.StatusUnprocessableEntity, "正文图片须来自已发布相册，且图片仍可用")
 	case errors.Is(err, postbridge.ErrUnsupportedContent), errors.Is(err, postbridge.ErrInvalidRequest):
-		writeHTTPError(w, http.StatusUnprocessableEntity, "文章内容不符合 PostBridge 的文字 Markdown 限制")
+		writeHTTPError(w, http.StatusUnprocessableEntity, "文章内容不符合目标账号支持的 Markdown 格式")
 	case errors.Is(err, postbridge.ErrRequestTooLarge):
 		writeHTTPError(w, http.StatusRequestEntityTooLarge, "文章快照超过 PostBridge 请求限制")
 	case errors.Is(err, postbridge.ErrAttemptInput):

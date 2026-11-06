@@ -54,6 +54,14 @@ func (s *Service) process(ctx context.Context, record AttemptRecord) (AttemptRec
 	if time.Now().Before(data.RetryNotBefore) {
 		return s.save(ctx, record, data, &data.RetryNotBefore, true)
 	}
+	if record.RevokedAt == nil && (data.Distribution == nil || data.needsPolling()) {
+		if err := checkPublishedImages(ctx, s.store.queries, data.ImageURLs); err != nil {
+			if errors.Is(err, ErrUnapprovedImage) {
+				return s.revokeImageAttempt(ctx, record, data)
+			}
+			return AttemptRecord{}, err
+		}
+	}
 	switch {
 	case record.RevokedAt != nil && (record.CancelPending || data.CancelResult == "not_found"):
 		return s.cancelRemote(ctx, record, data)
@@ -108,6 +116,18 @@ func (s *Service) process(ctx context.Context, record AttemptRecord) (AttemptRec
 	}
 	data.ErrorCode, data.Failures, data.RetryNotBefore = "", 0, time.Time{}
 	return s.save(ctx, record, data, data.nextPreparationSync(record), true)
+}
+
+func (s *Service) revokeImageAttempt(ctx context.Context, record AttemptRecord, data attemptData) (AttemptRecord, error) {
+	if record.LeaseToken == "" {
+		return AttemptRecord{}, ErrStoreBusy
+	}
+	revoked, err := s.store.revokeAttempt(ctx, record.ID, record.LeaseToken)
+	if err != nil {
+		return AttemptRecord{}, err
+	}
+	data.ErrorCode = "image_unavailable"
+	return s.save(ctx, revoked, data, timePointer(time.Now()), true)
 }
 
 func (s *Service) submitRemote(ctx context.Context, record AttemptRecord, data attemptData) (AttemptRecord, error) {
@@ -258,9 +278,19 @@ func (s *Service) deliverEvent(ctx context.Context, logger *slog.Logger) error {
 			return s.failEvent(ctx, logger, event, ErrRemoteMismatch)
 		}
 		_, fingerprint, err := ValidateSnapshot(articleSnapshot(article))
+		if err != nil && article.Status == "published" {
+			var imageURLs []string
+			_, fingerprint, imageURLs, err = validateSnapshot(articleSnapshot(article), true)
+			if err == nil {
+				err = checkPublishedImages(ctx, s.store.queries, imageURLs)
+			}
+		}
 		if err != nil {
 			// The same transaction already queued invalidation of the old grants.
-			return s.store.FinishEvent(ctx, event, nil, "")
+			if errors.Is(err, ErrUnsupportedContent) || errors.Is(err, ErrInvalidRequest) || errors.Is(err, ErrUnapprovedImage) {
+				return s.store.FinishEvent(ctx, event, nil, "")
+			}
+			return s.failEvent(ctx, logger, event, ErrUnavailable)
 		}
 		body.ContentFingerprint = fingerprint
 		payload, err := marshalRequest(body)

@@ -35,7 +35,7 @@
 | V07 | 中 | 发布、下架与博客页面及搜索索引联动 | [博客发布对接](../operations/rendering-blog-publishing-integration.md)。先关闭 T07；Rendering 当前采用构建期 Pagefind，需建立有认证的构建触发、失败告警及重试，再验收文章详情、站点地图、RSS 和搜索结果。未验收前使用人工构建流程。 |
 | V08 | 中 | 首页与相册管理页面 | 验收真实数据、7／30／90 天统计、图片访问、逐文件上传进度、重试、预览与窄屏操作；接口见 [首页 API](../apis/dashboard.md) 与 [相册 API](../apis/photos.md)。 |
 | V09 | 中 | 文章图库图片选择 | 通过正常后台登录验收真实相册和资源图片的搜索、预览、多选及正文插入；只复用长期公开图片，不生成签名下载链接或改变资源权限。关闭条件见 [文章插图](../guides/article-images.md)。 |
-| V10 | 中 | PostBridge 单向联调与 CSDN 草稿 | 按 [接入与验收说明](2026-11-05-postbridge-integration.md)分别记录跨系统闭环、真实 CSDN 草稿与 CMS 回显，以及生产 HTTPS、代理、时钟、限流、凭据和投递告警的验收证据。 |
+| V10 | 中 | PostBridge 单向联调与 CSDN 草稿 | 按 [接入与验收说明](2026-11-05-postbridge-integration.md)分别记录跨系统闭环、真实 CSDN 文字与带图草稿、CSDN 图片副本和 CMS 回显，以及生产 HTTPS、代理、时钟、限流、凭据和投递告警的验收证据。 |
 
 ## 代码维护评估
 

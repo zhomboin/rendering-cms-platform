@@ -67,13 +67,13 @@ type EventRecord struct {
 	Attempts   int32
 }
 
-func (s *Store) CreateAttempt(ctx context.Context, sourceID, articleID, requestID string, build func(ArticleSource, int64) (AttemptRecord, error)) (AttemptRecord, error) {
+func (s *Store) CreateAttempt(ctx context.Context, sourceID, articleID, requestID string, build func(ArticleSource, int64, func([]string) error) (AttemptRecord, error)) (AttemptRecord, error) {
 	articleKey, err := parsePostBridgeArticleID(articleID)
 	if err != nil {
 		return AttemptRecord{}, err
 	}
 
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return AttemptRecord{}, err
 	}
@@ -106,7 +106,14 @@ func (s *Store) CreateAttempt(ctx context.Context, sourceID, articleID, requestI
 		ID: uuid.UUID(article.ArticleID.Bytes).String(), Title: article.Title,
 		Summary: article.Summary, Body: article.BodyMdx, CoverImageURL: article.CoverImageUrl.String,
 		ArticleName: article.ArticleName, Status: string(article.Status), Tags: article.Tags, Version: version,
-	}, seq)
+	}, seq, func(urls []string) error {
+		if len(urls) != 0 {
+			if err := q.LockPostBridgeImageProvenance(ctx); err != nil {
+				return err
+			}
+		}
+		return checkPublishedImages(ctx, q, urls)
+	})
 	if err != nil {
 		return AttemptRecord{}, err
 	}
@@ -123,6 +130,17 @@ func (s *Store) CreateAttempt(ctx context.Context, sourceID, articleID, requestI
 		return AttemptRecord{}, err
 	}
 	return attemptRecord(created, nil)
+}
+
+func checkPublishedImages(ctx context.Context, q *dbgen.Queries, urls []string) error {
+	if len(urls) == 0 {
+		return nil
+	}
+	approved, err := q.AllPostBridgeImageURLsPublished(ctx, urls)
+	if err == nil && !approved {
+		return ErrUnapprovedImage
+	}
+	return err
 }
 
 func (s *Store) GetAttempt(ctx context.Context, id string) (AttemptRecord, error) {
@@ -210,6 +228,10 @@ func (s *Store) SaveAttempt(ctx context.Context, a AttemptRecord, next *time.Tim
 }
 
 func (s *Store) RevokeAttempt(ctx context.Context, id string) (AttemptRecord, error) {
+	return s.revokeAttempt(ctx, id, "")
+}
+
+func (s *Store) revokeAttempt(ctx context.Context, id, expectedLease string) (AttemptRecord, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return AttemptRecord{}, err
@@ -217,8 +239,14 @@ func (s *Store) RevokeAttempt(ctx context.Context, id string) (AttemptRecord, er
 	defer tx.Rollback(ctx)
 	q := s.queries.WithTx(tx)
 	existing, err := q.GetPostBridgeAttempt(ctx, id)
-	if err != nil || existing.RevokedAt.Valid {
+	if err != nil {
 		return attemptRecord(existing, err)
+	}
+	if expectedLease != "" && existing.LeaseToken != expectedLease {
+		return AttemptRecord{}, ErrStoreBusy
+	}
+	if existing.RevokedAt.Valid {
+		return attemptRecord(existing, nil)
 	}
 
 	// Take the source lock before touching the attempt, matching article writers.
@@ -232,9 +260,13 @@ func (s *Store) RevokeAttempt(ctx context.Context, id string) (AttemptRecord, er
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return AttemptRecord{}, err
 	}
-	row, err := q.RevokePostBridgeAttempt(ctx, id)
+	row, err := q.RevokePostBridgeAttempt(ctx, dbgen.RevokePostBridgeAttemptParams{ID: id, ExpectedLease: expectedLease})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return attemptRecord(q.GetPostBridgeAttempt(ctx, id))
+		current, err := q.GetPostBridgeAttempt(ctx, id)
+		if err == nil && expectedLease != "" && (current.LeaseToken != expectedLease || !current.RevokedAt.Valid) {
+			return AttemptRecord{}, ErrStoreBusy
+		}
+		return attemptRecord(current, err)
 	}
 	if err != nil {
 		return AttemptRecord{}, err

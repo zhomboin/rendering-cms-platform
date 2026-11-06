@@ -10,8 +10,9 @@ import (
 var (
 	ErrAttemptInput        = errors.New("invalid distribution attempt input")
 	ErrAttemptConflict     = errors.New("article version, state, or request changed")
+	ErrUnapprovedImage     = errors.New("PostBridge image is not available in a published album")
 	ErrCannotSubmit        = errors.New("preparation is not eligible for submission")
-	ErrCoverRequiresChoice = errors.New("text-only snapshot requires confirmation")
+	ErrCoverRequiresChoice = errors.New("omitting the cover requires confirmation")
 	ErrRemoteMismatch      = errors.New("PostBridge response does not match the distribution attempt")
 )
 
@@ -76,6 +77,7 @@ type attemptData struct {
 	TextOnly           bool
 	ContentFingerprint string
 	PrepareBody        []byte
+	ImageURLs          []string `json:",omitempty"`
 	SubmitBody         []byte
 	Preparation        *preparationState
 	Distribution       *distributionState

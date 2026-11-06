@@ -438,6 +438,11 @@ type PostbridgeEvent struct {
 	CreatedAt      pgtype.Timestamptz
 }
 
+type PostbridgeImageProvenanceLock struct {
+	Singleton bool
+	Revision  int64
+}
+
 type PostbridgeRegistration struct {
 	SourceID       string
 	Environment    string
