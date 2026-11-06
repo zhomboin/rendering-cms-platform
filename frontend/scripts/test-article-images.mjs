@@ -441,6 +441,22 @@ test('编辑字段从当前正文选择封面，也接受手动 URL', async t =>
   assert.equal(requests.find(request => request.method === 'PATCH').body.coverImageUrl, manualUrl);
 });
 
+test('MDX 正文图片选为封面时解码 URL 中的 &amp;', async t => {
+  const { page, editor, requests } = await setup(t, { allowSave: true });
+  const cover = page.getByRole('combobox', { name: '封面图片 URL', exact: true });
+  const expectedUrl = imageUrl + 'figure.png?width=800&height=450&label=A%26B';
+  const body = '<Figure\n  src="' + expectedUrl.replaceAll('&', '&amp;') + '"\n  alt="封面图"\n/>';
+  await editor.fill(body);
+  await cover.click();
+  await page.getByRole('option', { name: /^封面图 / }).click();
+  assert.equal(await cover.inputValue(), expectedUrl);
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click();
+  await page.getByText('草稿已保存', { exact: true }).waitFor();
+  const saved = requests.find(request => request.method === 'PATCH').body;
+  assert.equal(saved.coverImageUrl, expectedUrl);
+  assert.equal(saved.bodyMdx, body);
+});
+
 test('编辑字段在新建文章时筛选已有标签并允许新建', async t => {
   const { page } = await setup(t, { route: 'new', tagsByArticle: { one: ['React', 'Go'], two: ['React', '数据库'] } });
   const tags = page.getByRole('combobox', { name: '标签', exact: true });

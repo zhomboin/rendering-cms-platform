@@ -20,7 +20,7 @@ function* readStaticImageTags(html: string): Generator<ArticleImage> {
     for (const [, key, doubleQuoted, singleQuoted, unquoted] of attributes.matchAll(attribute)) {
       props.set(key.toLowerCase(), doubleQuoted ?? singleQuoted ?? unquoted);
     }
-    const url = props.get('src');
+    const url = props.get('src')?.replaceAll('&amp;', '&');
     if (url) yield { url, alt: props.get('alt') ?? '' };
   }
 }
