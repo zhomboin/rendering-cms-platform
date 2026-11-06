@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Switch, InputNumber, Popconfirm, Drawer, Table, Tag } from 'antd';
+import { Card, Form, Input, AutoComplete, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Switch, InputNumber, Popconfirm, Drawer, Table, Tag } from 'antd';
 import { HistoryOutlined, LockOutlined, EyeOutlined, UnlockOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,6 +19,7 @@ import {
 import type { AdminArticlePayload, ArticleFormData, ArticleRevisionSummary } from '../../api/articles';
 import { diffLines } from './revisionDiff';
 import { ArticleImageDialog } from './ArticleImageDialog';
+import { collectArticleImages } from './articleCoverImages';
 import { insertArticleImages } from './articleImageUtils';
 import type { ArticleImage } from './articleImageUtils';
 import { MdxPreview } from './MdxPreview';
@@ -62,6 +63,15 @@ const markdownActions: MarkdownAction[] = [
   { id: 'link', icon: <LinkIcon />, title: '添加链接', shortcut: 'Ctrl+K', prefix: '[', suffix: '](https://example.com)', placeholder: '链接文本' },
   { id: 'image', icon: <ImageIcon />, title: '插入图片' },
 ];
+
+function normalizeArticleName(value: string) {
+  return value
+    .normalize('NFKD')
+    .replace(/\p{Mark}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
 
 function toPayload(values: ArticleFormData): AdminArticlePayload {
   return {
@@ -212,6 +222,11 @@ export default function ArticleEditorPage() {
   const queryClient = useQueryClient();
   const [form] = Form.useForm<ArticleFormData>();
   const bodyMdx = Form.useWatch('bodyMdx', form) ?? '';
+  const coverSource = useDeferredValue(bodyMdx);
+  const coverOptions = useMemo(() => collectArticleImages(coverSource).map(({ url, alt }) => ({
+    value: url,
+    label: alt ? `${alt} ${url}` : url,
+  })), [coverSource]);
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const imageSelection = useRef({ currentValue: '', selectionStart: 0, selectionEnd: 0, selectedText: '' });
@@ -226,8 +241,11 @@ export default function ArticleEditorPage() {
   const articlesQuery = useQuery({
     queryKey: ['admin-articles'],
     queryFn: listAdminArticles,
-    enabled: isEdit,
   });
+  const tagOptions = useMemo(() => {
+    const tags = new Set(articlesQuery.data?.flatMap(article => article.tags ?? []));
+    return [...tags].sort((a, b) => a.localeCompare(b)).map(value => ({ value }));
+  }, [articlesQuery.data]);
 
   const revisionsQuery = useQuery({
     queryKey: ['article-revisions', id],
@@ -411,13 +429,22 @@ export default function ArticleEditorPage() {
     });
   };
 
+  const formatArticleName = () => {
+    const value = form.getFieldValue('articleName') ?? '';
+    const formatted = normalizeArticleName(value);
+    if (formatted === value) return;
+    form.setFieldValue('articleName', formatted);
+    saveArticleDraft(draftKey, form.getFieldsValue());
+  };
+
   const handleSaveDraft = async () => {
     if (isLockedArticle) {
       message.warning('请先下架文章恢复为草稿，再修改内容');
       return;
     }
-    const values = await form.validateFields();
-    saveMutation.mutate(values);
+    formatArticleName();
+    const values = await form.validateFields().catch(() => null);
+    if (values) saveMutation.mutate(values);
   };
 
   const handlePublish = async () => {
@@ -425,8 +452,9 @@ export default function ArticleEditorPage() {
       message.warning('请先下架文章恢复为草稿，修改后再发布');
       return;
     }
-    const values = await form.validateFields();
-    publishMutation.mutate(values);
+    formatArticleName();
+    const values = await form.validateFields().catch(() => null);
+    if (values) publishMutation.mutate(values);
   };
 
   const getEditorSelection = () => {
@@ -593,7 +621,7 @@ export default function ArticleEditorPage() {
         )}
       </div>
 
-      {articlesQuery.error && (
+      {isEdit && articlesQuery.error && (
         <Alert type="error" showIcon title={articlesQuery.error instanceof Error ? articlesQuery.error.message : '文章读取失败'} style={{ marginBottom: 20 }} />
       )}
 
@@ -706,12 +734,20 @@ export default function ArticleEditorPage() {
             <Form.Item
               name="articleName"
               label="英文名"
+              validateTrigger={[]}
               rules={[
                 { required: true, message: '请输入文章英文名' },
                 { pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/, message: '英文名只能使用小写字母、数字和中划线' },
               ]}
             >
-              <Input placeholder="my-article-name" size="large" />
+              <Input
+                placeholder="my-article-name"
+                size="large"
+                onBlur={() => {
+                  formatArticleName();
+                  void form.validateFields(['articleName']).catch(() => {});
+                }}
+              />
             </Form.Item>
 
             <Form.Item name="summary" label="摘要">
@@ -719,7 +755,13 @@ export default function ArticleEditorPage() {
             </Form.Item>
 
             <Form.Item name="tags" label="标签">
-              <Select mode="tags" placeholder="输入标签后按回车添加" style={{ width: '100%' }} tokenSeparators={[',', '，']} />
+              <Select
+                mode="tags"
+                options={tagOptions}
+                loading={articlesQuery.isFetching}
+                placeholder="选择或输入标签"
+                tokenSeparators={[',', '，']}
+              />
             </Form.Item>
 
             <Space size={16} align="start" wrap style={{ width: '100%', marginBottom: 20 }}>
@@ -770,7 +812,18 @@ export default function ArticleEditorPage() {
             </Text>
 
             <Form.Item name="coverImageUrl" label="封面图片 URL">
-              <Input placeholder="https://example.com/image.jpg" />
+              <AutoComplete
+                options={coverOptions}
+                showSearch={{ filterOption: false }}
+                virtual={false}
+                placeholder="https://example.com/image.jpg"
+                optionRender={({ data }) => (
+                  <span className="article-editor__cover-option" title={data.label}>
+                    {!data.value.startsWith('/') && <img src={data.value} alt="" loading="lazy" />}
+                    <span>{data.label}</span>
+                  </span>
+                )}
+              />
             </Form.Item>
           </Form>
 

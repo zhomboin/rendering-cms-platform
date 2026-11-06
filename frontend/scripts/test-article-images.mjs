@@ -34,7 +34,10 @@ async function setup(t, options = {}) {
     requests.push({ path, method: req.method(), body: req.postDataJSON() });
     if (state.delays[path]) await new Promise(resolve => setTimeout(resolve, state.delays[path]));
     if (state.fail.includes(path)) return route.fulfill({ status: 500, json: { error: '图库暂时不可用' } });
-    if (path === '/admin/articles' && req.method() === 'GET') return route.fulfill({ json: ['one', 'two'].map(id => ({ articleId: id, title: id, articleName: id, slug: id, bodyMdx: '前文替换后文', status: 'draft', tags: [], summary: '', coverImageUrl: '', featured: false, featuredRank: 100, featuredAt: null })) });
+    if (path === '/admin/articles' && req.method() === 'GET') return route.fulfill({ json: ['one', 'two'].map(id => ({ articleId: id, title: id, articleName: id, slug: id, bodyMdx: '前文替换后文', status: 'draft', tags: state.tagsByArticle?.[id] ?? [], summary: '', coverImageUrl: '', featured: false, featuredRank: 100, featuredAt: null })) });
+    if (state.allowSave && path === '/admin/articles/one' && req.method() === 'PATCH') {
+      return route.fulfill({ json: { ...req.postDataJSON(), articleId: 'one', status: 'draft' } });
+    }
     if (path === '/admin/assets' && req.method() === 'GET') return route.fulfill({ json: state.assets });
     if (path === '/admin/albums' && req.method() === 'GET') return route.fulfill({ json: albums });
     const match = path.match(/^\/admin\/albums\/([^/]+)\/photos$/);
@@ -48,7 +51,7 @@ async function setup(t, options = {}) {
   page.setDefaultTimeout(7000);
   page.on('pageerror', e => errors.push(e.message));
   t.after(() => { assert.deepEqual(unexpected, []); assert.deepEqual(errors, []); });
-  await page.goto(origin + '/admin/articles/one/edit', { waitUntil: 'networkidle' });
+  await page.goto(origin + '/admin/articles/' + (state.route ?? 'one/edit'), { waitUntil: 'networkidle' });
   const editor = page.locator('[data-article-body-editor]');
   await editor.waitFor();
   return { page, editor, state, requests };
@@ -380,4 +383,79 @@ test('文章上传大小边界：图片50MB以内申请URL，超限与零字节�
   await page.getByText('图片大小必须大于 0 且不超过 50MB',{exact:true}).last().waitFor();
   assert.equal(requests.length,count);
  }
+});
+
+test('编辑字段会整理英文名并提交兼容的名称', async t => {
+  const { page, requests } = await setup(t, { allowSave: true });
+  const name = page.getByPlaceholder('my-article-name');
+  await name.fill('  Ｍy First__Article 2!!! ');
+  await name.press('Tab');
+  assert.equal(await name.inputValue(), 'my-first-article-2');
+  await name.fill('!!!');
+  await name.press('Tab');
+  assert.equal(await name.inputValue(), '');
+  await page.getByText('请输入文章英文名', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click();
+  assert.equal(requests.some(request => request.method === 'PATCH'), false);
+  await name.fill('  Café Next 3  ');
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click();
+  await page.getByText('草稿已保存', { exact: true }).waitFor();
+  assert.equal(requests.find(request => request.method === 'PATCH').body.articleName, 'cafe-next-3');
+});
+
+test('编辑字段从当前正文选择封面，也接受手动 URL', async t => {
+  const { page, editor, requests } = await setup(t, { allowSave: true });
+  const cover = page.getByRole('combobox', { name: '封面图片 URL', exact: true });
+  const oldUrl = imageUrl + 'first.png';
+  const newUrl = imageUrl + 'second.png';
+  const codeUrl = imageUrl + 'example.png';
+  const figureUrl = '/images/blog/figure.png';
+  const referenceUrl = imageUrl + 'reference.png';
+  await editor.fill([
+    '![第一张](' + oldUrl + ' "图片标题")',
+    '![重复](' + oldUrl + ')',
+    '<Figure\n  src="' + figureUrl + '"\n  alt="正文插图"\n/>',
+    '![引用图片][reference]',
+    '[reference]: ' + referenceUrl,
+    '`![示例](' + codeUrl + ')`',
+    '~~~md\n![围栏示例](' + codeUrl + ')\n~~~',
+  ].join('\n\n'));
+  await cover.click();
+  const option = name => page.getByRole('option', { name, exact: true });
+  await option('引用图片 ' + referenceUrl).waitFor();
+  await option('正文插图 ' + figureUrl).click();
+  assert.equal(await cover.inputValue(), figureUrl);
+  await cover.click();
+  assert.equal(await page.getByRole('option').count(), 3);
+  await option('第一张 ' + oldUrl).click();
+  assert.equal(await cover.inputValue(), oldUrl);
+  await editor.fill('![第二张](' + newUrl + ')');
+  await cover.click();
+  await option('第二张 ' + newUrl).waitFor();
+  assert.equal(await option('第一张 ' + oldUrl).count(), 0);
+  assert.equal(await page.getByRole('option').count(), 1);
+  const manualUrl = imageUrl + 'manual.png';
+  await cover.fill(manualUrl);
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click();
+  await page.getByText('草稿已保存', { exact: true }).waitFor();
+  assert.equal(requests.find(request => request.method === 'PATCH').body.coverImageUrl, manualUrl);
+});
+
+test('编辑字段在新建文章时筛选已有标签并允许新建', async t => {
+  const { page } = await setup(t, { route: 'new', tagsByArticle: { one: ['React', 'Go'], two: ['React', '数据库'] } });
+  const tags = page.getByRole('combobox', { name: '标签', exact: true });
+  await tags.click();
+  const popup = page.locator('.ant-select-dropdown:visible');
+  const option = label => popup.locator('.ant-select-item-option').getByText(label, { exact: true });
+  await option('Go').waitFor();
+  await option('数据库').waitFor();
+  assert.equal(await option('React').count(), 1);
+  await tags.fill('eAc');
+  await option('React').waitFor();
+  assert.equal(await option('Go').count(), 0);
+  await option('React').click();
+  await tags.fill('新标签');
+  await tags.press('Enter');
+  const draft = await page.evaluate(() => JSON.parse(localStorage.getItem('rendering-cms-article-editor-draft:new')));
+  assert.deepEqual(draft.values.tags, ['React', '新标签']);
 });
