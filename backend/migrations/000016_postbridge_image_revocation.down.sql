@@ -1,0 +1,13 @@
+drop trigger trg_postbridge_assets_revoke_image_grants on assets;
+drop trigger trg_postbridge_album_photos_revoke_image_grants on album_photos;
+drop trigger trg_postbridge_photo_albums_revoke_image_grants on photo_albums;
+drop trigger trg_postbridge_assets_image_write_lock on assets;
+drop trigger trg_postbridge_album_photos_image_write_lock on album_photos;
+drop trigger trg_postbridge_photo_albums_image_write_lock on photo_albums;
+drop function postbridge_revoke_changed_photo_sources();
+drop function postbridge_revoke_unavailable_images(text[]);
+drop index idx_postbridge_attempts_active_image_urls;
+drop function postbridge_unavailable_image_urls(text[]);
+drop function postbridge_image_write_lock();
+drop function postbridge_lock_image_provenance();
+drop table postbridge_image_provenance_lock;

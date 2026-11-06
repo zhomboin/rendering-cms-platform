@@ -96,7 +96,9 @@ set revoked_at = clock_timestamp(),
     updated_at = clock_timestamp(),
     cancel_pending = true,
     next_sync_at = clock_timestamp()
-where id = $1 and revoked_at is null
+where id = sqlc.arg(id) and revoked_at is null
+  and (sqlc.arg(expected_lease)::text = '' or
+       (lease_token = sqlc.arg(expected_lease) and lease_expires_at > clock_timestamp()))
 returning *;
 
 -- name: EnqueuePostBridgeRevocation :exec
@@ -177,13 +179,8 @@ on conflict do nothing;
 -- name: GetPostBridgeConnection :one
 select * from postbridge_connections;
 
+-- name: LockPostBridgeImageProvenance :exec
+select postbridge_lock_image_provenance();
+
 -- name: AllPostBridgeImageURLsPublished :one
-select count(distinct ast.public_url collate "C") = cardinality(sqlc.arg(urls)::text[]) as all_published
-from assets ast
-join album_photos p on p.asset_id = ast.asset_id
-join photo_albums a on a.album_id = p.album_id
-where ast.public_url collate "C" = any(sqlc.arg(urls)::text[])
-  and ast.status = 'active'
-  and ast.deleted_at is null
-  and ast.content_type in ('image/png', 'image/jpeg', 'image/webp')
-  and a.status = 'published';
+select cardinality(postbridge_unavailable_image_urls(sqlc.arg(urls)::text[])) = 0 as all_published;

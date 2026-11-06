@@ -116,8 +116,13 @@ func TestImageDraftRechecksPublishedPhotoAndQueuesRevocation(t *testing.T) {
 		t.Fatalf("submit intent: %+v, %v", intent, err)
 	}
 	changeAlbumStatus("draft")
-	if row := workflowStep(t, service, attempt.ID); row.RevokedAt == nil || !row.CancelPending {
-		t.Fatalf("expected revocation and cancellation: %+v", row)
+	if row, err := store.GetAttempt(ctx, attempt.ID); err != nil || row.RevokedAt == nil || !row.CancelPending {
+		t.Fatalf("expected transactional revocation and pending cancellation: %v", err)
+	}
+	row := workflowStep(t, service, attempt.ID)
+	data, err := loadAttemptData(row)
+	if err != nil || row.Status != "revoked" || row.CancelPending || data.CancelResult != "not_submitted" {
+		t.Fatalf("expected queued submission to be skipped: %s, %s, %v", row.Status, data.CancelResult, err)
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	if err := service.deliverEvent(ctx, logger); err != nil {

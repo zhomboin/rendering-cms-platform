@@ -32,7 +32,7 @@
 
 只有报告 `images: true` 的 CSDN 目标接收正文图片。仅接受单行的 Markdown 行内图片，每篇最多出现 20 次，最多 10 个不同地址。绝对 HTTPS 地址须与已发布相册中有效的 PNG、JPEG 或 WebP 照片地址完全相同，且无端口、凭据、查询参数或片段。签名地址、外部地址、相对地址、引用式图片和嵌在链接标签或目标中的图片语法均返回 422。发送时保留原图片地址，资源清单与封面字段为空。
 
-CMS 在本地复核原始图片地址与已发布相册的归属，并在准备和提交时再次检查。照片撤下后，待处理分发将撤销授权并走既有取消流程。相册状态变化后，CSDN 保留已经保存的图片副本。已提交任务的取消结果以 PostBridge 回执为准。
+CMS 在本地复核原始图片地址与已发布相册的归属，并在准备和提交时再次检查。相册下架、照片移除或资源地址失效时，CMS 与该变化在同一事务内撤销受影响的有效授权，包括草稿已保存的记录。仍在途的分发沿用取消流程。CSDN 保留已经保存的草稿和图片副本。已提交任务的取消结果以 PostBridge 回执为准。
 
 分发记录包含 `id`、`articleId`、`sourceVersion`、`targetAccountId`、`status`、授权期限和更新时间。根据当前阶段提供 `previewUrl`、`detailUrl`、`childStatus`、`externalStatus`、`outcome`、`lastConfirmedAt` 及可用的外站结果链接。操作按钮由 `canSubmit`、`canCancel` 和 `canRefresh` 控制。
 

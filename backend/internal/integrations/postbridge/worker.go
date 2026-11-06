@@ -119,7 +119,10 @@ func (s *Service) process(ctx context.Context, record AttemptRecord) (AttemptRec
 }
 
 func (s *Service) revokeImageAttempt(ctx context.Context, record AttemptRecord, data attemptData) (AttemptRecord, error) {
-	revoked, err := s.store.RevokeAttempt(ctx, record.ID)
+	if record.LeaseToken == "" {
+		return AttemptRecord{}, ErrStoreBusy
+	}
+	revoked, err := s.store.revokeAttempt(ctx, record.ID, record.LeaseToken)
 	if err != nil {
 		return AttemptRecord{}, err
 	}
