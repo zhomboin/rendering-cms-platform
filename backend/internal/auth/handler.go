@@ -208,7 +208,10 @@ func NewRefreshHandlerWithClock(secret string, now func() time.Time) http.Handle
 }
 
 func isLoginLocked(ctx context.Context, store LoginAttemptStore, email string, ipHash string, currentTime time.Time) (bool, error) {
-	cutoff := pgtype.Timestamptz{Time: currentTime.Add(-time.Hour), Valid: true}
+	cutoff := pgtype.Timestamptz{
+		Time:  currentTime.Add(-time.Hour),
+		Valid: true,
+	}
 	emailFailures, err := store.ListRecentFailedLoginAttemptsByEmail(ctx, dbgen.ListRecentFailedLoginAttemptsByEmailParams{
 		CreatedAt: cutoff,
 		Email:     email,
@@ -264,7 +267,10 @@ func ipHashFromRequest(r *http.Request) string {
 }
 
 func nullableText(value string) pgtype.Text {
-	return pgtype.Text{String: value, Valid: value != ""}
+	return pgtype.Text{
+		String: value,
+		Valid:  value != "",
+	}
 }
 
 func writeAuthError(w http.ResponseWriter, status int, message string) {

@@ -42,20 +42,31 @@ class AutoDeployBackupTest(unittest.TestCase):
             repo.mkdir()
             tools.mkdir()
             env = os.environ.copy()
-            env.update({
-                "DEPLOY_ENV_FILE": str(base / "absent.env"),
-                "APP_DIR": str(repo), "GIT_REMOTE": "origin", "GIT_BRANCH": "main",
-                "LOG_DIR": str(base / "logs"), "STATE_DIR": str(base / "state"),
-                "BACKUP_DIR": str(base / "backups"), "LOCK_DIR": str(base / "lock"),
-                "PRODUCTION_ENV_FILE": str(base / "production.env"),
-                "COMPOSE_FILE": "deploy/isolated.yml", "NOTIFY_WEBHOOK": "",
-                "AUTO_ROLLBACK": "true" if rollback else "false",
-                "PRUNE_IMAGES": "false", "BACKUP_KEEP": "14",
-                "HEALTH_RETRIES": "1", "HEALTH_INTERVAL": "0",
-                "HEALTH_URL": "http://isolated.invalid/health",
-                "TEST_BASE": str(base), "TEST_MODE": mode,
-                "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
-            })
+            env.update(
+                {
+                    "DEPLOY_ENV_FILE": str(base / "absent.env"),
+                    "APP_DIR": str(repo),
+                    "GIT_REMOTE": "origin",
+                    "GIT_BRANCH": "main",
+                    "LOG_DIR": str(base / "logs"),
+                    "STATE_DIR": str(base / "state"),
+                    "BACKUP_DIR": str(base / "backups"),
+                    "LOCK_DIR": str(base / "lock"),
+                    "PRODUCTION_ENV_FILE": str(base / "production.env"),
+                    "COMPOSE_FILE": "deploy/isolated.yml",
+                    "NOTIFY_WEBHOOK": "",
+                    "AUTO_ROLLBACK": "true" if rollback else "false",
+                    "PRUNE_IMAGES": "false",
+                    "BACKUP_KEEP": "14",
+                    "HEALTH_RETRIES": "1",
+                    "HEALTH_INTERVAL": "0",
+                    "HEALTH_URL": "http://isolated.invalid/health",
+                    "TEST_BASE": str(base),
+                    "TEST_MODE": mode,
+                    "GIT_CONFIG_NOSYSTEM": "1",
+                    "GIT_CONFIG_GLOBAL": "/dev/null",
+                }
+            )
             for tool in ("git", "gzip", "chmod"):
                 real = shutil.which(tool)
                 self.assertIsNotNone(real)
@@ -63,14 +74,28 @@ class AutoDeployBackupTest(unittest.TestCase):
 
             def git(*args):
                 return subprocess.run(
-                    [env["TEST_REAL_GIT"], "-C", str(repo), *args], env=env,
-                    check=True, capture_output=True, text=True, timeout=TIMEOUT).stdout.strip()
+                    [env["TEST_REAL_GIT"], "-C", str(repo), *args],
+                    env=env,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=TIMEOUT,
+                ).stdout.strip()
 
             # 使用正常 Git 命令创建两个合法提交，不手写 .git 内容。
             git("init", "-q", "-b", "main")
             for message in ("运行中的提交", "待发布提交"):
-                git("-c", "user.name=测试", "-c", "user.email=test@example.invalid",
-                    "commit", "-q", "--allow-empty", "-m", message)
+                git(
+                    "-c",
+                    "user.name=测试",
+                    "-c",
+                    "user.email=test@example.invalid",
+                    "commit",
+                    "-q",
+                    "--allow-empty",
+                    "-m",
+                    message,
+                )
             target = git("rev-parse", "HEAD")
             previous = git("rev-parse", "HEAD^")
             git("remote", "add", "origin", str(repo))
@@ -83,7 +108,7 @@ class AutoDeployBackupTest(unittest.TestCase):
             initial_state = "LAST_SUCCESS_COMMIT=" + previous + "\n"
             state.write_text(initial_state, encoding="utf-8")
             scripts = {
-                "git": '''#!/usr/bin/env python3
+                "git": """#!/usr/bin/env python3
 import os
 import sys
 args = sys.argv[1:]
@@ -93,8 +118,8 @@ if operation == "fetch":
 if operation == "pull":
     args = args[:2] + ["reset", "--hard", os.environ["TEST_TARGET"]]
 os.execv(os.environ["TEST_REAL_GIT"], ["git", *args])
-''',
-                "docker": '''#!/usr/bin/env python3
+""",
+                "docker": """#!/usr/bin/env python3
 import json
 import os
 from pathlib import Path
@@ -109,13 +134,17 @@ with (Path(os.environ["TEST_BASE"]) / "docker-calls").open("a") as calls:
 if args == ["compose", "version"]:
     sys.exit(0)
 if args[:1] == ["inspect"]:
-    print("true")
+    mode = os.environ["TEST_MODE"]
+    if mode == "inspect-failed":
+        sys.exit(42)
+    print("false" if mode == "stopped" else "true")
     sys.exit(0)
 if args[:2] != ["compose", "--env-file"]:
     sys.exit(97)
 operation = args[5:]
 if operation == ["ps", "-q", "postgres"]:
-    print("isolated-postgres")
+    if os.environ["TEST_MODE"] != "missing-container":
+        print("isolated-postgres")
 elif operation[:1] == ["exec"]:
     mode = os.environ["TEST_MODE"]
     if mode == "export-failed":
@@ -127,8 +156,8 @@ elif operation[:1] == ["exec"]:
 elif operation not in (["build"], ["--profile", "migrate", "run", "--rm", "migrate"],
                         ["up", "-d", "backend", "frontend"], ["ps"]):
     sys.exit(97)
-''',
-                "gzip": '''#!/usr/bin/env python3
+""",
+                "gzip": """#!/usr/bin/env python3
 import os
 import subprocess
 import sys
@@ -143,14 +172,14 @@ if not sys.argv[1:]:
         subprocess.run([os.environ["TEST_REAL_GZIP"]], check=True, timeout=5)
         sys.exit(38)
 os.execv(os.environ["TEST_REAL_GZIP"], ["gzip", *sys.argv[1:]])
-''',
-                "chmod": '''#!/usr/bin/env python3
+""",
+                "chmod": """#!/usr/bin/env python3
 import os
 import sys
 if os.environ["TEST_MODE"] == "chmod-failed":
     sys.exit(39)
 os.execv(os.environ["TEST_REAL_CHMOD"], ["chmod", *sys.argv[1:]])
-''',
+""",
                 "curl": "#!/bin/sh\nexit 0\n",
             }
             for name, content in scripts.items():
@@ -160,8 +189,12 @@ os.execv(os.environ["TEST_REAL_CHMOD"], ["chmod", *sys.argv[1:]])
             env["PATH"] = str(tools) + os.pathsep + env["PATH"]
             with (base / "stdout").open("w+b") as output:
                 process = subprocess.Popen(
-                    ["bash", str(ROOT / "deploy/auto-deploy.sh")], env=env,
-                    stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+                    ["bash", str(ROOT / "deploy/auto-deploy.sh")],
+                    env=env,
+                    stdout=output,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
                 try:
                     result = process.wait(timeout=TIMEOUT)
                 finally:
@@ -184,15 +217,31 @@ os.execv(os.environ["TEST_REAL_CHMOD"], ["chmod", *sys.argv[1:]])
                 stdout = output.read().decode("utf-8")
             with self.assertRaises(ProcessLookupError, msg="测试存在残留进程"):
                 os.killpg(process.pid, 0)
-            calls = [json.loads(line) for line in
-                     (base / "docker-calls").read_text(encoding="utf-8").splitlines()]
-            operations = [(args[5:], commit) for args, commit in calls
-                          if args[:2] == ["compose", "--env-file"]]
+            calls = [
+                json.loads(line)
+                for line in (base / "docker-calls").read_text(encoding="utf-8").splitlines()
+            ]
+            operations = [
+                (args[5:], commit)
+                for args, commit in calls
+                if args[:2] == ["compose", "--env-file"]
+            ]
             migration = [commit for args, commit in operations if args[:1] == ["--profile"]]
             starts = [commit for args, commit in operations if args[:1] == ["up"]]
             builds = [commit for args, commit in operations if args == ["build"]]
             backups = list((base / "backups").glob("rendering-cms-*.sql.gz"))
+            if mode in ("stopped", "inspect-failed", "missing-container"):
+                self.assertEqual(result, 1, stdout)
+                self.assertIn("数据库状态无法确认", stdout)
+                self.assertEqual(backups, [])
+                self.assertEqual(migration, [])
+                self.assertEqual(starts, [])
+                self.assertEqual(builds, [])
+                self.assertEqual(state.read_text(), initial_state)
+                self.assertEqual(git("rev-parse", "HEAD"), previous)
+                return
             self.assertEqual(len(backups), 1, stdout)
+            self.assertEqual(backups[0].stat().st_mode & 0o777, 0o600)
             if mode == "valid":
                 self.assertEqual(result, 0, stdout)
                 self.assertEqual(migration, [target], stdout)
@@ -215,6 +264,11 @@ os.execv(os.environ["TEST_REAL_CHMOD"], ["chmod", *sys.argv[1:]])
                 self.assertEqual(git("rev-parse", "HEAD"), previous if rollback else target)
                 if rollback:
                     self.assertIn("代码回滚完成，服务已恢复到 " + previous, stdout)
+
+    def test_unavailable_database_never_skips_backup(self):
+        for mode in ("stopped", "inspect-failed", "missing-container"):
+            with self.subTest(mode=mode):
+                self.run_deploy(mode)
 
     def test_export_failure_blocks_target_deployment(self):
         for mode in ("export-failed", "partial-export-failed"):

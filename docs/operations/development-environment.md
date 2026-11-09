@@ -1,5 +1,7 @@
 # WSL2 Ubuntu 24.04 开发环境配置指南
 
+代码在独立分支提交并通过 PR 运行 GitHub CI，所有检查通过后再次检视。创建 PR 和执行 CI 不代表合并或部署授权；未获得明确授权时保持 PR 未合并，不执行生产部署。
+
 ## 当前项目环境
 
 当前项目明确运行在 WSL2 Ubuntu 24.04 环境中，仓库路径为：
@@ -11,6 +13,12 @@
 本项目后续开发、依赖服务启动、前端启动、后端测试和数据库操作都默认在 WSL2 Ubuntu 24.04 终端中执行。项目不再维护 PowerShell 启动脚本。
 
 ## 环境检查口径
+
+项目根目录 .editorconfig 统一 UTF-8 无 BOM、LF 换行及缩进。Go 使用 gofmt；前端使用锁定的 Prettier 3.6.2，配置为根目录 .prettierrc.json；Bash 使用 shfmt 3.12.0 的两个空格缩进与 case 分支缩进；Python 使用 Black 25.1.0 的 100 字符行宽。不要为减少行数压缩函数体或结构，文件超过 1000 行时拆分职责。
+
+前端安装锁定依赖后，在 frontend 目录运行 npm run format 整理，运行 npm run format:check 检查；Go 在 backend 目录对 cmd 和 internal 执行 gofmt。提交前完成格式检查，CI 同时检查 Go 与前端格式。
+
+如果已有 node_modules 无写权限或与锁文件不一致，在项目 temp 目录建立独立副本、安装锁定依赖后验证；不要调整系统权限，也不要复用其它项目的依赖目录。
 
 本文档不再维护某个时间点的工具安装快照。当前环境是否可用以实时检查脚本为准：
 
@@ -29,7 +37,7 @@ bash scripts/env/check-env.sh
 | Docker | Docker Engine 或 Docker Desktop WSL integration | 用于依赖服务、后端容器、前端容器和生产镜像验证。 |
 | Docker Compose | Docker Compose v2 | 使用 `docker compose`，不使用旧版 `docker-compose`。 |
 | PostgreSQL client `psql` | PostgreSQL client 16+ | 用于本机连接和 SQL 验证。 |
-| `sqlc` | sqlc 1.25+ | 用于生成 Go 数据访问代码。 |
+| `sqlc` | sqlc 1.31.1 | 用于生成 Go 数据访问代码。 |
 | `migrate` | golang-migrate CLI | 用于执行 PostgreSQL migration。 |
 
 ## 必需工具
@@ -111,7 +119,7 @@ psql --version
 安装示例：
 
 ```bash
-go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 export PATH="$HOME/go/bin:$PATH"
 sqlc version
 ```
@@ -368,3 +376,10 @@ bash scripts/env/stop-dev-services.sh
 - 不要把上传文件写入 Git 或 `frontend/public/`。
 - 开发环境 MinIO 只用于本地联调，不等同于生产 MinIO 的 HTTPS 域名、凭据和备份模型。
 - 生产 migration 前必须先备份 PostgreSQL。
+
+
+## 本地安全回归
+
+数据库回归只使用显式指定的 TEST_DATABASE_URL，并为每个测试创建独立 schema。相册迁移和并发、统计失败重试、评论标识解析通过专用测试验证；不要将生产连接用于测试。临时数据库或容器在验证后关闭。
+
+CI 执行全量后端、前端与浏览器验证，并检查 npm 全部依赖、Go 调用和模块风险。开发、备份、日志和恢复脚本的隔离测试也进入 CI；测试使用外部工具替身，不连接生产。

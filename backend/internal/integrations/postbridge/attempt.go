@@ -98,10 +98,17 @@ func loadAttemptData(record AttemptRecord) (attemptData, error) {
 func attemptView(record AttemptRecord, data attemptData, now time.Time) Attempt {
 	activeGrant := record.RevokedAt == nil && now.Before(data.preparationDeadline(record))
 	view := Attempt{
-		ID: record.ID, ArticleID: record.ArticleID, SourceVersion: record.SourceVersion,
-		TargetAccountID: record.TargetAccountID, Status: record.Status, ErrorCode: data.ErrorCode,
-		Revoked: record.RevokedAt != nil, CancelPending: record.CancelPending, CancelResult: data.CancelResult,
-		CreatedAt: record.CreatedAt, UpdatedAt: record.UpdatedAt,
+		ID:                     record.ID,
+		ArticleID:              record.ArticleID,
+		SourceVersion:          record.SourceVersion,
+		TargetAccountID:        record.TargetAccountID,
+		Status:                 record.Status,
+		ErrorCode:              data.ErrorCode,
+		Revoked:                record.RevokedAt != nil,
+		CancelPending:          record.CancelPending,
+		CancelResult:           data.CancelResult,
+		CreatedAt:              record.CreatedAt,
+		UpdatedAt:              record.UpdatedAt,
 		AuthorizationExpiresAt: record.AuthorizationExpiresAt,
 		CanSubmit:              activeGrant && !now.Before(data.RetryNotBefore) && record.Status == "confirmed" && data.readyToSubmit(now),
 		CanCancel:              record.RevokedAt == nil && record.Status != "completed" && record.Status != "cancelled",
@@ -131,8 +138,12 @@ func attemptTargets(record AttemptRecord) []DistributionTarget {
 	return []DistributionTarget{{Platform: "csdn", AccountID: record.TargetAccountID, Operation: "save_draft"}}
 }
 
-func prepareRequestID(record AttemptRecord) string { return "prepare:" + record.ID }
-func submitRequestID(record AttemptRecord) string  { return "submit:" + record.ID }
+func prepareRequestID(record AttemptRecord) string {
+	return "prepare:" + record.ID
+}
+func submitRequestID(record AttemptRecord) string {
+	return "submit:" + record.ID
+}
 
 func (data *attemptData) acceptPreparation(record AttemptRecord, prep Preparation, now time.Time) error {
 	if prep.ID == "" || prep.RequestID != prepareRequestID(record) || prep.ArticleID != record.ArticleID ||
@@ -148,9 +159,13 @@ func (data *attemptData) acceptPreparation(record AttemptRecord, prep Preparatio
 		return ErrRemoteMismatch
 	}
 	data.Preparation = &preparationState{
-		ID: prep.ID, PreviewURL: prep.PreviewURL, Status: prep.Status,
-		Confirmed: prep.Confirmed, ExpiresAt: prep.ExpiresAt,
-		DraftRevisionIDs: prep.DraftRevisionIDs, ConfirmationFingerprint: prep.ConfirmationFingerprint,
+		ID:                      prep.ID,
+		PreviewURL:              prep.PreviewURL,
+		Status:                  prep.Status,
+		Confirmed:               prep.Confirmed,
+		ExpiresAt:               prep.ExpiresAt,
+		DraftRevisionIDs:        prep.DraftRevisionIDs,
+		ConfirmationFingerprint: prep.ConfirmationFingerprint,
 	}
 	if !now.Before(prep.ExpiresAt) && (prep.Status == "prepared" || prep.Status == "confirmed") {
 		data.Preparation.Status = "expired"
@@ -202,7 +217,12 @@ func (data *attemptData) acceptDistribution(record AttemptRecord, d Distribution
 	if !errorCode.MatchString(child.ErrorCode) {
 		child.ErrorCode = ""
 	}
-	data.Distribution = &distributionState{ID: d.ID, Status: d.Status, DetailURL: d.DetailURL, Child: child}
+	data.Distribution = &distributionState{
+		ID:        d.ID,
+		Status:    d.Status,
+		DetailURL: d.DetailURL,
+		Child:     child,
+	}
 	return nil
 }
 

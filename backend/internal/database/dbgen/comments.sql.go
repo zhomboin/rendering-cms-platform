@@ -30,9 +30,11 @@ select
 from articles
 where (
     ($6::boolean and slug = $7)
-    or (not $6::boolean and article_name = $7)
+    or article_name = $7
   )
   and status = 'published'
+order by (slug = $7) desc
+limit 1
 returning
   comment_id,
   article_id,
@@ -201,12 +203,14 @@ select
   c.body,
   c.created_at
 from comments c
-join articles a on a.article_id = c.article_id
-where (
-    ($1::boolean and a.slug = $2)
-    or (not $1::boolean and a.article_name = $2)
-  )
-  and a.status = 'published'
+where c.article_id = (
+  select a.article_id
+  from articles a
+  where a.status = 'published'
+    and (($1::boolean and a.slug = $2) or a.article_name = $2)
+  order by (a.slug = $2) desc
+  limit 1
+)
   and c.status = 'approved'
 order by c.created_at asc
 `

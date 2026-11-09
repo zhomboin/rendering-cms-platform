@@ -39,8 +39,11 @@ func TestSignPostBridgeContract(t *testing.T) {
 	}
 	vector := fixture.Signature
 	client, err := NewClient("https://bridge.example", Identity{
-		ClientID: vector.ClientID, KeyID: vector.KeyID, Environment: vector.Environment,
-		ServiceID: vector.ServiceID, Secret: vector.Secret,
+		ClientID:    vector.ClientID,
+		KeyID:       vector.KeyID,
+		Environment: vector.Environment,
+		ServiceID:   vector.ServiceID,
+		Secret:      vector.Secret,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +101,10 @@ func TestRegisterActivateAndTargets(t *testing.T) {
 		return nil, nil
 	})
 	ctx := context.Background()
-	registration, err := client.Register(ctx, "synthetic-invitation", "CMS test", RegistrationGrant{SourceID: "cms-test", Accounts: []string{"account-test"}})
+	registration, err := client.Register(ctx, "synthetic-invitation", "CMS test", RegistrationGrant{
+		SourceID: "cms-test",
+		Accounts: []string{"account-test"},
+	})
 	if err != nil || registration.ID != "registration-test" || registration.Status != "pending" {
 		t.Fatalf("registration = %+v, %v", registration, err)
 	}
@@ -146,7 +152,10 @@ func TestClientRejectsIncompleteCredentialsAndInvalidOrigin(t *testing.T) {
 			t.Errorf("accepted %q", origin)
 		}
 	}
-	if _, err := NewClient("https://bridge.example", Identity{Environment: "test", Secret: "invalid"}); err == nil {
+	if _, err := NewClient("https://bridge.example", Identity{
+		Environment: "test",
+		Secret:      "invalid",
+	}); err == nil {
 		t.Fatal("accepted incomplete identity")
 	}
 	client, err := NewClient("https://bridge.example", Identity{Environment: "test"})
@@ -161,8 +170,11 @@ func TestClientRejectsIncompleteCredentialsAndInvalidOrigin(t *testing.T) {
 func testClient(t *testing.T) *Client {
 	t.Helper()
 	client, err := NewClient("https://bridge.example", Identity{
-		ClientID: "client-test", KeyID: "key-test", Environment: "test", ServiceID: "bridge-test",
-		Secret: "c3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3M=",
+		ClientID:    "client-test",
+		KeyID:       "key-test",
+		Environment: "test",
+		ServiceID:   "bridge-test",
+		Secret:      "c3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3M=",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -172,17 +184,24 @@ func testClient(t *testing.T) *Client {
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
-func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 func response(status int, body string) *http.Response {
-	return &http.Response{StatusCode: status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(body))}
+	return &http.Response{
+		StatusCode: status,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
 }
 
 func TestRegisterRequestsConfiguredScopes(t *testing.T) {
 	client := testClient(t)
 	grant := RegistrationGrant{
-		SourceID: "cms-test", Accounts: []string{"account-test"},
-		Scopes: []string{"targets:read", "preparations:write"},
+		SourceID: "cms-test",
+		Accounts: []string{"account-test"},
+		Scopes:   []string{"targets:read", "preparations:write"},
 	}
 	calls := 0
 	client.http.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {

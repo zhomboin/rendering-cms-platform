@@ -50,16 +50,26 @@ func TestNewRouterExposesRefreshEndpoint(t *testing.T) {
 func TestNewRouterAppliesSeparatePublicReadAndSearchLimits(t *testing.T) {
 	router := NewRouter(
 		WithPublicTrafficLimits(PublicTrafficLimits{
-			ReadRatePerSecond: 1, ReadBurst: 1,
-			SearchRatePerSecond: 1, SearchBurst: 1,
-			MaxInFlight: 4, MaxClients: 10, ClientTTL: time.Minute,
+			ReadRatePerSecond:   1,
+			ReadBurst:           1,
+			SearchRatePerSecond: 1,
+			SearchBurst:         1,
+			MaxInFlight:         4,
+			MaxClients:          10,
+			ClientTTL:           time.Minute,
 		}),
 		WithPublicArticleReadRoutes(func(router chi.Router) {
-			router.Get("/api/v1/articles", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
-			router.Get("/api/v1/articles/{slug}", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusAccepted) })
+			router.Get("/api/v1/articles", func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			})
+			router.Get("/api/v1/articles/{slug}", func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusAccepted)
+			})
 		}),
 		WithPublicArticleSearchRoutes(func(router chi.Router) {
-			router.Get("/api/v1/articles/search", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
+			router.Get("/api/v1/articles/search", func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			})
 		}),
 	)
 

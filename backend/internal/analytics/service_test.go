@@ -76,7 +76,10 @@ func TestMapArticleAnalyticsRows(t *testing.T) {
 			TodayViews:  12,
 			PeriodViews: 86,
 			TotalViews:  324,
-			PublishedAt: pgtype.Timestamptz{Time: publishedAt, Valid: true},
+			PublishedAt: pgtype.Timestamptz{
+				Time:  publishedAt,
+				Valid: true,
+			},
 		},
 	})
 

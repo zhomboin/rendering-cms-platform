@@ -23,7 +23,9 @@ type store interface {
 
 type Handler struct{ queries store }
 
-func NewHandler(queries store) Handler { return Handler{queries: queries} }
+func NewHandler(queries store) Handler {
+	return Handler{queries: queries}
+}
 
 // RegisterAdminRoutes 由主路由的后台身份与角色中间件保护。
 func (h Handler) RegisterAdminRoutes(router chi.Router) {
@@ -101,12 +103,18 @@ func (h Handler) overview(w http.ResponseWriter, r *http.Request) {
 		readError(w)
 		return
 	}
-	recent, err := h.queries.ListDashboardRecentArticles(r.Context(), dbgen.ListDashboardRecentArticlesParams{Status: "", RowLimit: 5})
+	recent, err := h.queries.ListDashboardRecentArticles(r.Context(), dbgen.ListDashboardRecentArticlesParams{
+		Status:   "",
+		RowLimit: 5,
+	})
 	if err != nil {
 		readError(w)
 		return
 	}
-	drafts, err := h.queries.ListDashboardRecentArticles(r.Context(), dbgen.ListDashboardRecentArticlesParams{Status: "draft", RowLimit: 3})
+	drafts, err := h.queries.ListDashboardRecentArticles(r.Context(), dbgen.ListDashboardRecentArticlesParams{
+		Status:   "draft",
+		RowLimit: 3,
+	})
 	if err != nil {
 		readError(w)
 		return
@@ -122,11 +130,17 @@ func (h Handler) overview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response := overviewResponse{
-		Days: days, GeneratedAt: row.GeneratedAt, StartDate: row.StartDate.Time.Format("2006-01-02"), EndDate: row.EndDate.Time.Format("2006-01-02"),
-		Metrics:        metrics{row.TodayViews, row.PeriodViews, row.ArticleViews, row.AlbumViews, row.NewComments, row.PendingComments},
-		Content:        content{row.PublishedArticles, row.DraftArticles, row.PrivateArticles, row.ArchivedArticles, row.PublishedAlbums, row.DraftAlbums, row.PhotoCount, row.MissingCoverArticles},
-		Resources:      resources{row.AssetCount, row.ImageCount, row.TotalBytes},
-		RecentArticles: mapArticleSummaries(recent, 5), Drafts: mapArticleSummaries(drafts, 3), PendingComments: make([]commentSummary, 0, 3), RecentImages: make([]imageSummary, 0, 6),
+		Days:            days,
+		GeneratedAt:     row.GeneratedAt,
+		StartDate:       row.StartDate.Time.Format("2006-01-02"),
+		EndDate:         row.EndDate.Time.Format("2006-01-02"),
+		Metrics:         metrics{row.TodayViews, row.PeriodViews, row.ArticleViews, row.AlbumViews, row.NewComments, row.PendingComments},
+		Content:         content{row.PublishedArticles, row.DraftArticles, row.PrivateArticles, row.ArchivedArticles, row.PublishedAlbums, row.DraftAlbums, row.PhotoCount, row.MissingCoverArticles},
+		Resources:       resources{row.AssetCount, row.ImageCount, row.TotalBytes},
+		RecentArticles:  mapArticleSummaries(recent, 5),
+		Drafts:          mapArticleSummaries(drafts, 3),
+		PendingComments: make([]commentSummary, 0, 3),
+		RecentImages:    make([]imageSummary, 0, 6),
 	}
 	for _, c := range comments[:min(len(comments), 3)] {
 		body := []rune(c.Body)

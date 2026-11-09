@@ -45,7 +45,7 @@ resolve_browser_host() {
     localhost)
       printf '127.0.0.1\n'
       ;;
-    wsl|auto)
+    wsl | auto)
       resolve_wsl_ip
       ;;
     *)
@@ -72,7 +72,7 @@ upsert_env() {
         print key "=" value
       }
     }
-  ' "$ENV_FILE" > "$tmp"
+  ' "$ENV_FILE" >"$tmp"
   mv "$tmp" "$ENV_FILE"
 }
 
@@ -96,7 +96,7 @@ MINIO_PORT="${MINIO_PORT:-9000}"
 
 upsert_env "FRONTEND_ORIGIN" "http://$BROWSER_ACCESS_HOST:$FRONTEND_PORT"
 frontend_origins="http://$BROWSER_ACCESS_HOST:$FRONTEND_PORT"
-IFS=',' read -r -a extra_ports <<< "$FRONTEND_EXTRA_PORTS"
+IFS=',' read -r -a extra_ports <<<"$FRONTEND_EXTRA_PORTS"
 for port in "${extra_ports[@]}"; do
   port="$(printf '%s' "$port" | xargs)"
   if [ -n "$port" ]; then

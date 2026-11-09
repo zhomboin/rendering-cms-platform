@@ -31,19 +31,45 @@ after(async () => {
   }
 });
 
-async function setup(t, { existing = false, failCreate = false, failUpload = false, beforeUploadReply, withCover = false } = {}) {
+async function setup(
+  t,
+  {
+    existing = false,
+    failCreate = false,
+    failUpload = false,
+    beforeUploadReply,
+    withCover = false,
+    publishedAt = null,
+  } = {},
+) {
   const context = await browser.newContext();
   t.after(() => context.close());
   await context.addInitScript(() => {
     localStorage.setItem('rendering-cms-token', 'album-route-test');
   });
-  await context.route('https://images.example.test/**', route => route.fulfill({ contentType: 'image/png', body: png }));
-  let album = existing ? {
-    albumId, slug: 'test-album', title: '已有相册', description: '测试相册说明',
-    titleEn: null, descriptionEn: null, status: 'draft', tags: [], photoCount: 0,
-    coverPhotoId: null, coverUrl: withCover ? 'https://images.example.test/cover.png' : null, coverWidth: null, coverHeight: null,
-    publishedAt: null, createdAt: '2026-10-30T00:00:00Z', updatedAt: '2026-10-30T00:00:00Z',
-  } : null;
+  await context.route('https://images.example.test/**', (route) =>
+    route.fulfill({ contentType: 'image/png', body: png }),
+  );
+  let album = existing
+    ? {
+        albumId,
+        slug: 'test-album',
+        title: '已有相册',
+        description: '测试相册说明',
+        titleEn: null,
+        descriptionEn: null,
+        status: 'draft',
+        tags: [],
+        photoCount: 0,
+        coverPhotoId: null,
+        coverUrl: withCover ? 'https://images.example.test/cover.png' : null,
+        coverWidth: null,
+        coverHeight: null,
+        publishedAt,
+        createdAt: '2026-10-30T00:00:00Z',
+        updatedAt: '2026-10-30T00:00:00Z',
+      }
+    : null;
   const photos = [];
   const uploads = [];
   const requests = [];
@@ -52,7 +78,13 @@ async function setup(t, { existing = false, failCreate = false, failUpload = fal
     const request = route.request();
     const path = new URL(request.url()).pathname;
     const method = request.method();
-    requests.push({ path, method, body: request.headers()['content-type']?.includes('application/json') ? request.postDataJSON() : null });
+    requests.push({
+      path,
+      method,
+      body: request.headers()['content-type']?.includes('application/json')
+        ? request.postDataJSON()
+        : null,
+    });
     const reply = (json, status = 200) => route.fulfill({ status, json });
     if (path === '/api/v1/admin/albums' && method === 'GET') return reply(album ? [album] : []);
     if (path === '/api/v1/admin/albums' && method === 'POST') {
@@ -63,8 +95,10 @@ async function setup(t, { existing = false, failCreate = false, failUpload = fal
       album = { albumId, status: 'draft', photoCount: 0, tags: [], ...request.postDataJSON() };
       return reply(album, 201);
     }
-    if (path === `/api/v1/admin/albums/${albumId}` && method === 'GET' && album) return reply(album);
-    if (path === `/api/v1/admin/albums/${albumId}/photos` && method === 'GET' && album) return reply(photos);
+    if (path === `/api/v1/admin/albums/${albumId}` && method === 'GET' && album)
+      return reply(album);
+    if (path === `/api/v1/admin/albums/${albumId}/photos` && method === 'GET' && album)
+      return reply(photos);
     if (path === `/api/v1/admin/albums/${albumId}/photos` && method === 'POST') {
       const contentType = request.headers()['content-type'] ?? '';
       if (!contentType.startsWith('multipart/form-data; boundary=')) {
@@ -72,21 +106,40 @@ async function setup(t, { existing = false, failCreate = false, failUpload = fal
         return reply({ error: '缺少照片文件' }, 400);
       }
       const form = await new Request(request.url(), {
-        method: 'POST', headers: { 'Content-Type': contentType }, body: request.postDataBuffer(),
+        method: 'POST',
+        headers: { 'Content-Type': contentType },
+        body: request.postDataBuffer(),
       }).formData();
       const file = form.get('file');
       uploads.push({ contentType, file, alt: form.get('alt') });
       await beforeUploadReply?.(file);
-      if (failUpload) { failUpload = false; return reply({ error: '照片存储写入失败' }, 500); }
-      const photo = { photoId: `photo-${photos.length + 1}`, alt: form.get('alt'), caption: null,
-        width: 1, height: 1, position: photos.length + 1, takenAt: null, createdAt: '2026-10-31T00:00:00Z',
-        url: 'https://images.example.test/photos/test.png', filename: file.name, contentType: file.type, byteSize: file.size };
+      if (failUpload) {
+        failUpload = false;
+        return reply({ error: '照片存储写入失败' }, 500);
+      }
+      const photo = {
+        photoId: `photo-${photos.length + 1}`,
+        alt: form.get('alt'),
+        caption: null,
+        width: 1,
+        height: 1,
+        position: photos.length + 1,
+        takenAt: null,
+        createdAt: '2026-10-31T00:00:00Z',
+        url: 'https://images.example.test/photos/test.png',
+        filename: file.name,
+        contentType: file.type,
+        byteSize: file.size,
+      };
       photos.push(photo);
       return reply(photo, 201);
     }
     if (path === `/api/v1/admin/albums/${albumId}/photos/order` && method === 'PUT') {
       const ids = request.postDataJSON().photoIds;
-      const sorted = ids.map((id, index) => ({ ...photos.find(p => p.photoId === id), position: index + 1 }));
+      const sorted = ids.map((id, index) => ({
+        ...photos.find((p) => p.photoId === id),
+        position: index + 1,
+      }));
       photos.splice(0, photos.length, ...sorted);
       return reply(photos);
     }
@@ -94,9 +147,17 @@ async function setup(t, { existing = false, failCreate = false, failUpload = fal
       album = { ...album, coverPhotoId: request.postDataJSON().photoId };
       return reply(album);
     }
-    const photo = photos.find(p => path === `/api/v1/admin/albums/${albumId}/photos/${p.photoId}`);
-    if (photo && method === 'PATCH') { Object.assign(photo, request.postDataJSON()); return reply(photo); }
-    if (photo && method === 'DELETE') { photos.splice(photos.indexOf(photo), 1); return route.fulfill({ status: 204 }); }
+    const photo = photos.find(
+      (p) => path === `/api/v1/admin/albums/${albumId}/photos/${p.photoId}`,
+    );
+    if (photo && method === 'PATCH') {
+      Object.assign(photo, request.postDataJSON());
+      return reply(photo);
+    }
+    if (photo && method === 'DELETE') {
+      photos.splice(photos.indexOf(photo), 1);
+      return route.fulfill({ status: 204 });
+    }
     if (path === `/api/v1/admin/albums/${albumId}` && method === 'PATCH' && album) {
       album = { ...album, ...request.postDataJSON() };
       return reply(album);
@@ -141,7 +202,10 @@ test('从列表新建、保存并刷新编辑页，只使用真实相册 ID 查�
   assert.equal(creates.length, 1);
   assert.equal(creates[0].path, '/api/v1/admin/albums');
   assert.equal(creates[0].body.title, '新相册');
-  assert.equal(requests.some((r) => r.path === `/api/v1/admin/albums/${albumId}/photos`), false);
+  assert.equal(
+    requests.some((r) => r.path === `/api/v1/admin/albums/${albumId}/photos`),
+    false,
+  );
   await page.reload({ waitUntil: 'networkidle' });
   await page.getByRole('heading', { name: '相册信息' }).waitFor();
 });
@@ -166,7 +230,10 @@ test('已有相册加载和更新正常，返回列表后可以继续新建', as
   const { page, requests } = await setup(t, { existing: true });
   await page.goto(`${origin}/admin/albums/${albumId}/edit`, { waitUntil: 'networkidle' });
   await page.getByRole('heading', { name: '相册信息' }).waitFor();
-  assert.equal(requests.some((r) => r.path === `/api/v1/admin/albums/${albumId}/photos`), false);
+  assert.equal(
+    requests.some((r) => r.path === `/api/v1/admin/albums/${albumId}/photos`),
+    false,
+  );
   await page.getByLabel('标题', { exact: true }).fill('更新相册');
   await page.getByRole('button', { name: '保存信息' }).click();
   await page.getByText('相册信息已保存', { exact: true }).waitFor();
@@ -177,25 +244,56 @@ test('已有相册加载和更新正常，返回列表后可以继续新建', as
   assert.equal(await page.getByLabel('标题', { exact: true }).inputValue(), '');
 });
 
-const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1FYAAAAASUVORK5CYII=', 'base64');
+test('已发布再下架的相册保持访问标识只读，其它信息仍可保存', async (t) => {
+  const { page, requests } = await setup(t, {
+    existing: true,
+    publishedAt: '2026-11-01T00:00:00Z',
+  });
+  await page.goto(`${origin}/admin/albums/${albumId}/edit`, { waitUntil: 'networkidle' });
+  assert.equal(await page.getByLabel('访问标识').isDisabled(), true);
+  await page.getByLabel('标题', { exact: true }).fill('更新标题');
+  await page.getByRole('button', { name: '保存信息' }).click();
+  await page.getByText('相册信息已保存', { exact: true }).waitFor();
+  const update = requests.find((request) => request.method === 'PATCH');
+  assert.equal(update.body.slug, 'test-album');
+  assert.equal(update.body.title, '更新标题');
+});
+
+const png = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1FYAAAAASUVORK5CYII=',
+  'base64',
+);
 
 test('图片文件以真实 multipart 上传，保留文件内容和默认 alt', async (t) => {
   const { page, uploads } = await setup(t, { existing: true });
   await page.goto(`${origin}/admin/albums/${albumId}/photos`, { waitUntil: 'networkidle' });
-  const uploaded = page.waitForResponse(r => r.request().method() === 'POST');
-  await page.locator('input[type=file]').setInputFiles({ name: 'city-night.png', mimeType: 'image/png', buffer: png });
+  const uploaded = page.waitForResponse((r) => r.request().method() === 'POST');
+  await page
+    .locator('input[type=file]')
+    .setInputFiles({ name: 'city-night.png', mimeType: 'image/png', buffer: png });
   await uploaded;
   assert.equal(uploads.length, 1);
   assert.match(uploads[0].contentType, /^multipart\/form-data; boundary=/);
   assert.equal(uploads[0].alt, 'city night');
   assert.deepEqual(Buffer.from(await uploads[0].file.arrayBuffer()), png);
-  await page.getByRole('list', { name: '上传进度', exact: true }).getByText('已上传', { exact: true }).waitFor();
+  await page
+    .getByRole('list', { name: '上传进度', exact: true })
+    .getByText('已上传', { exact: true })
+    .waitFor();
 });
 
 test('基本信息与图片管理独立，图片 URL 可见并可复制，支持直接刷新', async (t) => {
   const { page, context, photos, requests } = await setup(t, { existing: true });
-  photos.push({ photoId: 'photo-1', alt: '城市夜色', caption: null, width: 1, height: 1,
-    position: 1, takenAt: null, url: 'https://images.example.test/photos/city.png' });
+  photos.push({
+    photoId: 'photo-1',
+    alt: '城市夜色',
+    caption: null,
+    width: 1,
+    height: 1,
+    position: 1,
+    takenAt: null,
+    url: 'https://images.example.test/photos/city.png',
+  });
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto(`${origin}/admin/albums/${albumId}/edit`, { waitUntil: 'networkidle' });
   assert.equal(await page.locator('input[type=file]').count(), 0);
@@ -211,7 +309,7 @@ test('基本信息与图片管理独立，图片 URL 可见并可复制，支持
   assert.equal(await url.inputValue(), photos[0].url);
   await page.getByRole('button', { name: '编辑基本信息', exact: true }).click();
   await page.getByRole('heading', { name: '相册信息', exact: true }).waitFor();
-  assert.ok(requests.some(r => r.path.endsWith('/photos')));
+  assert.ok(requests.some((r) => r.path.endsWith('/photos')));
   await page.getByRole('button', { name: '返回列表' }).click();
   await page.getByRole('button', { name: '图片管理', exact: true }).click();
   await page.getByRole('heading', { name: '图片管理', exact: true }).waitFor();
@@ -221,55 +319,92 @@ test('拖拽上传失败显示后端原因，再次拖入可成功，非法类�
   const { page, uploads } = await setup(t, { existing: true, failUpload: true });
   await page.goto(`${origin}/admin/albums/${albumId}/photos`, { waitUntil: 'networkidle' });
   const drop = async (name, type, data) => {
-    const transfer = await page.evaluateHandle(({ name, type, data }) => {
-      const dt = new DataTransfer(); dt.items.add(new File([new Uint8Array(data)], name, { type })); return dt;
-    }, { name, type, data: Array.from(data) });
+    const transfer = await page.evaluateHandle(
+      ({ name, type, data }) => {
+        const dt = new DataTransfer();
+        dt.items.add(new File([new Uint8Array(data)], name, { type }));
+        return dt;
+      },
+      { name, type, data: Array.from(data) },
+    );
     await page.locator('.ant-upload-btn').dispatchEvent('drop', { dataTransfer: transfer });
     await transfer.dispose();
   };
-  await page.locator('input[type=file]').setInputFiles({ name: 'bad.txt', mimeType: 'text/plain', buffer: Buffer.from('bad') });
+  await page
+    .locator('input[type=file]')
+    .setInputFiles({ name: 'bad.txt', mimeType: 'text/plain', buffer: Buffer.from('bad') });
   await page.getByText('bad.txt 不是 PNG/JPEG/WebP 图片', { exact: true }).waitFor();
   assert.equal(uploads.length, 0);
   await drop('drop.png', 'image/png', png);
-  await page.getByRole('list', { name: '上传进度', exact: true }).getByText('照片存储写入失败', { exact: true }).waitFor();
+  await page
+    .getByRole('list', { name: '上传进度', exact: true })
+    .getByText('照片存储写入失败', { exact: true })
+    .waitFor();
   await drop('drop.png', 'image/png', png);
-  await page.getByRole('list', { name: '上传进度', exact: true }).getByText('已上传', { exact: true }).waitFor();
+  await page
+    .getByRole('list', { name: '上传进度', exact: true })
+    .getByText('已上传', { exact: true })
+    .waitFor();
   assert.equal(uploads.length, 2);
   await page.getByRole('textbox', { name: 'drop的图片 URL', exact: true }).waitFor();
 });
 
 test('无 URL 说明原因，复制被拒绝时提示手动复制', async (t) => {
   const { page, photos } = await setup(t, { existing: true });
-  photos.push({ photoId: 'photo-1', alt: '无链接图片', width: 1, height: 1, url: null },
-    { photoId: 'photo-2', alt: '有链接图片', width: 1, height: 1, url: 'https://images.example.test/test.png' });
-  await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', {
-    value: { writeText: () => Promise.reject(new Error('denied')) }, configurable: true,
-  }));
+  photos.push(
+    { photoId: 'photo-1', alt: '无链接图片', width: 1, height: 1, url: null },
+    {
+      photoId: 'photo-2',
+      alt: '有链接图片',
+      width: 1,
+      height: 1,
+      url: 'https://images.example.test/test.png',
+    },
+  );
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: () => Promise.reject(new Error('denied')) },
+      configurable: true,
+    }),
+  );
   await page.goto(`${origin}/admin/albums/${albumId}/photos`, { waitUntil: 'networkidle' });
   await page.getByText('暂无图片 URL，请检查公开访问地址配置', { exact: true }).waitFor();
-  assert.equal(await page.getByRole('button', { name: '复制无链接图片的图片 URL', exact: true }).count(), 0);
+  assert.equal(
+    await page.getByRole('button', { name: '复制无链接图片的图片 URL', exact: true }).count(),
+    0,
+  );
   await page.getByRole('button', { name: '复制有链接图片的图片 URL', exact: true }).click();
   await page.getByText('复制失败，请选中图片 URL 手动复制', { exact: true }).waitFor();
 });
 
 test('图片管理保留编辑、排序、封面与删除操作', async (t) => {
   const { page, photos, requests } = await setup(t, { existing: true });
-  photos.push(...['第一张', '第二张'].map((alt, index) => ({ photoId: `photo-${index + 1}`,
-    alt, width: 1, height: 1, position: index + 1, url: null })));
+  photos.push(
+    ...['第一张', '第二张'].map((alt, index) => ({
+      photoId: `photo-${index + 1}`,
+      alt,
+      width: 1,
+      height: 1,
+      position: index + 1,
+      url: null,
+    })),
+  );
   await page.goto(`${origin}/admin/albums/${albumId}/photos`, { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: '编辑照片', exact: true }).first().click();
   await page.getByLabel('图片描述').fill('更新后的照片');
   await page.getByRole('button', { name: '保存照片', exact: true }).click();
   await page.getByText('照片信息已更新', { exact: true }).waitFor();
   assert.equal(photos[0].alt, '更新后的照片');
-  const reordered = page.waitForResponse(r => r.request().method() === 'PUT' && r.url().endsWith('/order'));
+  const reordered = page.waitForResponse(
+    (r) => r.request().method() === 'PUT' && r.url().endsWith('/order'),
+  );
   await page.getByRole('button', { name: '下移照片', exact: true }).first().click();
   await reordered;
   assert.equal(photos[0].photoId, 'photo-2');
   await page.locator('.ant-card-meta-title').first().getByText('第二张', { exact: true }).waitFor();
   await page.getByRole('button', { name: '设置照片封面', exact: true }).nth(1).click();
   await page.getByText('封面已更新', { exact: true }).waitFor();
-  assert.equal(requests.find(r => r.path.endsWith('/cover')).body.photoId, 'photo-1');
+  assert.equal(requests.find((r) => r.path.endsWith('/cover')).body.photoId, 'photo-1');
   await page.getByRole('button', { name: '删除照片', exact: true }).first().click();
   await page.getByRole('button', { name: /^删\s*除$/ }).click();
   await page.getByText('照片已删除', { exact: true }).waitFor();
@@ -279,11 +414,15 @@ test('图片管理保留编辑、排序、封面与删除操作', async (t) => {
 test('超出 50MB 的图片在本地拒绝，不发上传请求', async (t) => {
   const { page, uploads } = await setup(t, { existing: true });
   await page.goto(`${origin}/admin/albums/${albumId}/photos`, { waitUntil: 'networkidle' });
-  await selectSizedFile(page.locator('input[type=file]'), 'large.png', 'image/png', 50 * 1024 * 1024 + 1);
+  await selectSizedFile(
+    page.locator('input[type=file]'),
+    'large.png',
+    'image/png',
+    50 * 1024 * 1024 + 1,
+  );
   await page.getByText('large.png 图片大小必须大于 0 且不超过 50MB', { exact: true }).waitFor();
   assert.equal(uploads.length, 0);
 });
-
 
 async function controlUploadProgress(page) {
   // 仅控制上传进度事件，文件请求和 multipart 内容仍经过真实 XHR。
@@ -293,7 +432,7 @@ async function controlUploadProgress(page) {
     window.XMLHttpRequest = class extends NativeXHR {
       constructor() {
         super();
-        this.upload.addEventListener('progress', event => {
+        this.upload.addEventListener('progress', (event) => {
           if (event.isTrusted) event.stopImmediatePropagation();
         });
       }
@@ -308,25 +447,38 @@ async function controlUploadProgress(page) {
 }
 
 async function emitProgress(page, name, loaded, total) {
-  await page.evaluate(({ name, loaded, total }) => {
-    const request = window.albumUploadRequests.find(request => request.name === name);
-    request.xhr.upload.dispatchEvent(new ProgressEvent('progress', {
-      loaded, total: total ?? 0, lengthComputable: total !== undefined,
-    }));
-  }, { name, loaded, total });
+  await page.evaluate(
+    ({ name, loaded, total }) => {
+      const request = window.albumUploadRequests.find((request) => request.name === name);
+      request.xhr.upload.dispatchEvent(
+        new ProgressEvent('progress', {
+          loaded,
+          total: total ?? 0,
+          lengthComputable: total !== undefined,
+        }),
+      );
+    },
+    { name, loaded, total },
+  );
 }
 
 test('逐文件进度来自传输事件，100% 等待处理，批量成功与失败独立', async (t) => {
   const pending = new Map();
-  t.after(() => { for (const release of pending.values()) release(); });
-  const { page, uploads } = await setup(t, { existing: true, failUpload: true,
-    beforeUploadReply: file => new Promise(resolve => pending.set(file.name, resolve)),
+  t.after(() => {
+    for (const release of pending.values()) release();
+  });
+  const { page, uploads } = await setup(t, {
+    existing: true,
+    failUpload: true,
+    beforeUploadReply: (file) => new Promise((resolve) => pending.set(file.name, resolve)),
   });
   await controlUploadProgress(page);
   await page.goto(origin + '/admin/albums/' + albumId + '/photos', { waitUntil: 'networkidle' });
-  await page.locator('input[type=file]').setInputFiles(
-    ['first.png', 'second.png'].map(name => ({ name, mimeType: 'image/png', buffer: png })),
-  );
+  await page
+    .locator('input[type=file]')
+    .setInputFiles(
+      ['first.png', 'second.png'].map((name) => ({ name, mimeType: 'image/png', buffer: png })),
+    );
   await page.waitForFunction(() => window.albumUploadRequests.length === 2);
   const list = page.getByRole('list', { name: '上传进度', exact: true });
   const first = list.getByRole('listitem').filter({ hasText: 'first.png' });
@@ -361,15 +513,23 @@ test('逐文件进度来自传输事件，100% 等待处理，批量成功与失
 test('未知上传总量不伪造百分比，离开页面取消请求，重新进入无旧进度', async (t) => {
   let release;
   t.after(() => release?.());
-  const { page } = await setup(t, { existing: true,
-    beforeUploadReply: () => new Promise(resolve => { release = resolve; }),
+  const { page } = await setup(t, {
+    existing: true,
+    beforeUploadReply: () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
   });
   await controlUploadProgress(page);
   await page.goto(origin + '/admin/albums/' + albumId + '/photos', { waitUntil: 'networkidle' });
-  await page.locator('input[type=file]').setInputFiles({ name: 'unknown.png', mimeType: 'image/png', buffer: png });
+  await page
+    .locator('input[type=file]')
+    .setInputFiles({ name: 'unknown.png', mimeType: 'image/png', buffer: png });
   await page.waitForFunction(() => window.albumUploadRequests.length === 1);
   await page.evaluate(() => {
-    window.albumUploadRequests[0].xhr.addEventListener('abort', () => { window.uploadAborted = true; });
+    window.albumUploadRequests[0].xhr.addEventListener('abort', () => {
+      window.uploadAborted = true;
+    });
   });
   await emitProgress(page, 'unknown.png', 10);
   const list = page.getByRole('list', { name: '上传进度', exact: true });
@@ -387,8 +547,20 @@ test('照片键盘预览支持切换缩放与关闭，空链接不占预览位�
   const { page, photos } = await setup(t, { existing: true });
   photos.push(
     { photoId: 'photo-0', alt: '无链接', width: 1, height: 1, url: null },
-    { photoId: 'photo-1', alt: '第一张', width: 1, height: 1, url: 'https://images.example.test/first.png' },
-    { photoId: 'photo-2', alt: '第二张', width: 1, height: 1, url: 'https://images.example.test/second.png' },
+    {
+      photoId: 'photo-1',
+      alt: '第一张',
+      width: 1,
+      height: 1,
+      url: 'https://images.example.test/first.png',
+    },
+    {
+      photoId: 'photo-2',
+      alt: '第二张',
+      width: 1,
+      height: 1,
+      url: 'https://images.example.test/second.png',
+    },
   );
   await page.goto(origin + '/admin/albums/' + albumId + '/photos', { waitUntil: 'networkidle' });
   const preview = page.getByRole('button', { name: '预览第一张', exact: true });
@@ -398,10 +570,15 @@ test('照片键盘预览支持切换缩放与关闭，空链接不占预览位�
   await viewer.waitFor({ state: 'visible' });
   assert.match(await viewer.locator('img').getAttribute('src'), /first\.png$/);
   await page.locator('.ant-image-preview-switch-next').click();
-  await page.waitForFunction(() => document.querySelector('.ant-image-preview img')?.src.endsWith('second.png'));
+  await page.waitForFunction(() =>
+    document.querySelector('.ant-image-preview img')?.src.endsWith('second.png'),
+  );
   const before = await viewer.locator('img').getAttribute('style');
   await page.locator('[aria-label="zoomIn"]').click();
-  await page.waitForFunction(before => document.querySelector('.ant-image-preview img')?.getAttribute('style') !== before, before);
+  await page.waitForFunction(
+    (before) => document.querySelector('.ant-image-preview img')?.getAttribute('style') !== before,
+    before,
+  );
   await page.keyboard.press('Escape');
   await viewer.waitFor({ state: 'hidden' });
   assert.equal(new URL(page.url()).pathname, '/admin/albums/' + albumId + '/photos');
@@ -424,27 +601,40 @@ test('图片管理文案简洁，窄屏长文件名不溢出', async (t) => {
   await page.goto(origin + '/admin/albums/' + albumId + '/photos', { waitUntil: 'networkidle' });
   await page.getByRole('heading', { name: '图片管理', exact: true }).waitFor();
   await page.getByRole('heading', { name: '照片', exact: true }).waitFor();
-  assert.doesNotMatch(await page.locator('main').innerText(), /默认封面|已指定封面|剥离|EXIF|alt 默认|图片管理 ·/);
+  assert.doesNotMatch(
+    await page.locator('main').innerText(),
+    /默认封面|已指定封面|剥离|EXIF|alt 默认|图片管理 ·/,
+  );
   await page.locator('input[type=file]').setInputFiles({
-    name: '很长的图片文件名'.repeat(16) + '.png', mimeType: 'image/png', buffer: png,
+    name: '很长的图片文件名'.repeat(16) + '.png',
+    mimeType: 'image/png',
+    buffer: png,
   });
-  await page.getByRole('list', { name: '上传进度', exact: true }).getByText('已上传', { exact: true }).waitFor();
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  await page
+    .getByRole('list', { name: '上传进度', exact: true })
+    .getByText('已上传', { exact: true })
+    .waitFor();
+  assert.equal(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    true,
+  );
 });
 
-test('相册上传大小边界：50MB可上传、超限与零字节不发请求', async t => {
- const { page, uploads } = await setup(t, { existing: true });
- await page.goto(`${origin}/admin/albums/${albumId}/photos`, { waitUntil: 'networkidle' });
- const input = page.locator('input[type=file]');
- for (const size of [50*1024*1024-1,50*1024*1024]) {
-  const uploaded = page.waitForResponse(r => r.request().method() === 'POST');
-  await selectSizedFile(input, `accepted-${size}.png`, 'image/png', size);
-  await uploaded;
-  assert.equal(uploads.at(-1).file.size,size);
- }
- for (const size of [50*1024*1024+1,0]) {
-  await selectSizedFile(input, `rejected-${size}.png`, 'image/png', size);
-  await page.getByText(`rejected-${size}.png 图片大小必须大于 0 且不超过 50MB`, {exact:true}).waitFor();
-  assert.equal(uploads.length,2);
- }
+test('相册上传大小边界：50MB可上传、超限与零字节不发请求', async (t) => {
+  const { page, uploads } = await setup(t, { existing: true });
+  await page.goto(`${origin}/admin/albums/${albumId}/photos`, { waitUntil: 'networkidle' });
+  const input = page.locator('input[type=file]');
+  for (const size of [50 * 1024 * 1024 - 1, 50 * 1024 * 1024]) {
+    const uploaded = page.waitForResponse((r) => r.request().method() === 'POST');
+    await selectSizedFile(input, `accepted-${size}.png`, 'image/png', size);
+    await uploaded;
+    assert.equal(uploads.at(-1).file.size, size);
+  }
+  for (const size of [50 * 1024 * 1024 + 1, 0]) {
+    await selectSizedFile(input, `rejected-${size}.png`, 'image/png', size);
+    await page
+      .getByText(`rejected-${size}.png 图片大小必须大于 0 且不超过 50MB`, { exact: true })
+      .waitFor();
+    assert.equal(uploads.length, 2);
+  }
 });

@@ -48,9 +48,13 @@ function AdminLayout() {
   const authToken = getAuthToken();
   const authUser = getAuthUser();
 
-  const menuItems = authUser?.role === 'admin'
-    ? [...baseMenuItems, { key: '/admin/postbridge', icon: <SendOutlined />, label: 'PostBridge' }]
-    : baseMenuItems;
+  const menuItems =
+    authUser?.role === 'admin'
+      ? [
+          ...baseMenuItems,
+          { key: '/admin/postbridge', icon: <SendOutlined />, label: 'PostBridge' },
+        ]
+      : baseMenuItems;
 
   if (!authToken) {
     return <Navigate to="/admin/login" replace state={{ from: location }} />;
@@ -62,11 +66,7 @@ function AdminLayout() {
   const selectedKey =
     menuItems
       .map((item) => item.key)
-      .filter(
-        (key) =>
-          location.pathname === key ||
-          location.pathname.startsWith(key + '/'),
-      )
+      .filter((key) => location.pathname === key || location.pathname.startsWith(key + '/'))
       .sort((a, b) => b.length - a.length)[0] ?? '/admin';
 
   const pageTitle = pageTitleMap[selectedKey] ?? '';
@@ -185,7 +185,16 @@ function AdminLayout() {
                 onClick={() => setMobileMenuOpen(true)}
               />
             )}
-            <Text strong style={{ fontSize: isMobile ? 16 : 18, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <Text
+              strong
+              style={{
+                fontSize: isMobile ? 16 : 18,
+                color: '#0F172A',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {pageTitle}
             </Text>
           </div>
@@ -235,9 +244,7 @@ function AdminLayout() {
                 >
                   {userName}
                 </span>
-                <DownOutlined
-                  style={{ flex: '0 0 auto', fontSize: 12, color: '#64748B' }}
-                />
+                <DownOutlined style={{ flex: '0 0 auto', fontSize: 12, color: '#64748B' }} />
               </span>
             </Button>
           </Dropdown>

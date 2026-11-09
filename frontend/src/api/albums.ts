@@ -92,7 +92,12 @@ export function listAdminAlbumPhotos(albumId: string) {
 }
 
 // 照片为后端代理上传：multipart 直传，默认 alt 取文件名（去扩展名），上传后可再编辑。
-export async function uploadAdminAlbumPhoto(albumId: string, file: File, input: AlbumPhotoInput, options: AlbumPhotoUploadOptions = {}) {
+export async function uploadAdminAlbumPhoto(
+  albumId: string,
+  file: File,
+  input: AlbumPhotoInput,
+  options: AlbumPhotoUploadOptions = {},
+) {
   const form = new FormData();
   form.append('file', file);
   form.append('alt', input.alt);
@@ -108,10 +113,11 @@ export async function uploadAdminAlbumPhoto(albumId: string, file: File, input: 
     headers: { 'Content-Type': undefined },
     timeout: 120000,
     signal: options.signal,
-    onUploadProgress: event => options.onProgress?.({
-      loaded: event.loaded,
-      total: event.lengthComputable ? event.total : undefined,
-    }),
+    onUploadProgress: (event) =>
+      options.onProgress?.({
+        loaded: event.loaded,
+        total: event.lengthComputable ? event.total : undefined,
+      }),
   });
   return response.data;
 }

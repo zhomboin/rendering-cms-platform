@@ -55,6 +55,9 @@
 
 ## 编码规则
 
+- 使用根目录 .prettierrc.json 统一 TypeScript、TSX、JavaScript、CSS 和 JSON 格式；运行 npm run format 整理，npm run format:check 检查。
+- 多步骤回调、多属性组件和样式保持清晰换行，不为缩短文件而压缩为单行；超过 1000 行时按职责拆分。
+
 - TypeScript 保持严格类型，不使用无意义的 `any`。
 - 页面级组件放在对应 `src/pages/<scope>/<domain>/` 下。
 - 通用布局放在 `src/layouts/`，跨业务组件放在 `src/components/`。

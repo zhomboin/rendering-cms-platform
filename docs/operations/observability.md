@@ -84,3 +84,10 @@ curl -fsS http://127.0.0.1:8080/api/v1/health
 ```bash
 tail -n 20 logs/backend/backend-$(date +%F).log
 ```
+
+
+## 相册对象清理
+
+后台每 30 秒检查 album_object_cleanup 到期任务。失败写入 album object cleanup pending 或 retry failed 日志，并保留租约或退避时间等待重试。需要核对待处理数量、最早任务时间、对象删除权限和数据库可用性；仍有照片引用的对象不会删除。
+
+队列只处理已登记对象，不扫描整个 bucket。存量孤立对象的核对与清理需要单独授权。真实对象删除失败、重试和监控接入属于相册环境验收。

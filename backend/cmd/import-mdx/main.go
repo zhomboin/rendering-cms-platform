@@ -131,8 +131,11 @@ func (s DatabaseImportStore) UpsertPublishedArticle(ctx context.Context, post Im
 		FeaturedRank:  post.FeaturedRank,
 		FeaturedAt:    nullableTimestamptz(post.FeaturedAt),
 		CoverImageUrl: nullableText(post.CoverImageURL),
-		PublishedAt:   pgtype.Timestamptz{Time: post.PublishedAt, Valid: true},
-		AuthorID:      authorID,
+		PublishedAt: pgtype.Timestamptz{
+			Time:  post.PublishedAt,
+			Valid: true,
+		},
+		AuthorID: authorID,
 	})
 	if err != nil {
 		return pgtype.UUID{}, err
@@ -402,12 +405,18 @@ func unquote(value string) string {
 }
 
 func nullableText(value string) pgtype.Text {
-	return pgtype.Text{String: value, Valid: strings.TrimSpace(value) != ""}
+	return pgtype.Text{
+		String: value,
+		Valid:  strings.TrimSpace(value) != "",
+	}
 }
 
 func nullableTimestamptz(value time.Time) pgtype.Timestamptz {
 	if value.IsZero() {
 		return pgtype.Timestamptz{}
 	}
-	return pgtype.Timestamptz{Time: value, Valid: true}
+	return pgtype.Timestamptz{
+		Time:  value,
+		Valid: true,
+	}
 }

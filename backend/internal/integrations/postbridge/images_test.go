@@ -42,7 +42,11 @@ func TestImageSnapshotPolicy(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			in := Snapshot{Title: "A sample title", Body: tc.body, BodyFormat: "markdown"}
+			in := Snapshot{
+				Title:      "A sample title",
+				Body:       tc.body,
+				BodyFormat: "markdown",
+			}
 			out, fingerprint, urls, err := validateSnapshot(in, tc.enabled)
 			if tc.urls == nil {
 				if !errors.Is(err, ErrUnsupportedContent) {

@@ -59,5 +59,13 @@ export function resendLoginCode(values: MFAResendRequest) {
   return apiPost<MFAResendResponse>('/auth/mfa/resend', values);
 }
 
-export { clearAuthToken, getAuthToken, getAuthUser, getRefreshToken, setAuthToken, setAuthUser, setRefreshToken };
+export {
+  clearAuthToken,
+  getAuthToken,
+  getAuthUser,
+  getRefreshToken,
+  setAuthToken,
+  setAuthUser,
+  setRefreshToken,
+};
 export type { AuthUser };

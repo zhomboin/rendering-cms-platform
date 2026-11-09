@@ -12,12 +12,12 @@ POST /api/v1/articles/{slug}/views
 
 - 公开接口。
 - `{slug}` 是 CMS 返回的 6 位短链码，格式为 `^[0-9A-Za-z]{6}$`。
-- 兼容期内，如果 `{slug}` 不是 6 位短链码，后端会按 `articleName` 解析到对应文章后写入同一篇文章的访问量。
+- 优先解析已发布短链，未命中时按英文名回退，包含六位英文名；发生冲突时按短链对应文章计数，与详情和评论一致。
 - Rendering 博客正式实现必须使用短链 `slug` 上报，不应长期使用 `articleName`。
 - 仅对已发布文章写入访问统计。
 - 每次调用使 `article_view_daily` 中当日文章访问量加 `1`。
 - 同时使 `site_view_daily` 中当日站点访问量加 `1`。
-- 后端会先写入 `analytics_events`，并按 `event_type + ip_hash + article_id + event_date` 做每日去重；重复事件返回 `204`，但不重复累加 daily 统计。
+- 事件与文章、站点日计数原子提交，按事件类型、来源哈希、文章和数据库事件日期去重；重复请求返回 204 而不累加。任一步失败均回滚并返回 500，恢复后重试可正常计数。
 - `article_view_daily` 只保存当天实时计数，历史日期统计应在每日归档后进入 `article_view_history`。
 - Rendering 静态博客文章详情页接入时，必须使用 CMS 返回的短链码上报文章访问。
 
@@ -39,7 +39,7 @@ POST /api/v1/analytics/site-views
 - 用于 Rendering 首页、文章列表页、关于页等非文章页面访问统计。
 - 每次调用使 `site_view_daily` 中当日站点访问量加 `1`。
 - 不关联具体文章，不写入 `article_view_daily`。
-- 后端会先写入 `analytics_events`，并按 `event_type + ip_hash + event_date` 做每日去重；重复事件返回 `204`，但不重复累加 daily 统计。
+- 事件与站点日计数原子提交，使用数据库事件日期进行每日去重；重复请求返回 204 而不累加，失败完整回滚后可安全重试。
 - `site_view_daily` 只保存当天实时计数，历史日期统计应在每日归档后进入 `site_view_history`。
 - 请求体扩展字段暂不持久化；字段无效时仍按一次站点访问计数并返回 `204`。
 
@@ -182,3 +182,8 @@ Authorization: Bearer <jwt-token>
 ## Rendering 博客对接
 
 详细方案见 [Rendering 博客访问统计对接方案](../operations/rendering-blog-analytics-integration.md)。
+
+
+## 相册访问与计数一致性
+
+POST /api/v1/photos/{slug}/views 仅接受已发布相册，不存在或未发布返回 404。事件、相册日计数和站点日计数在同一条语句提交，同一来源同日重复访问返回 204 且不重复计数。存储失败返回 500，事务完整回滚，恢复后重试计入一次。所有日计数与去重事件使用同一个数据库日期。

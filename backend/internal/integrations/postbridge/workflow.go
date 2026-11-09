@@ -25,7 +25,12 @@ type Service struct {
 }
 
 func NewService(store *Store, client *Client, sourceID, environment string) *Service {
-	return &Service{store: store, client: client, sourceID: sourceID, environment: environment}
+	return &Service{
+		store:       store,
+		client:      client,
+		sourceID:    sourceID,
+		environment: environment,
+	}
 }
 
 func (s *Service) BindConnection(ctx context.Context) error {
@@ -88,21 +93,38 @@ func (s *Service) Create(ctx context.Context, articleID string, in CreateAttempt
 		}
 		id := uuid.NewString()
 		record := AttemptRecord{
-			ID: id, ArticleID: article.ID, SourceID: s.sourceID, RequestID: in.RequestID,
-			SourceVersion: article.Version, StateSeq: seq, TargetAccountID: in.TargetAccountID,
-			AuthorizationID: "grant:" + id, Status: "preparing",
+			ID:                     id,
+			ArticleID:              article.ID,
+			SourceID:               s.sourceID,
+			RequestID:              in.RequestID,
+			SourceVersion:          article.Version,
+			StateSeq:               seq,
+			TargetAccountID:        in.TargetAccountID,
+			AuthorizationID:        "grant:" + id,
+			Status:                 "preparing",
 			AuthorizationExpiresAt: time.Now().UTC().Truncate(time.Second).Add(authorizationTTL),
 		}
 		body, err := marshalRequest(PreparationInput{
-			RequestID: prepareRequestID(record), SourceID: s.sourceID, ArticleID: article.ID,
-			SourceVersion: article.Version, StateSeq: seq, AuthorizationID: record.AuthorizationID,
-			AuthorizationExpiresAt: record.AuthorizationExpiresAt, ContentFingerprint: fingerprint,
-			Snapshot: snapshot, Targets: attemptTargets(record),
+			RequestID:              prepareRequestID(record),
+			SourceID:               s.sourceID,
+			ArticleID:              article.ID,
+			SourceVersion:          article.Version,
+			StateSeq:               seq,
+			AuthorizationID:        record.AuthorizationID,
+			AuthorizationExpiresAt: record.AuthorizationExpiresAt,
+			ContentFingerprint:     fingerprint,
+			Snapshot:               snapshot,
+			Targets:                attemptTargets(record),
 		})
 		if err != nil {
 			return AttemptRecord{}, err
 		}
-		record.Data, err = json.Marshal(attemptData{TextOnly: in.TextOnly, ContentFingerprint: fingerprint, PrepareBody: body, ImageURLs: imageURLs})
+		record.Data, err = json.Marshal(attemptData{
+			TextOnly:           in.TextOnly,
+			ContentFingerprint: fingerprint,
+			PrepareBody:        body,
+			ImageURLs:          imageURLs,
+		})
 		return record, err
 	})
 	if err != nil {
@@ -123,7 +145,13 @@ func matchAttemptInput(record AttemptRecord, in CreateAttemptInput) (Attempt, er
 }
 
 func articleSnapshot(article ArticleSource) Snapshot {
-	return Snapshot{Title: article.Title, Summary: article.Summary, Body: article.Body, BodyFormat: "markdown", Tags: article.Tags}
+	return Snapshot{
+		Title:      article.Title,
+		Summary:    article.Summary,
+		Body:       article.Body,
+		BodyFormat: "markdown",
+		Tags:       article.Tags,
+	}
 }
 
 func marshalRequest(value any) ([]byte, error) {
@@ -148,7 +176,12 @@ func (s *Service) List(ctx context.Context, articleID, status string, page, page
 		return AttemptPage{}, err
 	}
 	now := time.Now()
-	result := AttemptPage{Items: make([]Attempt, 0, len(rows)), Page: page, PageSize: pageSize, Total: total}
+	result := AttemptPage{
+		Items:    make([]Attempt, 0, len(rows)),
+		Page:     page,
+		PageSize: pageSize,
+		Total:    total,
+	}
 	for _, record := range rows {
 		data, err := loadAttemptData(record)
 		if err != nil {
@@ -219,7 +252,10 @@ func (s *Service) Submit(ctx context.Context, id string) (Attempt, error) {
 			return viewRecord(saved, err)
 		}
 		wait := (data.RetryNotBefore.Sub(now) + time.Second - 1) / time.Second
-		return Attempt{}, &UpstreamError{Status: http.StatusTooManyRequests, RetryAfter: strconv.FormatInt(int64(wait), 10)}
+		return Attempt{}, &UpstreamError{
+			Status:     http.StatusTooManyRequests,
+			RetryAfter: strconv.FormatInt(int64(wait), 10),
+		}
 	}
 	if len(data.SubmitBody) != 0 {
 		next := timePointer(now)
@@ -270,10 +306,16 @@ func (s *Service) Submit(ctx context.Context, id string) (Attempt, error) {
 		return Attempt{}, ErrCannotSubmit
 	}
 	body, err := marshalRequest(SubmitInput{
-		RequestID: submitRequestID(record), SourceID: record.SourceID, ArticleID: record.ArticleID,
-		SourceVersion: record.SourceVersion, StateSeq: record.StateSeq, ContentFingerprint: data.ContentFingerprint,
-		PreparationID: preparation.ID, DraftRevisionIDs: preparation.DraftRevisionIDs,
-		ConfirmationFingerprint: preparation.ConfirmationFingerprint, Targets: preparation.Targets,
+		RequestID:               submitRequestID(record),
+		SourceID:                record.SourceID,
+		ArticleID:               record.ArticleID,
+		SourceVersion:           record.SourceVersion,
+		StateSeq:                record.StateSeq,
+		ContentFingerprint:      data.ContentFingerprint,
+		PreparationID:           preparation.ID,
+		DraftRevisionIDs:        preparation.DraftRevisionIDs,
+		ConfirmationFingerprint: preparation.ConfirmationFingerprint,
+		Targets:                 preparation.Targets,
 	})
 	if err != nil {
 		return Attempt{}, err
@@ -294,7 +336,9 @@ func viewRecord(record AttemptRecord, err error) (Attempt, error) {
 	return attemptView(record, data, time.Now()), nil
 }
 
-func timePointer(t time.Time) *time.Time { return &t }
+func timePointer(t time.Time) *time.Time {
+	return &t
+}
 
 func (s *Service) save(ctx context.Context, record AttemptRecord, data attemptData, next *time.Time, release bool) (AttemptRecord, error) {
 	raw, err := json.Marshal(data)

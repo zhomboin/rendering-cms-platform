@@ -118,12 +118,22 @@ func Load() (Config, error) {
 	if cfg.JWTSecret == "" {
 		return Config{}, errors.New("JWT_SECRET is required")
 	}
+	if cfg.DevBootstrapAdmin && cfg.AppEnv != "development" {
+		return Config{}, errors.New("DEV_BOOTSTRAP_ADMIN is only allowed in development")
+	}
 
 	// LOGIN_MFA_ENABLED 未设置时跟随 SMTP 配置：SMTP 配置齐全即启用，便于本地无 SMTP 环境自动关闭。
 	if os.Getenv("LOGIN_MFA_ENABLED") != "" {
 		cfg.LoginMFAEnabled = parseBoolEnv("LOGIN_MFA_ENABLED")
 	} else {
 		cfg.LoginMFAEnabled = cfg.SMTP.Configured()
+	}
+
+	if cfg.LoginMFADevLog && cfg.AppEnv != "development" {
+		return Config{}, errors.New("LOGIN_MFA_DEV_LOG is only allowed in development")
+	}
+	if cfg.LoginMFAEnabled && !cfg.SMTP.Configured() && !(cfg.AppEnv == "development" && cfg.LoginMFADevLog) {
+		return Config{}, errors.New("login MFA requires SMTP or development code logging")
 	}
 
 	bridge, err := loadPostBridge()

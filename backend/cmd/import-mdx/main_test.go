@@ -91,8 +91,14 @@ Body
 func TestImportPostsSkipsDraftsAndUpsertsPublishedArticles(t *testing.T) {
 	publishedAt := time.Date(2026, 3, 19, 0, 0, 0, 0, time.UTC)
 	store := &recordingStore{
-		authorID:  pgtype.UUID{Bytes: [16]byte{1}, Valid: true},
-		articleID: pgtype.UUID{Bytes: [16]byte{2}, Valid: true},
+		authorID: pgtype.UUID{
+			Bytes: [16]byte{1},
+			Valid: true,
+		},
+		articleID: pgtype.UUID{
+			Bytes: [16]byte{2},
+			Valid: true,
+		},
 	}
 	posts := []ImportedPost{
 		{

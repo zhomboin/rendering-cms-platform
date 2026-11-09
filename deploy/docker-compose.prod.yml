@@ -3,8 +3,8 @@
 x-logging: &default-logging
   driver: json-file
   options:
-    max-size: "10m"
-    max-file: "3"
+    max-size: '10m'
+    max-file: '3'
 
 services:
   postgres:
@@ -19,7 +19,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER is required} -d ${POSTGRES_DB:?POSTGRES_DB is required}"]
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:?POSTGRES_USER is required} -d ${POSTGRES_DB:?POSTGRES_DB is required}',
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -33,7 +37,7 @@ services:
     logging: *default-logging
     volumes:
       - ../backend/migrations:/migrations:ro
-    command: ["-path=/migrations", "-database", "${DATABASE_URL:?DATABASE_URL is required}", "up"]
+    command: ['-path=/migrations', '-database', '${DATABASE_URL:?DATABASE_URL is required}', 'up']
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,7 +99,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/v1/health >/dev/null || exit 1"]
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/api/v1/health >/dev/null || exit 1']
       interval: 20s
       timeout: 5s
       retries: 5
@@ -114,7 +118,7 @@ services:
     restart: unless-stopped
     logging: *default-logging
     ports:
-      - "${PUBLIC_HTTP_BIND:-127.0.0.1:3001}:80"
+      - '${PUBLIC_HTTP_BIND:-127.0.0.1:3001}:80'
     depends_on:
       backend:
         condition: service_healthy

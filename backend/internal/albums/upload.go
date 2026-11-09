@@ -1,11 +1,13 @@
 package albums
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -116,7 +118,10 @@ func (h Handler) uploadAlbumPhoto(w http.ResponseWriter, r *http.Request) {
 		takenAt = value
 	} else if exifTaken, found := imaging.TakenAt(data, contentType); found {
 		// EXIF 拍摄时间仅在表单未显式提供时作为默认值。
-		takenAt = pgtype.Timestamptz{Time: exifTaken, Valid: true}
+		takenAt = pgtype.Timestamptz{
+			Time:  exifTaken,
+			Valid: true,
+		}
 	}
 
 	// 存储前剥离 EXIF/XMP 等元数据（含 GPS 等隐私信息），不重编码像素。
@@ -127,36 +132,63 @@ func (h Handler) uploadAlbumPhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	storageKey := h.photoStorageKey(contentType)
-	if err := h.store.PutObject(r.Context(), storageKey, cleaned, contentType, photoObjectCacheControl); err != nil {
+	uploadCtx, cancel := context.WithTimeout(r.Context(), time.Minute)
+	defer cancel()
+	if err := h.queries.EnqueueAlbumObjectCleanup(uploadCtx, dbgen.EnqueueAlbumObjectCleanupParams{
+		StorageKey:    storageKey,
+		NextAttemptAt: pgtype.Timestamptz{Time: h.options.Now().Add(15 * time.Minute), Valid: true},
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "照片上传登记失败")
+		return
+	}
+	if err := h.store.PutObject(uploadCtx, storageKey, cleaned, contentType, photoObjectCacheControl); err != nil {
+		// 存储结果可能未知，保留清理意图，等请求期限过去后由后台重试。
 		writeError(w, http.StatusInternalServerError, "照片存储写入失败")
 		return
 	}
-
-	asset, err := h.queries.CreateAlbumPhotoAsset(r.Context(), dbgen.CreateAlbumPhotoAssetParams{
-		Filename:    photoFilename(header.Filename, contentType),
-		ContentType: contentType,
-		ByteSize:    int32(len(cleaned)),
-		StorageKey:  storageKey,
-		PublicUrl:   nullableText(h.options.PublicBaseURL + "/" + storageKey),
-		CreatedBy:   user,
-		Width:       pgtype.Int4{Int32: int32(width), Valid: true},
-		Height:      pgtype.Int4{Int32: int32(height), Valid: true},
+	var asset dbgen.Asset
+	var photo dbgen.AlbumPhoto
+	err = h.queries.WithinAlbumWrite(uploadCtx, albumID, func(ctx context.Context, q albumStore) error {
+		var err error
+		asset, err = q.CreateAlbumPhotoAsset(ctx, dbgen.CreateAlbumPhotoAssetParams{
+			Filename:    photoFilename(header.Filename, contentType),
+			ContentType: contentType,
+			ByteSize:    int32(len(cleaned)),
+			StorageKey:  storageKey,
+			PublicUrl:   nullableText(h.options.PublicBaseURL + "/" + storageKey),
+			CreatedBy:   user,
+			Width:       pgtype.Int4{Int32: int32(width), Valid: true},
+			Height:      pgtype.Int4{Int32: int32(height), Valid: true},
+		})
+		if err != nil {
+			return err
+		}
+		photo, err = q.CreateAlbumPhoto(ctx, dbgen.CreateAlbumPhotoParams{
+			AlbumID: albumID,
+			AssetID: asset.AssetID,
+			Alt:     alt,
+			Caption: nullableText(caption),
+			Width:   int32(width),
+			Height:  int32(height),
+			TakenAt: takenAt,
+		})
+		if err != nil {
+			return err
+		}
+		cancelled, err := q.CancelAlbumObjectCleanup(ctx, storageKey)
+		if err == nil && cancelled != 1 {
+			return errors.New("upload cleanup intent is unavailable")
+		}
+		return err
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "照片资源记录创建失败")
-		return
-	}
-	photo, err := h.queries.CreateAlbumPhoto(r.Context(), dbgen.CreateAlbumPhotoParams{
-		AlbumID: albumID,
-		AssetID: asset.AssetID,
-		Alt:     alt,
-		Caption: nullableText(caption),
-		Width:   int32(width),
-		Height:  int32(height),
-		TakenAt: takenAt,
-	})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "照片记录创建失败")
+		// 重新认领持久任务，避免提交结果未知时误删已经关联的照片。
+		h.cleanupObjectAfterWrite(r.Context(), storageKey)
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "相册不存在")
+		} else {
+			writeError(w, http.StatusInternalServerError, "照片记录创建失败")
+		}
 		return
 	}
 
@@ -189,20 +221,6 @@ func photoFilename(filename string, contentType string) string {
 		return path.Base(strings.ReplaceAll(filename, "\\", "/"))
 	}
 	return "photo" + ExtensionForContentType(contentType)
-}
-
-// deleteObjectBestEffort 删除对象存储文件；失败仅忽略，不影响主流程。
-func (h Handler) deleteObjectBestEffort(r *http.Request, storageKey string) {
-	if h.store == nil || storageKey == "" {
-		return
-	}
-	_ = h.store.DeleteObject(r.Context(), storageKey)
-}
-
-func (h Handler) deleteObjectsBestEffort(r *http.Request, keys []dbgen.ListAlbumAssetKeysRow) {
-	for _, key := range keys {
-		h.deleteObjectBestEffort(r, key.StorageKey)
-	}
 }
 
 func httpUserFromContext(r *http.Request) (httpapi.AuthenticatedUser, bool) {

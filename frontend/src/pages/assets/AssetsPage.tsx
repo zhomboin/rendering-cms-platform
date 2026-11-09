@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { Upload, Table, Button, Tag, Typography, message, Modal, Image } from 'antd';
-import { InboxOutlined, DownloadOutlined, ReloadOutlined, EyeOutlined, CopyOutlined } from '@ant-design/icons';
+import {
+  InboxOutlined,
+  DownloadOutlined,
+  ReloadOutlined,
+  EyeOutlined,
+  CopyOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps } from 'antd/es/upload/interface';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -75,7 +81,11 @@ async function copyTextToClipboard(text: string): Promise<void> {
 
 function AssetsPage() {
   const queryClient = useQueryClient();
-  const { data = [], isLoading, refetch } = useQuery({
+  const {
+    data = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['admin-assets'],
     queryFn: listAdminAssets,
   });
@@ -140,7 +150,10 @@ function AssetsPage() {
       width: 150,
       render: (type: string, record: AssetFile) => (
         <>
-          <Tag color={contentTypeColor[type] || 'default'} style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px' }}>
+          <Tag
+            color={contentTypeColor[type] || 'default'}
+            style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px' }}
+          >
             {contentTypeMap[type] || type}
           </Tag>
           {record.publicUrl && (
@@ -236,7 +249,9 @@ function AssetsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
+      >
         <Title
           level={4}
           style={{
@@ -311,11 +326,24 @@ function AssetsPage() {
               alt={preview.asset.filename}
               style={{ maxHeight: '70vh', objectFit: 'contain' }}
             />
-            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+            <div
+              style={{
+                marginTop: 12,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
               <Text type="secondary">
                 {preview.asset.filename} · {formatBytes(preview.asset.byteSize)}
               </Text>
-              <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => handleCopyUrl(preview.asset)}>
+              <Button
+                type="link"
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={() => handleCopyUrl(preview.asset)}
+              >
                 复制 URL
               </Button>
             </div>

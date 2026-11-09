@@ -153,11 +153,7 @@ function LoginForm() {
                   { type: 'email', message: '请输入有效的邮箱地址' },
                 ]}
               >
-                <Input
-                  prefix={<MailOutlined />}
-                  className="login-input"
-                  autoComplete="email"
-                />
+                <Input prefix={<MailOutlined />} className="login-input" autoComplete="email" />
               </Form.Item>
 
               <Form.Item
@@ -239,9 +235,7 @@ function LoginForm() {
           )}
         </div>
 
-        <p className="login-footnote">
-          &copy; 2026 Rendering CMS. 仅限授权管理员访问。
-        </p>
+        <p className="login-footnote">&copy; 2026 Rendering CMS. 仅限授权管理员访问。</p>
       </section>
     </main>
   );

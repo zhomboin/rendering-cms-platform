@@ -1,0 +1,10 @@
+**/node_modules/
+**/dist/
+**/.tmp/
+**/.mimosa/
+.worktrees/
+temp/
+reports/
+logs/
+**/*.local.*
+**/package-lock.json

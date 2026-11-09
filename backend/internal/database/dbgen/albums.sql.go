@@ -41,37 +41,6 @@ func (q *Queries) CountAlbumPhotosByID(ctx context.Context, albumID pgtype.UUID)
 	return total, err
 }
 
-const countPublishedAlbumPhotosBySlug = `-- name: CountPublishedAlbumPhotosBySlug :one
-select count(*)::int as total
-from album_photos p
-join photo_albums a on a.album_id = p.album_id
-where a.slug = $1 and a.status = 'published'
-`
-
-func (q *Queries) CountPublishedAlbumPhotosBySlug(ctx context.Context, slug string) (int32, error) {
-	row := q.db.QueryRow(ctx, countPublishedAlbumPhotosBySlug, slug)
-	var total int32
-	err := row.Scan(&total)
-	return total, err
-}
-
-const countPublishedPhotoAlbums = `-- name: CountPublishedPhotoAlbums :one
-
-select count(*)::int as total
-from photo_albums
-where status = 'published'
-`
-
-// 相册公开读取：仅返回 published 状态，按 published_at 倒序。
-// 封面解析：优先 cover_photo_id 指定的照片，未指定时回退相册内第一张照片。
-// photo_count 由关联子查询实时计算，保证与 album_photos 永远一致。
-func (q *Queries) CountPublishedPhotoAlbums(ctx context.Context) (int32, error) {
-	row := q.db.QueryRow(ctx, countPublishedPhotoAlbums)
-	var total int32
-	err := row.Scan(&total)
-	return total, err
-}
-
 const createAlbumPhoto = `-- name: CreateAlbumPhoto :one
 insert into album_photos (
   album_id,
@@ -99,7 +68,7 @@ type CreateAlbumPhotoParams struct {
 	TakenAt pgtype.Timestamptz
 }
 
-// position 用同一语句内的子查询追加到相册末尾，避免并发下的重复位次。
+// position 以当前最大位次加一追加；并发写入仍需额外的串行化保护。
 func (q *Queries) CreateAlbumPhoto(ctx context.Context, arg CreateAlbumPhotoParams) (AlbumPhoto, error) {
 	row := q.db.QueryRow(ctx, createAlbumPhoto,
 		arg.AlbumID,
@@ -411,75 +380,6 @@ func (q *Queries) GetPhotoAlbumByID(ctx context.Context, albumID pgtype.UUID) (G
 	return i, err
 }
 
-const getPublishedPhotoAlbumBySlug = `-- name: GetPublishedPhotoAlbumBySlug :one
-select
-  a.album_id,
-  a.slug,
-  a.title,
-  a.title_en,
-  a.description,
-  a.description_en,
-  a.tags,
-  a.published_at,
-  a.created_at,
-  a.updated_at,
-  (select count(*) from album_photos p where p.album_id = a.album_id)::int as photo_count,
-  coalesce(cover.public_url, first_photo.public_url) as cover_url,
-  coalesce(cover.width, first_photo.width, 0)::int as cover_width,
-  coalesce(cover.height, first_photo.height, 0)::int as cover_height
-from photo_albums a
-left join album_photos cover_photo on cover_photo.photo_id = a.cover_photo_id
-left join assets cover on cover.asset_id = cover_photo.asset_id
-left join lateral (
-  select ast.public_url, ast.width, ast.height
-  from album_photos ap
-  join assets ast on ast.asset_id = ap.asset_id
-  where ap.album_id = a.album_id
-  order by ap.position asc, ap.created_at asc
-  limit 1
-) first_photo on true
-where a.slug = $1 and a.status = 'published'
-`
-
-type GetPublishedPhotoAlbumBySlugRow struct {
-	AlbumID       pgtype.UUID
-	Slug          string
-	Title         string
-	TitleEn       pgtype.Text
-	Description   string
-	DescriptionEn pgtype.Text
-	Tags          []string
-	PublishedAt   pgtype.Timestamptz
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
-	PhotoCount    int32
-	CoverUrl      pgtype.Text
-	CoverWidth    int32
-	CoverHeight   int32
-}
-
-func (q *Queries) GetPublishedPhotoAlbumBySlug(ctx context.Context, slug string) (GetPublishedPhotoAlbumBySlugRow, error) {
-	row := q.db.QueryRow(ctx, getPublishedPhotoAlbumBySlug, slug)
-	var i GetPublishedPhotoAlbumBySlugRow
-	err := row.Scan(
-		&i.AlbumID,
-		&i.Slug,
-		&i.Title,
-		&i.TitleEn,
-		&i.Description,
-		&i.DescriptionEn,
-		&i.Tags,
-		&i.PublishedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.PhotoCount,
-		&i.CoverUrl,
-		&i.CoverWidth,
-		&i.CoverHeight,
-	)
-	return i, err
-}
-
 const listAdminPhotoAlbums = `-- name: ListAdminPhotoAlbums :many
 
 select
@@ -682,159 +582,6 @@ func (q *Queries) ListAlbumPhotos(ctx context.Context, albumID pgtype.UUID) ([]L
 	return items, nil
 }
 
-const listPublishedAlbumPhotosBySlug = `-- name: ListPublishedAlbumPhotosBySlug :many
-select
-  p.photo_id,
-  p.alt,
-  p.caption,
-  p.width,
-  p.height,
-  p.taken_at,
-  p.position,
-  ast.public_url as url
-from album_photos p
-join photo_albums a on a.album_id = p.album_id
-join assets ast on ast.asset_id = p.asset_id
-where a.slug = $1 and a.status = 'published'
-order by p.position asc, p.created_at asc
-limit $2 offset $3
-`
-
-type ListPublishedAlbumPhotosBySlugParams struct {
-	Slug   string
-	Limit  int32
-	Offset int32
-}
-
-type ListPublishedAlbumPhotosBySlugRow struct {
-	PhotoID  pgtype.UUID
-	Alt      string
-	Caption  pgtype.Text
-	Width    int32
-	Height   int32
-	TakenAt  pgtype.Timestamptz
-	Position int32
-	Url      pgtype.Text
-}
-
-func (q *Queries) ListPublishedAlbumPhotosBySlug(ctx context.Context, arg ListPublishedAlbumPhotosBySlugParams) ([]ListPublishedAlbumPhotosBySlugRow, error) {
-	rows, err := q.db.Query(ctx, listPublishedAlbumPhotosBySlug, arg.Slug, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListPublishedAlbumPhotosBySlugRow
-	for rows.Next() {
-		var i ListPublishedAlbumPhotosBySlugRow
-		if err := rows.Scan(
-			&i.PhotoID,
-			&i.Alt,
-			&i.Caption,
-			&i.Width,
-			&i.Height,
-			&i.TakenAt,
-			&i.Position,
-			&i.Url,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listPublishedPhotoAlbums = `-- name: ListPublishedPhotoAlbums :many
-select
-  a.album_id,
-  a.slug,
-  a.title,
-  a.title_en,
-  a.description,
-  a.description_en,
-  a.tags,
-  a.published_at,
-  a.created_at,
-  a.updated_at,
-  (select count(*) from album_photos p where p.album_id = a.album_id)::int as photo_count,
-  coalesce(cover.public_url, first_photo.public_url) as cover_url,
-  coalesce(cover.width, first_photo.width, 0)::int as cover_width,
-  coalesce(cover.height, first_photo.height, 0)::int as cover_height
-from photo_albums a
-left join album_photos cover_photo on cover_photo.photo_id = a.cover_photo_id
-left join assets cover on cover.asset_id = cover_photo.asset_id
-left join lateral (
-  select ast.public_url, ast.width, ast.height
-  from album_photos ap
-  join assets ast on ast.asset_id = ap.asset_id
-  where ap.album_id = a.album_id
-  order by ap.position asc, ap.created_at asc
-  limit 1
-) first_photo on true
-where a.status = 'published'
-order by a.published_at desc nulls last, a.created_at desc
-limit $1 offset $2
-`
-
-type ListPublishedPhotoAlbumsParams struct {
-	Limit  int32
-	Offset int32
-}
-
-type ListPublishedPhotoAlbumsRow struct {
-	AlbumID       pgtype.UUID
-	Slug          string
-	Title         string
-	TitleEn       pgtype.Text
-	Description   string
-	DescriptionEn pgtype.Text
-	Tags          []string
-	PublishedAt   pgtype.Timestamptz
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
-	PhotoCount    int32
-	CoverUrl      pgtype.Text
-	CoverWidth    int32
-	CoverHeight   int32
-}
-
-func (q *Queries) ListPublishedPhotoAlbums(ctx context.Context, arg ListPublishedPhotoAlbumsParams) ([]ListPublishedPhotoAlbumsRow, error) {
-	rows, err := q.db.Query(ctx, listPublishedPhotoAlbums, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListPublishedPhotoAlbumsRow
-	for rows.Next() {
-		var i ListPublishedPhotoAlbumsRow
-		if err := rows.Scan(
-			&i.AlbumID,
-			&i.Slug,
-			&i.Title,
-			&i.TitleEn,
-			&i.Description,
-			&i.DescriptionEn,
-			&i.Tags,
-			&i.PublishedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.PhotoCount,
-			&i.CoverUrl,
-			&i.CoverWidth,
-			&i.CoverHeight,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const publishPhotoAlbum = `-- name: PublishPhotoAlbum :one
 update photo_albums
 set
@@ -1026,6 +773,7 @@ set
   tags = $7,
   updated_at = now()
 where album_id = $1
+  and (slug = $2 or (status = 'draft' and published_at is null))
 returning album_id, slug, title, title_en, description, description_en, status, tags, cover_photo_id, published_at, created_by, created_at, updated_at
 `
 

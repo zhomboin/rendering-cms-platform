@@ -52,6 +52,12 @@ type HandlerOptions struct {
 }
 
 type albumStore interface {
+	WithinAlbumWrite(context.Context, pgtype.UUID, func(context.Context, albumStore) error) error
+	EnqueueAlbumObjectCleanup(context.Context, dbgen.EnqueueAlbumObjectCleanupParams) error
+	CancelAlbumObjectCleanup(context.Context, string) (int64, error)
+	ClaimAlbumObjectCleanup(context.Context, string) (dbgen.ClaimAlbumObjectCleanupRow, error)
+	CompleteAlbumObjectCleanup(context.Context, dbgen.CompleteAlbumObjectCleanupParams) error
+	RetryAlbumObjectCleanup(context.Context, dbgen.RetryAlbumObjectCleanupParams) error
 	CountPublishedPhotoAlbums(ctx context.Context) (int32, error)
 	ListPublishedPhotoAlbums(ctx context.Context, arg dbgen.ListPublishedPhotoAlbumsParams) ([]dbgen.ListPublishedPhotoAlbumsRow, error)
 	GetPublishedPhotoAlbumBySlug(ctx context.Context, slug string) (dbgen.GetPublishedPhotoAlbumBySlugRow, error)
@@ -91,7 +97,11 @@ func NewHandlerWithOptions(queries albumStore, store ObjectStore, options Handle
 	}
 	options.PublicBaseURL = strings.TrimRight(strings.TrimSpace(options.PublicBaseURL), "/")
 	options.PhotoPrefix = cleanStoragePrefix(options.PhotoPrefix, "photos")
-	return Handler{queries: queries, store: store, options: options}
+	return Handler{
+		queries: queries,
+		store:   store,
+		options: options,
+	}
 }
 
 func (h Handler) RegisterPublicReadRoutes(router chi.Router) {
@@ -270,7 +280,10 @@ func parsePagination(r *http.Request, defaultLimit int) (pageParams, bool) {
 	if limit > maxPageLimit {
 		limit = maxPageLimit
 	}
-	return pageParams{Page: page, Limit: limit}, true
+	return pageParams{
+		Page:  page,
+		Limit: limit,
+	}, true
 }
 
 // pageOffset 计算偏移并拦截整型溢出；页码超出 int32 偏移范围时视为越界页（返回空数据）。
@@ -370,7 +383,10 @@ func uuidFromString(value string) (pgtype.UUID, error) {
 }
 
 func nullableText(value string) pgtype.Text {
-	return pgtype.Text{String: value, Valid: value != ""}
+	return pgtype.Text{
+		String: value,
+		Valid:  value != "",
+	}
 }
 
 func textValue(value pgtype.Text) interface{} {

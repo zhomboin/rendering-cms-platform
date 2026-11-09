@@ -46,7 +46,7 @@ export function collectArticleImages(source: string) {
     }
   }
 
-  return uniqueArticleImages(images.filter(({ url }) =>
-    /^\/(?![\s\\/])/.test(url) || isPermanentPublicImageUrl(url),
-  ));
+  return uniqueArticleImages(
+    images.filter(({ url }) => /^\/(?![\s\\/])/.test(url) || isPermanentPublicImageUrl(url)),
+  );
 }

@@ -38,7 +38,11 @@ func TestRouterUploadBodyLimits(t *testing.T) {
 				}
 				w.WriteHeader(204)
 			}
-			router := NewRouter(func(c *RouterConfig) { c.RequestBodyLimit = tc.limit }, WithPublicRoutes(func(r chi.Router) { r.MethodFunc(tc.method, tc.path, handler) }))
+			router := NewRouter(func(c *RouterConfig) {
+				c.RequestBodyLimit = tc.limit
+			}, WithPublicRoutes(func(r chi.Router) {
+				r.MethodFunc(tc.method, tc.path, handler)
+			}))
 			req := httptest.NewRequest(tc.method, tc.path, io.LimitReader(strings.NewReader(strings.Repeat("x", int(tc.size))), tc.size))
 			req.ContentLength = tc.size
 			if tc.unknown {

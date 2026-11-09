@@ -60,9 +60,24 @@ function CommentCard({
       }}
       styles={{ body: { padding: 0 } }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 16,
+        }}
+      >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 4,
+              flexWrap: 'wrap',
+            }}
+          >
             <Text strong style={{ fontSize: 14, color: '#0F172A' }}>
               {comment.authorName}
             </Text>
@@ -90,9 +105,7 @@ function CommentCard({
           </Paragraph>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <Text style={{ fontSize: 12, color: '#4F46E5' }}>
-              文章：{comment.articleTitle}
-            </Text>
+            <Text style={{ fontSize: 12, color: '#4F46E5' }}>文章：{comment.articleTitle}</Text>
             <Text style={{ fontSize: 12, color: '#64748B' }}>{formatDate(comment.createdAt)}</Text>
             {comment.reviewedAt && (
               <Text style={{ fontSize: 12, color: '#64748B' }}>
@@ -139,7 +152,11 @@ function CommentsPage() {
   const [activeTab, setActiveTab] = useState<CommentStatus>('pending');
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const { data = [], isLoading, refetch } = useQuery({
+  const {
+    data = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['admin-comments'],
     queryFn: listAdminComments,
   });
@@ -192,7 +209,9 @@ function CommentsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
+      >
         <Title
           level={4}
           style={{

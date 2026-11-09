@@ -21,7 +21,12 @@ export function ArticleImageDialog({ initialAlt, onInsert, onCancel }: Props) {
   const [selected, setSelected] = useState<ArticleImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const insert = async () => {
     if (tab !== 'manual') {
@@ -40,7 +45,7 @@ export function ArticleImageDialog({ initialAlt, onInsert, onCancel }: Props) {
     accept: 'image/png,image/jpeg,image/webp',
     maxCount: 1,
     showUploadList: false,
-    customRequest: async options => {
+    customRequest: async (options) => {
       const file = options.file as File;
       if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
         const error = new Error('仅支持 PNG、JPEG、WebP 图片');
@@ -53,7 +58,10 @@ export function ArticleImageDialog({ initialAlt, onInsert, onCancel }: Props) {
         const asset = await uploadAdminAsset(file, 'blog-image');
         if (!mounted.current) return;
         if (!asset.publicUrl) throw new Error('图片已上传，但当前存储未返回可公开访问的 URL');
-        form.setFieldsValue({ imageUrl: asset.publicUrl, altText: form.getFieldValue('altText') || file.name.replace(/\.[^.]+$/, '') });
+        form.setFieldsValue({
+          imageUrl: asset.publicUrl,
+          altText: form.getFieldValue('altText') || file.name.replace(/\.[^.]+$/, ''),
+        });
         message.success('图片已上传，可插入正文');
         options.onSuccess?.(asset);
       } catch (error) {
@@ -78,27 +86,47 @@ export function ArticleImageDialog({ initialAlt, onInsert, onCancel }: Props) {
       okText="插入正文"
       cancelText="取消"
       cancelButtonProps={{ 'aria-label': '取消' }}
-      okButtonProps={{ 'aria-label': '插入正文', loading: uploading, disabled: uploading || tab !== 'manual' && selected.length === 0 }}
+      okButtonProps={{
+        'aria-label': '插入正文',
+        loading: uploading,
+        disabled: uploading || (tab !== 'manual' && selected.length === 0),
+      }}
       focusTriggerAfterClose={false}
     >
-      <Tabs activeKey={tab} onChange={setTab} items={[
-        { key: 'manual', label: '上传 / 链接' },
-        { key: 'albums', label: '相册' },
-        { key: 'assets', label: '资源' },
-      ]} />
+      <Tabs
+        activeKey={tab}
+        onChange={setTab}
+        items={[
+          { key: 'manual', label: '上传 / 链接' },
+          { key: 'albums', label: '相册' },
+          { key: 'assets', label: '资源' },
+        ]}
+      />
       <div hidden={tab !== 'manual'}>
         <Form form={form} layout="vertical" initialValues={{ altText: initialAlt, imageUrl: '' }}>
-          <Form.Item name="imageUrl" label="图片 URL" rules={[
-            { required: true, message: '请输入图片 URL 或上传图片' },
-            { validator: (_, value: string) => {
-              if (!value || /^(https?:\/\/|\/)/.test(value.trim())) return Promise.resolve();
-              return Promise.reject(new Error('图片 URL 必须以 http(s):// 或 / 开头'));
-            } },
-          ]}>
+          <Form.Item
+            name="imageUrl"
+            label="图片 URL"
+            rules={[
+              { required: true, message: '请输入图片 URL 或上传图片' },
+              {
+                validator: (_, value: string) => {
+                  if (!value || /^(https?:\/\/|\/)/.test(value.trim())) return Promise.resolve();
+                  return Promise.reject(new Error('图片 URL 必须以 http(s):// 或 / 开头'));
+                },
+              },
+            ]}
+          >
             <Input aria-label="图片 URL" placeholder="https://example.com/image.webp" />
           </Form.Item>
-          <Form.Item name="altText" label="替代文本"><Input placeholder="用于无障碍和图片加载失败时展示" /></Form.Item>
-          <Upload {...uploadProps}><Button icon={<UploadOutlined />} loading={uploading}>上传图片并回填 URL</Button></Upload>
+          <Form.Item name="altText" label="替代文本">
+            <Input placeholder="用于无障碍和图片加载失败时展示" />
+          </Form.Item>
+          <Upload {...uploadProps}>
+            <Button icon={<UploadOutlined />} loading={uploading}>
+              上传图片并回填 URL
+            </Button>
+          </Upload>
         </Form>
       </div>
       {tab !== 'manual' && (
@@ -106,15 +134,21 @@ export function ArticleImageDialog({ initialAlt, onInsert, onCancel }: Props) {
           key={tab}
           source={tab === 'albums' ? 'albums' : 'assets'}
           selected={selected}
-          onToggle={(image, checked) => setSelected(current => checked
-            ? uniqueArticleImages([...current, image])
-            : current.filter(item => imageUrlKey(item.url) !== imageUrlKey(image.url)))}
+          onToggle={(image, checked) =>
+            setSelected((current) =>
+              checked
+                ? uniqueArticleImages([...current, image])
+                : current.filter((item) => imageUrlKey(item.url) !== imageUrlKey(image.url)),
+            )
+          }
         />
       )}
       {selected.length > 0 && (
         <div className="article-image-dialog__selection">
           <span>已选择 {selected.length} 张</span>
-          <Button aria-label="清空选择" size="small" onClick={() => setSelected([])}>清空选择</Button>
+          <Button aria-label="清空选择" size="small" onClick={() => setSelected([])}>
+            清空选择
+          </Button>
         </div>
       )}
     </Modal>

@@ -54,7 +54,7 @@ func main() {
 	}
 	userFinder := auth.NewDatabaseUserFinder(queries)
 
-	// SMTP 未配置齐全时邮件验证码功能在 config 层已自动关闭；dev log 仅在 LOGIN_MFA_DEV_LOG 开启时注入。
+	// config 已校验验证码发送渠道；开发日志仅在 development 显式启用时注入。
 	var emailSender auth.EmailSender
 	if cfg.SMTP.Configured() {
 		emailSender = mail.NewSMTPSender(mail.SMTPConfig{
@@ -89,13 +89,14 @@ func main() {
 		AssetFilePrefix: cfg.S3.AssetFilePrefix,
 	})
 	// 相册照片为公开内容：走独立 photos 前缀并要求配置公共访问基地址。
-	albumHandler := albums.NewHandlerWithOptions(queries, storageClient, albums.HandlerOptions{
+	albumHandler := albums.NewHandlerWithOptions(albums.NewDatabaseStore(db), storageClient, albums.HandlerOptions{
 		PublicBaseURL: cfg.S3.PublicBaseURL,
 		PhotoPrefix:   cfg.S3.PhotoPrefix,
 	})
 
 	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
 	defer stopScheduler()
+	albumHandler.StartObjectCleanup(schedulerCtx, logger)
 	analytics.StartDailyViewArchiveScheduler(schedulerCtx, queries, logger)
 	articles.StartDailyArticleLogPruneScheduler(schedulerCtx, queries, cfg.ArticleLogRetention, logger)
 
@@ -103,8 +104,11 @@ func main() {
 	if cfg.PostBridge.Origin != "" {
 		bridge := cfg.PostBridge
 		client, err := postbridge.NewClient(bridge.Origin, postbridge.Identity{
-			ClientID: bridge.ClientID, KeyID: bridge.KeyID, Environment: bridge.Environment,
-			ServiceID: bridge.ServiceID, Secret: bridge.Secret,
+			ClientID:    bridge.ClientID,
+			KeyID:       bridge.KeyID,
+			Environment: bridge.Environment,
+			ServiceID:   bridge.ServiceID,
+			Secret:      bridge.Secret,
 		})
 		if err != nil {
 			log.Fatalf("configure PostBridge: %v", err)
@@ -118,7 +122,9 @@ func main() {
 		}
 		service.Start(schedulerCtx, logger)
 		postBridgeRoutes = httpapi.PostBridgeRoutes(client, postbridge.RegistrationGrant{
-			SourceID: bridge.SourceID, Accounts: bridge.Accounts, Scopes: bridge.Scopes,
+			SourceID: bridge.SourceID,
+			Accounts: bridge.Accounts,
+			Scopes:   bridge.Scopes,
 		}, service)
 	}
 

@@ -61,7 +61,11 @@ func TestImageDraftRechecksPublishedPhotoAndQueuesRevocation(t *testing.T) {
 		}
 	})
 	service := NewService(store, client, sourceID, "test")
-	input := CreateAttemptInput{RequestID: "create-image", ExpectedVersion: version, TargetAccountID: "target-test"}
+	input := CreateAttemptInput{
+		RequestID:       "create-image",
+		ExpectedVersion: version,
+		TargetAccountID: "target-test",
+	}
 	if _, err := service.Create(ctx, articleID, input); !errors.Is(err, ErrUnsupportedContent) {
 		t.Fatalf("target without images: %v", err)
 	}
@@ -150,13 +154,23 @@ func TestImageDraftRechecksPublishedPhotoAndQueuesRevocation(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	_, fingerprint, _, err := validateSnapshot(Snapshot{Title: "Example title", Body: newBody, BodyFormat: "markdown"}, true)
+	_, fingerprint, _, err := validateSnapshot(Snapshot{
+		Title:      "Example title",
+		Body:       newBody,
+		BodyFormat: "markdown",
+	}, true)
 	hasEvent := func(kind string, match func(SourceEvent) bool) bool {
-		return slices.ContainsFunc(events, func(event SourceEvent) bool { return event.Type == kind && match(event) })
+		return slices.ContainsFunc(events, func(event SourceEvent) bool {
+			return event.Type == kind && match(event)
+		})
 	}
 	if err != nil || len(events) != 3 ||
-		!hasEvent("authorization_revoked", func(event SourceEvent) bool { return event.AuthorizationID == "grant:"+nextAttempt.ID }) ||
-		!hasEvent("updated", func(event SourceEvent) bool { return event.ContentFingerprint == fingerprint }) {
+		!hasEvent("authorization_revoked", func(event SourceEvent) bool {
+			return event.AuthorizationID == "grant:"+nextAttempt.ID
+		}) ||
+		!hasEvent("updated", func(event SourceEvent) bool {
+			return event.ContentFingerprint == fingerprint
+		}) {
 		t.Fatalf("unexpected article revision events: %+v, %v", events, err)
 	}
 }

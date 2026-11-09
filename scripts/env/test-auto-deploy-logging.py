@@ -40,28 +40,52 @@ class AutoDeployLoggingTest(unittest.TestCase):
             repo.mkdir()
             tools.mkdir()
             env = os.environ.copy()
-            env.update({
-                "DEPLOY_ENV_FILE": str(base / "absent.env"),
-                "APP_DIR": str(repo), "GIT_REMOTE": "origin", "GIT_BRANCH": "main",
-                "LOG_DIR": str(base / "logs"), "STATE_DIR": str(base / "state"),
-                "BACKUP_DIR": str(base / "backups"), "LOCK_DIR": str(base / "lock"),
-                "PRODUCTION_ENV_FILE": str(base / "production.env"),
-                "NOTIFY_WEBHOOK": "", "TEST_BASE": str(base),
-                "TEST_FAIL_HEAD": "1" if failure else "0",
-                "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
-            })
+            env.update(
+                {
+                    "DEPLOY_ENV_FILE": str(base / "absent.env"),
+                    "APP_DIR": str(repo),
+                    "GIT_REMOTE": "origin",
+                    "GIT_BRANCH": "main",
+                    "LOG_DIR": str(base / "logs"),
+                    "STATE_DIR": str(base / "state"),
+                    "BACKUP_DIR": str(base / "backups"),
+                    "LOCK_DIR": str(base / "lock"),
+                    "PRODUCTION_ENV_FILE": str(base / "production.env"),
+                    "NOTIFY_WEBHOOK": "",
+                    "TEST_BASE": str(base),
+                    "TEST_FAIL_HEAD": "1" if failure else "0",
+                    "GIT_CONFIG_NOSYSTEM": "1",
+                    "GIT_CONFIG_GLOBAL": "/dev/null",
+                }
+            )
             git = shutil.which("git")
             self.assertIsNotNone(git)
             env["TEST_REAL_GIT"] = git
-            for args in (["init", "-q", "-b", "main"],
-                         ["-c", "user.name=测试", "-c", "user.email=test@example.invalid",
-                          "commit", "-q", "--allow-empty", "-m", "测试基线"],
-                         ["remote", "add", "origin", str(repo)]):
-                subprocess.run([git, "-C", str(repo), *args], env=env,
-                               check=True, capture_output=True, timeout=TIMEOUT)
+            for args in (
+                ["init", "-q", "-b", "main"],
+                [
+                    "-c",
+                    "user.name=测试",
+                    "-c",
+                    "user.email=test@example.invalid",
+                    "commit",
+                    "-q",
+                    "--allow-empty",
+                    "-m",
+                    "测试基线",
+                ],
+                ["remote", "add", "origin", str(repo)],
+            ):
+                subprocess.run(
+                    [git, "-C", str(repo), *args],
+                    env=env,
+                    check=True,
+                    capture_output=True,
+                    timeout=TIMEOUT,
+                )
             (base / "production.env").touch()
             scripts = {
-                "tee": '''#!/usr/bin/env python3
+                "tee": """#!/usr/bin/env python3
 import os
 from pathlib import Path
 import sys
@@ -78,22 +102,22 @@ with open(sys.argv[-1], "ab") as log:
     log.write(data)
 sys.stdout.buffer.write(data)
 sys.stdout.buffer.flush()
-''',
-                "git": '''#!/usr/bin/env python3
+""",
+                "git": """#!/usr/bin/env python3
 import os
 import sys
 if os.environ["TEST_FAIL_HEAD"] == "1" and sys.argv[-2:] == ["rev-parse", "HEAD"]:
     sys.exit(37)
 os.execv(os.environ["TEST_REAL_GIT"], ["git", *sys.argv[1:]])
-''',
-                "docker": '''#!/usr/bin/env python3
+""",
+                "docker": """#!/usr/bin/env python3
 import os
 from pathlib import Path
 import sys
 with (Path(os.environ["TEST_BASE"]) / "docker-calls").open("a") as calls:
     calls.write(" ".join(sys.argv[1:]) + "\\n")
 sys.exit(0 if sys.argv[1:] == ["compose", "version"] else 97)
-''',
+""",
                 "curl": "#!/bin/sh\nexit 97\n",
             }
             for name, content in scripts.items():
@@ -102,13 +126,18 @@ sys.exit(0 if sys.argv[1:] == ["compose", "version"] else 97)
                 target.chmod(0o755)
             env["PATH"] = str(tools) + os.pathsep + env["PATH"]
             (base / "lock").mkdir()
-            with (base / "lock/deploy.lock").open("w") as lock, \
-                    (base / "stdout").open("w+b") as output:
+            with (base / "lock/deploy.lock").open("w") as lock, (base / "stdout").open(
+                "w+b"
+            ) as output:
                 if locked:
                     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 process = subprocess.Popen(
-                    ["bash", str(ROOT / "deploy/auto-deploy.sh")], env=env,
-                    stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+                    ["bash", str(ROOT / "deploy/auto-deploy.sh")],
+                    env=env,
+                    stdout=output,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
                 try:
                     deadline = time.monotonic() + TIMEOUT
                     while not (base / "ready").exists():
@@ -147,14 +176,16 @@ sys.exit(0 if sys.argv[1:] == ["compose", "version"] else 97)
             logfile = base / "logs/deploy.log"
             file_output = logfile.read_text(encoding="utf-8") if logfile.exists() else ""
             self.assertEqual(result, 37 if failure else 0, "必须保留部署主进程退出码")
-            expected = "意外错误：脚本第" if failure else (
-                "本次跳过。" if locked else "本次不部署。")
+            expected = (
+                "意外错误：脚本第" if failure else ("本次跳过。" if locked else "本次不部署。")
+            )
             self.assertIn(expected, stdout, "标准输出丢失最终日志")
             self.assertIn(expected, file_output, "日志文件丢失最终日志")
             self.assertEqual(stdout, file_output, "标准输出和日志文件应一致")
             calls = base / "docker-calls"
-            self.assertEqual(calls.read_text() if calls.exists() else "",
-                             "" if locked else "compose version\n")
+            self.assertEqual(
+                calls.read_text() if calls.exists() else "", "" if locked else "compose version\n"
+            )
             self.assertEqual(list((base / "backups").iterdir()), [])
             self.assertFalse((base / "state/deploy-state.env").exists())
 

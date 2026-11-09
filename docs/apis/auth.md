@@ -228,3 +228,8 @@ POST /api/v1/auth/logout
 ```
 
 并由后端清理登录态 Cookie。
+
+
+## 启动配置保护
+
+LOGIN_MFA_DEV_LOG 与 DEV_BOOTSTRAP_ADMIN 只允许在 APP_ENV=development 时启用，其它环境直接拒绝启动。显式开启邮箱验证码时必须配置完整 SMTP；development 环境可以显式开启验证码日志代替发信。生产验证码不写明文日志，也不允许自动填充默认管理员。

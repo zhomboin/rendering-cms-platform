@@ -282,6 +282,7 @@ func TestLoadEnablesMFAWhenSMTPConfigured(t *testing.T) {
 
 func TestLoadHonorsExplicitMFAFlag(t *testing.T) {
 	t.Setenv("JWT_SECRET", "replace-with-32-plus-character-secret")
+	t.Setenv("APP_ENV", "development")
 	t.Setenv("SMTP_HOST", "smtp.example.com")
 	t.Setenv("SMTP_USERNAME", "cms@example.com")
 	t.Setenv("SMTP_PASSWORD", "授权码或密码")

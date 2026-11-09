@@ -21,14 +21,19 @@ type stubPostBridge struct {
 	targetError       error
 }
 
-func (s *stubPostBridge) SigningConfigured() bool { return s.configured }
+func (s *stubPostBridge) SigningConfigured() bool {
+	return s.configured
+}
 
 func (s *stubPostBridge) Register(_ context.Context, token, name string, grant postbridge.RegistrationGrant) (postbridge.Registration, error) {
 	s.registrationCalls++
 	if token != "synthetic-invitation" || name != "CMS test" || grant.SourceID != "cms-test" || len(grant.Accounts) != 1 || grant.Accounts[0] != "account-test" {
 		return postbridge.Registration{}, errors.New("unexpected registration parameters")
 	}
-	return postbridge.Registration{ID: "registration-test", Status: "pending"}, nil
+	return postbridge.Registration{
+		ID:     "registration-test",
+		Status: "pending",
+	}, nil
 }
 
 func (s *stubPostBridge) Activate(context.Context) error {
@@ -43,7 +48,10 @@ func (s *stubPostBridge) Targets(context.Context) ([]postbridge.Target, error) {
 
 func TestPostBridgeAdminRoutesRequireAdmin(t *testing.T) {
 	client := &stubPostBridge{configured: true}
-	router := NewRouter(WithJWTSecret("test-only"), WithAdminRoutes(PostBridgeRoutes(client, postbridge.RegistrationGrant{SourceID: "cms-test", Accounts: []string{"account-test"}}, nil)))
+	router := NewRouter(WithJWTSecret("test-only"), WithAdminRoutes(PostBridgeRoutes(client, postbridge.RegistrationGrant{
+		SourceID: "cms-test",
+		Accounts: []string{"account-test"},
+	}, nil)))
 	for _, path := range []string{"connection", "targets", "registrations", "activate"} {
 		method := http.MethodGet
 		if path == "registrations" || path == "activate" {
@@ -66,7 +74,10 @@ func TestPostBridgeAdminRoutesRequireAdmin(t *testing.T) {
 
 func TestPostBridgeAdminConnectionFlow(t *testing.T) {
 	client := &stubPostBridge{configured: true}
-	router := NewRouter(WithJWTSecret("test-only"), WithAdminRoutes(PostBridgeRoutes(client, postbridge.RegistrationGrant{SourceID: "cms-test", Accounts: []string{"account-test"}}, nil)))
+	router := NewRouter(WithJWTSecret("test-only"), WithAdminRoutes(PostBridgeRoutes(client, postbridge.RegistrationGrant{
+		SourceID: "cms-test",
+		Accounts: []string{"account-test"},
+	}, nil)))
 	for _, tc := range []struct {
 		method, path, payload, field string
 		want                         int
@@ -87,7 +98,11 @@ func TestPostBridgeAdminConnectionFlow(t *testing.T) {
 	if client.registrationCalls != 1 || client.activationCalls != 1 || client.targetCalls != 2 {
 		t.Fatalf("unexpected upstream counts: %+v", client)
 	}
-	client.targetError = &postbridge.UpstreamError{Status: 429, Code: "rate_limited", RetryAfter: "60"}
+	client.targetError = &postbridge.UpstreamError{
+		Status:     429,
+		Code:       "rate_limited",
+		RetryAfter: "60",
+	}
 	rec := postBridgeAdminRequest(t, router, "GET", "targets", "admin", "")
 	if rec.Code != http.StatusTooManyRequests || rec.Header().Get("Retry-After") != "60" {
 		t.Fatalf("rate limit response: %d, %v", rec.Code, rec.Header())
@@ -111,10 +126,17 @@ func postBridgeAdminRequest(t *testing.T, router http.Handler, method, path, rol
 
 func TestPostBridgeActivationRemainsActiveWhenTargetQueryFails(t *testing.T) {
 	client := &stubPostBridge{
-		configured:  true,
-		targetError: &postbridge.UpstreamError{Status: http.StatusTooManyRequests, Code: "rate_limited", RetryAfter: "60"},
+		configured: true,
+		targetError: &postbridge.UpstreamError{
+			Status:     http.StatusTooManyRequests,
+			Code:       "rate_limited",
+			RetryAfter: "60",
+		},
 	}
-	router := NewRouter(WithJWTSecret("test-only"), WithAdminRoutes(PostBridgeRoutes(client, postbridge.RegistrationGrant{SourceID: "cms-test", Accounts: []string{"account-test"}}, nil)))
+	router := NewRouter(WithJWTSecret("test-only"), WithAdminRoutes(PostBridgeRoutes(client, postbridge.RegistrationGrant{
+		SourceID: "cms-test",
+		Accounts: []string{"account-test"},
+	}, nil)))
 	rec := postBridgeAdminRequest(t, router, http.MethodPost, "activate", "admin", "")
 	var payload struct {
 		Status          string `json:"status"`

@@ -150,16 +150,57 @@ func TestDashboardQueryFailuresNeverReturnPartialSuccess(t *testing.T) {
 	}
 }
 func TestDashboardMapsSummariesWithoutSensitiveFields(t *testing.T) {
-	now := pgtype.Timestamptz{Time: time.Date(2026, 10, 31, 8, 0, 0, 0, time.UTC), Valid: true}
-	date := pgtype.Date{Time: now.Time, Valid: true}
-	id := pgtype.UUID{Bytes: [16]byte{1}, Valid: true}
-	s := &dashboardStub{overview: dbgen.GetDashboardOverviewRow{GeneratedAt: now, StartDate: date, EndDate: date, PeriodViews: 5000000000, TotalBytes: 6000000000}}
+	now := pgtype.Timestamptz{
+		Time:  time.Date(2026, 10, 31, 8, 0, 0, 0, time.UTC),
+		Valid: true,
+	}
+	date := pgtype.Date{
+		Time:  now.Time,
+		Valid: true,
+	}
+	id := pgtype.UUID{
+		Bytes: [16]byte{1},
+		Valid: true,
+	}
+	s := &dashboardStub{overview: dbgen.GetDashboardOverviewRow{
+		GeneratedAt: now,
+		StartDate:   date,
+		EndDate:     date,
+		PeriodViews: 5000000000,
+		TotalBytes:  6000000000,
+	}}
 	for i := 0; i < 8; i++ {
-		s.recent = append(s.recent, dbgen.ListDashboardRecentArticlesRow{ArticleID: id, Slug: "abc123", Title: "文章", Status: dbgen.ArticleStatusDraft, UpdatedAt: now})
-		s.comments = append(s.comments, dbgen.ListDashboardPendingCommentsRow{CommentID: id, ArticleID: id, ArticleTitle: "文章", Body: strings.Repeat("评", 160), CreatedAt: now})
-		s.images = append(s.images, dbgen.ListDashboardRecentImagesRow{AssetID: id, Filename: "image.jpg", PublicUrl: "https://cdn.example/image.jpg", CreatedAt: now})
-		s.articles = append(s.articles, dbgen.ListDashboardArticlesRow{ArticleID: id, Title: "文章", PeriodViews: 5000000000})
-		s.albums = append(s.albums, dbgen.ListDashboardAlbumsRow{AlbumID: id, Title: "相册", CoverUrl: "https://cdn.example/cover.jpg", UpdatedAt: now})
+		s.recent = append(s.recent, dbgen.ListDashboardRecentArticlesRow{
+			ArticleID: id,
+			Slug:      "abc123",
+			Title:     "文章",
+			Status:    dbgen.ArticleStatusDraft,
+			UpdatedAt: now,
+		})
+		s.comments = append(s.comments, dbgen.ListDashboardPendingCommentsRow{
+			CommentID:    id,
+			ArticleID:    id,
+			ArticleTitle: "文章",
+			Body:         strings.Repeat("评", 160),
+			CreatedAt:    now,
+		})
+		s.images = append(s.images, dbgen.ListDashboardRecentImagesRow{
+			AssetID:   id,
+			Filename:  "image.jpg",
+			PublicUrl: "https://cdn.example/image.jpg",
+			CreatedAt: now,
+		})
+		s.articles = append(s.articles, dbgen.ListDashboardArticlesRow{
+			ArticleID:   id,
+			Title:       "文章",
+			PeriodViews: 5000000000,
+		})
+		s.albums = append(s.albums, dbgen.ListDashboardAlbumsRow{
+			AlbumID:   id,
+			Title:     "相册",
+			CoverUrl:  "https://cdn.example/cover.jpg",
+			UpdatedAt: now,
+		})
 	}
 	rec := requestDashboard(t, s, "overview", "editor")
 	if rec.Code != 200 {

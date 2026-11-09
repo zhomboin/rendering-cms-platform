@@ -26,10 +26,22 @@ APP_DIR="/opt/rendering-cms-platform"
 SERVICE_USER="root"
 while [ $# -gt 0 ]; do
   case "$1" in
-    --app-dir) APP_DIR="$2"; shift 2 ;;
-    --user) SERVICE_USER="$2"; shift 2 ;;
-    -h|--help) sed -n '3,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "未知参数：$1" >&2; exit 2 ;;
+    --app-dir)
+      APP_DIR="$2"
+      shift 2
+      ;;
+    --user)
+      SERVICE_USER="$2"
+      shift 2
+      ;;
+    -h | --help)
+      sed -n '3,19p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *)
+      echo "未知参数：$1" >&2
+      exit 2
+      ;;
   esac
 done
 
@@ -42,13 +54,28 @@ SERVICE_NAME="cms-rendering-deploy"
 
 log() { printf '[setup] %s\n' "$*"; }
 
-[ "$(id -u)" -eq 0 ] || { log "请用 root 执行：sudo bash $SCRIPT_DIR/setup.sh"; exit 1; }
-command -v systemctl >/dev/null 2>&1 || { log "当前系统没有 systemd，无法安装 timer。"; exit 1; }
-[ -d "$APP_DIR/.git" ] || { log "应用目录不是 Git 仓库：$APP_DIR（先按 docs/operations/deployment.md 完成首次部署）"; exit 1; }
-[ -f "$SCRIPT_DIR/auto-deploy.sh" ] || { log "未找到 $SCRIPT_DIR/auto-deploy.sh，请在仓库内执行本脚本。"; exit 1; }
+[ "$(id -u)" -eq 0 ] || {
+  log "请用 root 执行：sudo bash $SCRIPT_DIR/setup.sh"
+  exit 1
+}
+command -v systemctl >/dev/null 2>&1 || {
+  log "当前系统没有 systemd，无法安装 timer。"
+  exit 1
+}
+[ -d "$APP_DIR/.git" ] || {
+  log "应用目录不是 Git 仓库：$APP_DIR（先按 docs/operations/deployment.md 完成首次部署）"
+  exit 1
+}
+[ -f "$SCRIPT_DIR/auto-deploy.sh" ] || {
+  log "未找到 $SCRIPT_DIR/auto-deploy.sh，请在仓库内执行本脚本。"
+  exit 1
+}
 
 if [ "$SERVICE_USER" != "root" ]; then
-  id "$SERVICE_USER" >/dev/null 2>&1 || { log "用户 $SERVICE_USER 不存在。"; exit 1; }
+  id "$SERVICE_USER" >/dev/null 2>&1 || {
+    log "用户 $SERVICE_USER 不存在。"
+    exit 1
+  }
   if ! id -nG "$SERVICE_USER" | tr ' ' '\n' | grep -qx docker; then
     log "警告：用户 $SERVICE_USER 不在 docker 组，服务将无法执行 docker compose。"
     log "       执行：sudo usermod -aG docker $SERVICE_USER 后重新登录生效。"
@@ -80,7 +107,7 @@ fi
 log "3/6 生成 systemd 单元到 /etc/systemd/system/ ……"
 # systemd 单元只存在于服务器上（/etc/systemd/system/），代码仓库不保存单元文件；
 # 此处按当前 APP_DIR / SERVICE_USER 现场生成。
-cat > "/etc/systemd/system/$SERVICE_NAME.service" <<EOF
+cat >"/etc/systemd/system/$SERVICE_NAME.service" <<EOF
 [Unit]
 Description=Rendering CMS Platform 自动部署（拉取代码并按需发布）
 Documentation=file://$APP_DIR/docs/operations/auto-deploy.md
@@ -104,7 +131,7 @@ Nice=5
 WantedBy=multi-user.target
 EOF
 
-cat > "/etc/systemd/system/$SERVICE_NAME.timer" <<EOF
+cat >"/etc/systemd/system/$SERVICE_NAME.timer" <<EOF
 [Unit]
 Description=Rendering CMS Platform 自动部署定时触发器
 
@@ -155,13 +182,13 @@ log "检查 Git 远端访问（以 $REPO_OWNER 身份）……"
 GIT_REMOTE="$(git -C "$APP_DIR" remote | head -n 1)"
 GIT_BRANCH="$(git -C "$APP_DIR" rev-parse --abbrev-ref HEAD)"
 if [ "$REPO_OWNER" = "root" ]; then
-  git -C "$APP_DIR" ls-remote --heads "$GIT_REMOTE" >/dev/null 2>&1 \
-    && log "  Git 远端访问正常（$GIT_REMOTE）。" \
-    || log "  警告：root 无法访问 $GIT_REMOTE，请配置 deploy key 或改用仓库属主运行服务。"
+  git -C "$APP_DIR" ls-remote --heads "$GIT_REMOTE" >/dev/null 2>&1 &&
+    log "  Git 远端访问正常（$GIT_REMOTE）。" ||
+    log "  警告：root 无法访问 $GIT_REMOTE，请配置 deploy key 或改用仓库属主运行服务。"
 else
-  runuser -u "$REPO_OWNER" -- git -C "$APP_DIR" ls-remote --heads "$GIT_REMOTE" >/dev/null 2>&1 \
-    && log "  Git 远端访问正常（$GIT_REMOTE，用户 $REPO_OWNER）。" \
-    || log "  警告：用户 $REPO_OWNER 无法访问 $GIT_REMOTE，请为其配置 SSH deploy key。"
+  runuser -u "$REPO_OWNER" -- git -C "$APP_DIR" ls-remote --heads "$GIT_REMOTE" >/dev/null 2>&1 &&
+    log "  Git 远端访问正常（$GIT_REMOTE，用户 $REPO_OWNER）。" ||
+    log "  警告：用户 $REPO_OWNER 无法访问 $GIT_REMOTE，请为其配置 SSH deploy key。"
 fi
 
 log "完成。常用命令："
