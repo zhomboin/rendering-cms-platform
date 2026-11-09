@@ -35,8 +35,17 @@ export interface PostBridgeActivation {
 }
 
 export type PostBridgeAttemptStatus =
-  | 'preparing' | 'prepared' | 'confirmed' | 'submitting' | 'in_progress'
-  | 'completed' | 'needs_attention' | 'revoked' | 'expired' | 'failed' | 'cancelled';
+  | 'preparing'
+  | 'prepared'
+  | 'confirmed'
+  | 'submitting'
+  | 'in_progress'
+  | 'completed'
+  | 'needs_attention'
+  | 'revoked'
+  | 'expired'
+  | 'failed'
+  | 'cancelled';
 
 export interface PostBridgeAttempt {
   id: string;
@@ -88,7 +97,11 @@ export function registerPostBridge(payload: { name: string; invitationToken: str
 }
 
 export async function activatePostBridge() {
-  const response = await apiClient.post<PostBridgeActivation>(connectionPath + '/activate', undefined, { timeout: 25000 });
+  const response = await apiClient.post<PostBridgeActivation>(
+    connectionPath + '/activate',
+    undefined,
+    { timeout: 25000 },
+  );
   return response.data;
 }
 
@@ -96,12 +109,26 @@ export function getPostBridgeTargets() {
   return apiGet<PostBridgeTargets>(connectionPath + '/targets');
 }
 
-export function createPostBridgePreparation(articleId: string, payload: PostBridgePreparationInput) {
-  return apiPost<PostBridgeAttempt>('/admin/articles/' + encodeURIComponent(articleId) + '/postbridge/preparations', payload);
+export function createPostBridgePreparation(
+  articleId: string,
+  payload: PostBridgePreparationInput,
+) {
+  return apiPost<PostBridgeAttempt>(
+    '/admin/articles/' + encodeURIComponent(articleId) + '/postbridge/preparations',
+    payload,
+  );
 }
 
-export function listPostBridgeAttempts(filters: { articleId?: string; status?: string; page: number; pageSize: number }) {
-  const query = new URLSearchParams({ page: String(filters.page), pageSize: String(filters.pageSize) });
+export function listPostBridgeAttempts(filters: {
+  articleId?: string;
+  status?: string;
+  page: number;
+  pageSize: number;
+}) {
+  const query = new URLSearchParams({
+    page: String(filters.page),
+    pageSize: String(filters.pageSize),
+  });
   if (filters.articleId) query.set('articleId', filters.articleId);
   if (filters.status) query.set('status', filters.status);
   return apiGet<PostBridgeAttemptPage>(attemptsPath + '?' + query.toString());

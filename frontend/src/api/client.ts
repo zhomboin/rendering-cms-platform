@@ -1,6 +1,12 @@
 import axios from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { clearAuthToken, getAuthToken, getRefreshToken, setAuthToken, setRefreshToken } from './auth-token';
+import {
+  clearAuthToken,
+  getAuthToken,
+  getRefreshToken,
+  setAuthToken,
+  setRefreshToken,
+} from './auth-token';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://127.0.0.1:8080/api/v1';
 
@@ -52,7 +58,12 @@ apiClient.interceptors.response.use(
   async (error: AxiosError<{ error?: string; message?: string }>) => {
     const apiError = toApiRequestError(error);
     const originalRequest = error.config as RetriableRequestConfig | undefined;
-    if (apiError.status === 401 && originalRequest && !originalRequest.__authRetry && !isAuthRefreshRequest(originalRequest)) {
+    if (
+      apiError.status === 401 &&
+      originalRequest &&
+      !originalRequest.__authRetry &&
+      !isAuthRefreshRequest(originalRequest)
+    ) {
       originalRequest.__authRetry = true;
       const refreshedToken = await refreshAuthToken();
       if (refreshedToken) {
@@ -100,15 +111,19 @@ async function refreshAuthToken() {
   if (!refreshToken) return null;
 
   if (!refreshTokenRequest) {
-    refreshTokenRequest = refreshClient.post<{ token: string; refreshToken: string }>('/auth/refresh', {
-      refreshToken,
-    }).then((response) => {
-      setAuthToken(response.data.token);
-      setRefreshToken(response.data.refreshToken);
-      return response.data.token;
-    }).catch(() => null).finally(() => {
-      refreshTokenRequest = null;
-    });
+    refreshTokenRequest = refreshClient
+      .post<{ token: string; refreshToken: string }>('/auth/refresh', {
+        refreshToken,
+      })
+      .then((response) => {
+        setAuthToken(response.data.token);
+        setRefreshToken(response.data.refreshToken);
+        return response.data.token;
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshTokenRequest = null;
+      });
   }
 
   return refreshTokenRequest;

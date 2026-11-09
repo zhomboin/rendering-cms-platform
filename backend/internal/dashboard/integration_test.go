@@ -176,11 +176,17 @@ func TestDashboardSQLIntegration(t *testing.T) {
 				t.Fatalf("非公开文章进入排名: %+v", r)
 			}
 		}
-		recent, err := q.ListDashboardRecentArticles(ctx, dbgen.ListDashboardRecentArticlesParams{Status: "", RowLimit: 5})
+		recent, err := q.ListDashboardRecentArticles(ctx, dbgen.ListDashboardRecentArticlesParams{
+			Status:   "",
+			RowLimit: 5,
+		})
 		if err != nil || len(recent) != 5 {
 			t.Fatalf("最近文章=%+v %v", recent, err)
 		}
-		drafts, err := q.ListDashboardRecentArticles(ctx, dbgen.ListDashboardRecentArticlesParams{Status: "draft", RowLimit: 3})
+		drafts, err := q.ListDashboardRecentArticles(ctx, dbgen.ListDashboardRecentArticlesParams{
+			Status:   "draft",
+			RowLimit: 3,
+		})
 		if err != nil || len(drafts) != 1 || drafts[0].Slug != "000007" {
 			t.Fatalf("草稿隔离=%+v %v", drafts, err)
 		}
@@ -233,7 +239,10 @@ func TestDashboardSQLIntegration(t *testing.T) {
    insert into assets(filename,content_type,byte_size,storage_key,public_url,created_by)
    select 'extra-image-'||n,'image/webp',1,'extra-key-'||n,'https://cdn.example/extra-'||n||'.webp','00000000-0000-0000-0000-000000000001' from generate_series(1,8)n;
   `)
-		drafts, err := q.ListDashboardRecentArticles(ctx, dbgen.ListDashboardRecentArticlesParams{Status: "draft", RowLimit: 3})
+		drafts, err := q.ListDashboardRecentArticles(ctx, dbgen.ListDashboardRecentArticlesParams{
+			Status:   "draft",
+			RowLimit: 3,
+		})
 		if err != nil || len(drafts) != 3 {
 			t.Fatalf("草稿数据库上限=%d %v", len(drafts), err)
 		}

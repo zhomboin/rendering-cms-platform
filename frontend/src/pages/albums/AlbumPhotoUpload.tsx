@@ -41,42 +41,53 @@ export default function AlbumPhotoUpload({ albumId, disabled, onUploaded }: Albu
   }, []);
 
   const updateUpload = (uid: string, changes: Partial<UploadItem>) => {
-    setUploads(items => items.map(item => item.uid === uid ? { ...item, ...changes } : item));
+    setUploads((items) => items.map((item) => (item.uid === uid ? { ...item, ...changes } : item)));
   };
 
   const handleUpload = (options: UploadRequestOption) => {
     const file = options.file as RcFile;
     const controller = new AbortController();
     controllers.current.set(file.uid, controller);
-    setUploads(items => [...items, { uid: file.uid, name: file.name, status: 'uploading' }]);
-    const alt = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || file.name;
+    setUploads((items) => [...items, { uid: file.uid, name: file.name, status: 'uploading' }]);
+    const alt =
+      file.name
+        .replace(/\.[^.]+$/, '')
+        .replace(/[-_]+/g, ' ')
+        .trim() || file.name;
 
-    void uploadAdminAlbumPhoto(albumId, file, { alt }, {
-      signal: controller.signal,
-      onProgress: ({ loaded, total }) => {
-        if (controller.signal.aborted) return;
-        const percent = total && total > 0
-          ? Math.min(100, Math.floor(loaded / total * 100))
-          : undefined;
-        updateUpload(file.uid, {
-          percent,
-          status: total && loaded >= total ? 'processing' : 'uploading',
-        });
-        if (percent !== undefined) options.onProgress?.({ percent });
+    void uploadAdminAlbumPhoto(
+      albumId,
+      file,
+      { alt },
+      {
+        signal: controller.signal,
+        onProgress: ({ loaded, total }) => {
+          if (controller.signal.aborted) return;
+          const percent =
+            total && total > 0 ? Math.min(100, Math.floor((loaded / total) * 100)) : undefined;
+          updateUpload(file.uid, {
+            percent,
+            status: total && loaded >= total ? 'processing' : 'uploading',
+          });
+          if (percent !== undefined) options.onProgress?.({ percent });
+        },
       },
-    }).then(photo => {
-      if (controller.signal.aborted) return;
-      updateUpload(file.uid, { status: 'done', percent: 100 });
-      options.onSuccess?.(photo);
-      onUploaded();
-    }).catch((error: unknown) => {
-      if (controller.signal.aborted) return;
-      const uploadError = error instanceof Error ? error : new Error('照片上传失败');
-      updateUpload(file.uid, { status: 'error', error: uploadError.message });
-      options.onError?.(uploadError);
-    }).finally(() => {
-      controllers.current.delete(file.uid);
-    });
+    )
+      .then((photo) => {
+        if (controller.signal.aborted) return;
+        updateUpload(file.uid, { status: 'done', percent: 100 });
+        options.onSuccess?.(photo);
+        onUploaded();
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        const uploadError = error instanceof Error ? error : new Error('照片上传失败');
+        updateUpload(file.uid, { status: 'error', error: uploadError.message });
+        options.onError?.(uploadError);
+      })
+      .finally(() => {
+        controllers.current.delete(file.uid);
+      });
     return { abort: () => controller.abort() };
   };
 
@@ -89,7 +100,7 @@ export default function AlbumPhotoUpload({ albumId, disabled, onUploaded }: Albu
         fileList={[]}
         accept={photoContentTypes.join(',')}
         disabled={disabled}
-        beforeUpload={file => {
+        beforeUpload={(file) => {
           if (!photoContentTypes.includes(file.type)) {
             message.error(file.name + ' 不是 PNG/JPEG/WebP 图片');
             return Upload.LIST_IGNORE;
@@ -97,14 +108,18 @@ export default function AlbumPhotoUpload({ albumId, disabled, onUploaded }: Albu
           try {
             validateUploadSize(file);
           } catch (error) {
-            message.error(file.name + ' ' + (error instanceof Error ? error.message : '图片大小无效'));
+            message.error(
+              file.name + ' ' + (error instanceof Error ? error.message : '图片大小无效'),
+            );
             return Upload.LIST_IGNORE;
           }
           return true;
         }}
         customRequest={handleUpload}
       >
-        <p className="ant-upload-drag-icon"><PictureOutlined /></p>
+        <p className="ant-upload-drag-icon">
+          <PictureOutlined />
+        </p>
         <p className="ant-upload-text">点击或拖拽照片到这里上传</p>
         <p className="ant-upload-hint">PNG / JPEG / WebP，单张不超过 50MB</p>
       </Upload.Dragger>
@@ -113,31 +128,61 @@ export default function AlbumPhotoUpload({ albumId, disabled, onUploaded }: Albu
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               type="text"
-              disabled={!uploads.some(item => item.status === 'done' || item.status === 'error')}
-              onClick={() => setUploads(items => items.filter(item => item.status === 'uploading' || item.status === 'processing'))}
+              disabled={!uploads.some((item) => item.status === 'done' || item.status === 'error')}
+              onClick={() =>
+                setUploads((items) =>
+                  items.filter(
+                    (item) => item.status === 'uploading' || item.status === 'processing',
+                  ),
+                )
+              }
             >
               清除记录
             </Button>
           </div>
-          <div role="list" aria-label="上传进度" style={{ maxHeight: 280, overflowY: 'auto', minWidth: 0 }}>
-            {uploads.map(item => (
+          <div
+            role="list"
+            aria-label="上传进度"
+            style={{ maxHeight: 280, overflowY: 'auto', minWidth: 0 }}
+          >
+            {uploads.map((item) => (
               <div key={item.uid} role="listitem" style={{ padding: '8px 0', minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
-                  <Text ellipsis title={item.name} style={{ flex: 1, minWidth: 0 }}>{item.name}</Text>
+                  <Text ellipsis title={item.name} style={{ flex: 1, minWidth: 0 }}>
+                    {item.name}
+                  </Text>
                   <Space size={8} style={{ flexShrink: 0 }}>
                     {item.percent !== undefined && <Text type="secondary">{item.percent}%</Text>}
-                    <Text type={item.status === 'error' ? 'danger' : item.status === 'done' ? 'success' : 'secondary'}>
+                    <Text
+                      type={
+                        item.status === 'error'
+                          ? 'danger'
+                          : item.status === 'done'
+                            ? 'success'
+                            : 'secondary'
+                      }
+                    >
                       {statusLabels[item.status]}
                     </Text>
                   </Space>
                 </div>
                 <Progress
                   percent={item.percent ?? 0}
-                  status={item.status === 'error' ? 'exception' : item.status === 'done' ? 'success' : 'active'}
+                  status={
+                    item.status === 'error'
+                      ? 'exception'
+                      : item.status === 'done'
+                        ? 'success'
+                        : 'active'
+                  }
                   showInfo={false}
                   size="small"
                 />
-                {item.error && <Text type="danger" style={{ overflowWrap: 'anywhere' }}>{item.error}</Text>}
+                {item.error && (
+                  <Text type="danger" style={{ overflowWrap: 'anywhere' }}>
+                    {item.error}
+                  </Text>
+                )}
               </div>
             ))}
           </div>

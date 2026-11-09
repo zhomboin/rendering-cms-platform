@@ -74,7 +74,11 @@ func NewHandlerWithOptions(queries assetStore, signer URLSigner, options Handler
 	options.PublicBaseURL = strings.TrimRight(strings.TrimSpace(options.PublicBaseURL), "/")
 	options.BlogImagePrefix = cleanStoragePrefix(options.BlogImagePrefix, "blog")
 	options.AssetFilePrefix = cleanStoragePrefix(options.AssetFilePrefix, "assets")
-	return Handler{queries: queries, signer: signer, options: options}
+	return Handler{
+		queries: queries,
+		signer:  signer,
+		options: options,
+	}
 }
 
 func (h Handler) RegisterAdminRoutes(router chi.Router) {
@@ -222,7 +226,10 @@ func (h Handler) updateAssetStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	deletedAt := pgtype.Timestamptz{}
 	if status == StatusDeleted {
-		deletedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
+		deletedAt = pgtype.Timestamptz{
+			Time:  time.Now(),
+			Valid: true,
+		}
 	}
 
 	asset, err := h.queries.UpdateAssetStatus(r.Context(), dbgen.UpdateAssetStatusParams{
@@ -283,7 +290,10 @@ func uuidFromString(value string) (pgtype.UUID, error) {
 }
 
 func nullableText(value string) pgtype.Text {
-	return pgtype.Text{String: value, Valid: value != ""}
+	return pgtype.Text{
+		String: value,
+		Valid:  value != "",
+	}
 }
 
 func ipHashFromRequest(r *http.Request) string {

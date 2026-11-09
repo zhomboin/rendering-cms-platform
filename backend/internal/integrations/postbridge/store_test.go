@@ -116,8 +116,12 @@ func createDatabaseAttempt(t *testing.T, store *Store, sourceID, articleID, requ
 			t.Fatalf("unexpected source: %+v, sequence %d", article, seq)
 		}
 		return AttemptRecord{
-			ID: uuid.NewString(), TargetAccountID: "account-fixture", AuthorizationID: uuid.NewString(),
-			AuthorizationExpiresAt: time.Now().Add(time.Hour), Status: "preparing", Data: []byte("{}"),
+			ID:                     uuid.NewString(),
+			TargetAccountID:        "account-fixture",
+			AuthorizationID:        uuid.NewString(),
+			AuthorizationExpiresAt: time.Now().Add(time.Hour),
+			Status:                 "preparing",
+			Data:                   []byte("{}"),
 		}, nil
 	})
 	if err != nil {

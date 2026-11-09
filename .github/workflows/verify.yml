@@ -43,15 +43,25 @@ jobs:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
       - name: 安装查询生成器
-        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
       - name: 检查生成文件
         run: |
           sqlc generate
           git diff --exit-code -- internal/database/dbgen
       - name: 全量测试与静态检查
         run: |
+          unformatted="$(gofmt -l cmd internal)"
+          if [ -n "$unformatted" ]; then
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
           go test -count=1 ./...
+          go test -race -count=1 ./internal/albums ./internal/analytics ./internal/comments
           go vet ./...
+          govulncheck ./...
+          (cd cmd/server; govulncheck -scan=module)
 
   frontend:
     name: 前端与浏览器
@@ -73,6 +83,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: 构建与全量前端回归
         run: |
+          npm audit --audit-level=low
+          npm run format:check
           npm run build
           npm run test:mdx-preview
           npm run test:albums
@@ -80,6 +92,22 @@ jobs:
           npm run test:article-images
           npm run test:upload-limits
           npm run test:postbridge
+
+  scripts:
+    name: 开发、备份与恢复脚本
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: 隔离回归
+        run: |
+          mkdir -p temp
+          export TMPDIR="$PWD/temp"
+          git ls-files -z '*.sh' | xargs -0 -n 1 bash -n
+          bash scripts/env/test-dev-scripts.sh
+          python3 scripts/env/test-auto-deploy-backup.py
+          python3 scripts/env/test-auto-deploy-logging.py
+          python3 scripts/env/test-rollback-safety.py
 
   nginx:
     name: NGINX 配置

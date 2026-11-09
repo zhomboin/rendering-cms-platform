@@ -13,7 +13,9 @@ export function diffLines(oldText: string, newText: string): DiffLine[] {
   const oldCount = oldLines.length;
   const newCount = newLines.length;
 
-  const table: number[][] = Array.from({ length: oldCount + 1 }, () => new Array<number>(newCount + 1).fill(0));
+  const table: number[][] = Array.from({ length: oldCount + 1 }, () =>
+    new Array<number>(newCount + 1).fill(0),
+  );
   for (let i = oldCount - 1; i >= 0; i -= 1) {
     for (let j = newCount - 1; j >= 0; j -= 1) {
       if (oldLines[i] === newLines[j]) {

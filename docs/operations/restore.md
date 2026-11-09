@@ -4,6 +4,8 @@
 
 ## 恢复前准备
 
+恢复脚本使用 ON_ERROR_STOP 与单事务导入，忽略本机 psql 初始化文件；普通和压缩备份的 SQL 错误都会中止流程，保持应用停止，不写入成功状态。健康检查不能替代数据完整性核验。
+
 恢复操作会覆盖或改变目标数据库状态。执行前必须完成以下检查：
 
 1. 确认目标环境是生产服务器，且 `/etc/rendering-cms/production.env` 指向正确数据库。
@@ -28,7 +30,7 @@ set -a
 . /etc/rendering-cms/production.env
 set +a
 docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-  psql -U "$POSTGRES_USER" "$POSTGRES_DB" \
+  psql -X -v ON_ERROR_STOP=1 --single-transaction -U "$POSTGRES_USER" "$POSTGRES_DB" \
   < /var/lib/rendering-cms/backups/rendering-cms-latest.sql
 ```
 
@@ -40,7 +42,7 @@ set -a
 set +a
 gzip -dc /var/lib/rendering-cms/backups/rendering-cms-latest.sql.gz \
   | docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-      psql -U "$POSTGRES_USER" "$POSTGRES_DB"
+      psql -X -v ON_ERROR_STOP=1 --single-transaction -U "$POSTGRES_USER" "$POSTGRES_DB"
 ```
 
 恢复完成后重新启动应用：
@@ -52,7 +54,7 @@ docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.pr
 本地开发环境如果 `DATABASE_URL` 指向宿主机可访问的 `127.0.0.1:5432`，可以直接执行：
 
 ```bash
-gzip -dc backups/rendering-cms-latest.sql.gz | psql "$DATABASE_URL"
+gzip -dc backups/rendering-cms-latest.sql.gz | psql -X -v ON_ERROR_STOP=1 --single-transaction "$DATABASE_URL"
 ```
 
 如果需要恢复到空库，先创建新的空数据库，再导入备份。不要在未备份当前现场的情况下直接清空生产库。

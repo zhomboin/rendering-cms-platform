@@ -59,10 +59,18 @@ func TestWorkflowRecoversAcceptedSubmissionAndCancelsWithoutReplaying(t *testing
 				return nil, err
 			}
 			distribution = Distribution{
-				ID: "distribution-test", RequestID: in.RequestID, ArticleID: in.ArticleID, SourceID: in.SourceID,
-				SourceVersion: in.SourceVersion, StateSeq: in.StateSeq, PreparationID: in.PreparationID, Targets: in.Targets,
-				ContentFingerprint: in.ContentFingerprint, ConfirmationFingerprint: in.ConfirmationFingerprint,
-				Status: "in_progress", Children: []DistributionChild{{
+				ID:                      "distribution-test",
+				RequestID:               in.RequestID,
+				ArticleID:               in.ArticleID,
+				SourceID:                in.SourceID,
+				SourceVersion:           in.SourceVersion,
+				StateSeq:                in.StateSeq,
+				PreparationID:           in.PreparationID,
+				Targets:                 in.Targets,
+				ContentFingerprint:      in.ContentFingerprint,
+				ConfirmationFingerprint: in.ConfirmationFingerprint,
+				Status:                  "in_progress",
+				Children: []DistributionChild{{
 					Platform: "csdn", AccountID: "target-test", Operation: "save_draft", Status: "queued", ExternalStatus: "not_submitted",
 				}},
 			}
@@ -91,7 +99,11 @@ func TestWorkflowRecoversAcceptedSubmissionAndCancelsWithoutReplaying(t *testing
 		}
 	})
 
-	input := CreateAttemptInput{RequestID: "create-test", ExpectedVersion: version, TargetAccountID: "target-test"}
+	input := CreateAttemptInput{
+		RequestID:       "create-test",
+		ExpectedVersion: version,
+		TargetAccountID: "target-test",
+	}
 	attempt, err := service.Create(ctx, articleID, input)
 	if err != nil || attempt.Status != "preparing" {
 		t.Fatalf("create: %+v, %v", attempt, err)

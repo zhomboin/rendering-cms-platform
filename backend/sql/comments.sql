@@ -17,9 +17,11 @@ select
 from articles
 where (
     (sqlc.arg(is_slug)::boolean and slug = sqlc.arg(slug))
-    or (not sqlc.arg(is_slug)::boolean and article_name = sqlc.arg(slug))
+    or article_name = sqlc.arg(slug)
   )
   and status = 'published'
+order by (slug = sqlc.arg(slug)) desc
+limit 1
 returning
   comment_id,
   article_id,
@@ -71,12 +73,14 @@ select
   c.body,
   c.created_at
 from comments c
-join articles a on a.article_id = c.article_id
-where (
-    (sqlc.arg(is_slug)::boolean and a.slug = sqlc.arg(slug))
-    or (not sqlc.arg(is_slug)::boolean and a.article_name = sqlc.arg(slug))
-  )
-  and a.status = 'published'
+where c.article_id = (
+  select a.article_id
+  from articles a
+  where a.status = 'published'
+    and ((sqlc.arg(is_slug)::boolean and a.slug = sqlc.arg(slug)) or a.article_name = sqlc.arg(slug))
+  order by (a.slug = sqlc.arg(slug)) desc
+  limit 1
+)
   and c.status = 'approved'
 order by c.created_at asc;
 

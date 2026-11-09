@@ -515,6 +515,8 @@ r.Context()
 
 ## 测试
 
+Go 源码使用 gofmt 排版；函数体与多字段结构保持清晰换行，不通过压缩代码减少行数。单个手写源码或测试文件不超过 1000 行。公开读取、后台写入和文章修订查询分别维护；生成代码过长时拆分 SQL 源文件，再使用 sqlc 1.31.1 生成，禁止手工拆改生成文件。
+
 Go 测试文件以 `_test.go` 结尾：
 
 ```text
@@ -558,3 +560,10 @@ func TestValidateUpload(t *testing.T) {
 ## 首页汇总模块
 
 [dashboard 模块](../../backend/internal/dashboard/handler.go)负责首页概况、文章排行和相册摘要，只在后台鉴权路由装配，所有查询来自 [dashboard.sql](../../backend/sql/dashboard.sql)。它复用访问聚合表、文章、相册、评论和资源数据，输出有限摘要，不读取文章正文、不申请资源下载签名。接口口径见 [首页 API](../apis/dashboard.md)，测试通过专用 PostgreSQL 验证日期、归档、权限及资源生命周期边界。
+
+
+## 数据写入与安全验证
+
+文章详情与统计使用 resolver.go 统一解析标识，评论查询遵循同一优先级。相册的 database.go 管理事务与锁顺序，mutations.go 处理删除和重排，cleanup.go 负责持久对象清理；handler 只处理请求与响应。统计通过 analytics_record.sql 原子提交事件和日计数。
+
+Go 依赖以 go.mod、go.sum 的固定版本为准，加密库包含安全修复提交。CI 使用固定版本的 govulncheck 检查实际调用与模块依赖，模块检查从 cmd/server 目录执行；相册、统计和评论补充数据库并发检查。

@@ -1,10 +1,34 @@
 import { useMemo, useState } from 'react';
 import { createSearchParams, Link, useNavigate } from 'react-router-dom';
-import { Table, Button, Tag, Input, Select, Space, Typography, Alert, Popconfirm, message } from 'antd';
-import { PlusOutlined, EditOutlined, ReloadOutlined, StopOutlined, EyeOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import {
+  Table,
+  Button,
+  Tag,
+  Input,
+  Select,
+  Space,
+  Typography,
+  Alert,
+  Popconfirm,
+  message,
+} from 'antd';
+import {
+  PlusOutlined,
+  EditOutlined,
+  ReloadOutlined,
+  StopOutlined,
+  EyeOutlined,
+  LockOutlined,
+  UnlockOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { listAdminArticles, unpublishAdminArticle, markAdminArticlePrivate, restoreAdminArticleToDraft } from '../../api/articles';
+import {
+  listAdminArticles,
+  unpublishAdminArticle,
+  markAdminArticlePrivate,
+  restoreAdminArticleToDraft,
+} from '../../api/articles';
 import type { AdminArticleRecord } from '../../api/articles';
 import { getAuthUser } from '../../api/auth';
 
@@ -43,7 +67,12 @@ export default function ArticleListPage() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
-  const { data = [], isLoading, error, refetch } = useQuery({
+  const {
+    data = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['admin-articles'],
     queryFn: listAdminArticles,
   });
@@ -86,10 +115,11 @@ export default function ArticleListPage() {
       data.filter((article) => {
         const matchStatus = !statusFilter || article.status === statusFilter;
         const keyword = searchText.trim().toLowerCase();
-        const matchTitle = !keyword
-          || article.title.toLowerCase().includes(keyword)
-          || article.slug.toLowerCase().includes(keyword)
-          || article.articleName.toLowerCase().includes(keyword);
+        const matchTitle =
+          !keyword ||
+          article.title.toLowerCase().includes(keyword) ||
+          article.slug.toLowerCase().includes(keyword) ||
+          article.articleName.toLowerCase().includes(keyword);
         return matchStatus && matchTitle;
       }),
     [data, searchText, statusFilter],
@@ -101,7 +131,10 @@ export default function ArticleListPage() {
       dataIndex: 'title',
       key: 'title',
       render: (text: string, record: AdminArticleRecord) => (
-        <a onClick={() => navigate(`/admin/articles/${record.articleId}/edit`)} style={{ color: '#4F46E5', fontWeight: 500 }}>
+        <a
+          onClick={() => navigate(`/admin/articles/${record.articleId}/edit`)}
+          style={{ color: '#4F46E5', fontWeight: 500 }}
+        >
           {text}
         </a>
       ),
@@ -155,10 +188,26 @@ export default function ArticleListPage() {
       width: isAdmin ? 360 : 240,
       render: (_: unknown, record: AdminArticleRecord) => (
         <Space size={0} wrap>
-          <Button type="link" size="small" icon={<EyeOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/articles/${record.articleId}/read`); }}>
+          <Button
+            type="link"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/admin/articles/${record.articleId}/read`);
+            }}
+          >
             阅读
           </Button>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/articles/${record.articleId}/edit`); }}>
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/admin/articles/${record.articleId}/edit`);
+            }}
+          >
             编辑
           </Button>
           {record.status === 'draft' && (
@@ -173,7 +222,12 @@ export default function ArticleListPage() {
               }}
               onCancel={(e) => e?.stopPropagation()}
             >
-              <Button type="link" size="small" icon={<LockOutlined />} onClick={(e) => e.stopPropagation()}>
+              <Button
+                type="link"
+                size="small"
+                icon={<LockOutlined />}
+                onClick={(e) => e.stopPropagation()}
+              >
                 私有
               </Button>
             </Popconfirm>
@@ -190,14 +244,25 @@ export default function ArticleListPage() {
               }}
               onCancel={(e) => e?.stopPropagation()}
             >
-              <Button type="link" size="small" icon={<UnlockOutlined />} onClick={(e) => e.stopPropagation()}>
+              <Button
+                type="link"
+                size="small"
+                icon={<UnlockOutlined />}
+                onClick={(e) => e.stopPropagation()}
+              >
                 转草稿
               </Button>
             </Popconfirm>
           )}
           {isAdmin && record.status === 'published' && Boolean(record.version) && (
             <Link
-              to={{ pathname: '/admin/postbridge', search: createSearchParams({ articleId: record.articleId, prepare: '1' }).toString() }}
+              to={{
+                pathname: '/admin/postbridge',
+                search: createSearchParams({
+                  articleId: record.articleId,
+                  prepare: '1',
+                }).toString(),
+              }}
               onClick={(event) => event.stopPropagation()}
               style={{ paddingInline: 8 }}
             >
@@ -217,7 +282,13 @@ export default function ArticleListPage() {
               }}
               onCancel={(e) => e?.stopPropagation()}
             >
-              <Button type="link" size="small" danger icon={<StopOutlined />} onClick={(e) => e.stopPropagation()}>
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<StopOutlined />}
+                onClick={(e) => e.stopPropagation()}
+              >
                 下架
               </Button>
             </Popconfirm>
@@ -229,7 +300,15 @@ export default function ArticleListPage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, gap: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 24,
+          gap: 16,
+        }}
+      >
         <Title level={1} style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>
           文章管理
         </Title>
@@ -249,11 +328,22 @@ export default function ArticleListPage() {
       </div>
 
       {error && (
-        <Alert type="error" showIcon message={error instanceof Error ? error.message : '后台文章列表读取失败'} style={{ marginBottom: 20 }} />
+        <Alert
+          type="error"
+          showIcon
+          message={error instanceof Error ? error.message : '后台文章列表读取失败'}
+          style={{ marginBottom: 20 }}
+        />
       )}
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <Select value={statusFilter} onChange={setStatusFilter} options={statusOptions} style={{ width: 140 }} placeholder="状态筛选" />
+        <Select
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={statusOptions}
+          style={{ width: 140 }}
+          placeholder="状态筛选"
+        />
         <Search
           placeholder="搜索标题、英文名或短链"
           allowClear

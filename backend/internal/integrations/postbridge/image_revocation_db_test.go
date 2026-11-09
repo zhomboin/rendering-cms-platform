@@ -52,8 +52,14 @@ func createImageRevocationAttempt(ctx context.Context, store *Store, sourceID, a
 			verified()
 		}
 		data, err := json.Marshal(attemptData{ImageURLs: urls})
-		return AttemptRecord{ID: id + "-" + articleID, TargetAccountID: "target-test", AuthorizationID: "grant:" + id + "-" + articleID,
-			AuthorizationExpiresAt: time.Now().Add(time.Hour), Status: status, Data: data}, err
+		return AttemptRecord{
+			ID:                     id + "-" + articleID,
+			TargetAccountID:        "target-test",
+			AuthorizationID:        "grant:" + id + "-" + articleID,
+			AuthorizationExpiresAt: time.Now().Add(time.Hour),
+			Status:                 status,
+			Data:                   data,
+		}, err
 	})
 }
 

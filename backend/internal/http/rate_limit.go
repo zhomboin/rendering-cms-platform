@@ -78,7 +78,11 @@ func (limiter *ClientRateLimiter) Allow(client string) (bool, time.Duration) {
 		if len(limiter.clients) >= limiter.maxClients {
 			bucket = &limiter.overflow
 		} else {
-			bucket = &clientBucket{tokens: limiter.burst, lastRefill: now, lastSeen: now}
+			bucket = &clientBucket{
+				tokens:     limiter.burst,
+				lastRefill: now,
+				lastSeen:   now,
+			}
 			limiter.clients[client] = bucket
 		}
 	}
@@ -143,7 +147,9 @@ func ConcurrencyLimitMiddleware(maxInFlight int) func(http.Handler) http.Handler
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			select {
 			case semaphore <- struct{}{}:
-				defer func() { <-semaphore }()
+				defer func() {
+					<-semaphore
+				}()
 				next.ServeHTTP(w, r)
 			default:
 				w.Header().Set("Retry-After", "1")

@@ -38,20 +38,29 @@ const (
 // ---- 公开接口 ----
 
 func TestListPublishedAlbumsReturnsPageEnvelope(t *testing.T) {
-	publishedAt := pgtype.Timestamptz{Time: time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC), Valid: true}
+	publishedAt := pgtype.Timestamptz{
+		Time:  time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC),
+		Valid: true,
+	}
 	store := &albumStoreStub{
 		publishedTotal: 57,
 		publishedRows: []dbgen.ListPublishedPhotoAlbumsRow{
 			{
-				AlbumID:     uuidForTest(testAlbumID),
-				Slug:        "city-nights",
-				Title:       "城市夜色",
-				TitleEn:     pgtype.Text{String: "City Nights", Valid: true},
+				AlbumID: uuidForTest(testAlbumID),
+				Slug:    "city-nights",
+				Title:   "城市夜色",
+				TitleEn: pgtype.Text{
+					String: "City Nights",
+					Valid:  true,
+				},
 				Description: "一组夜景。",
 				Tags:        []string{"photography", "city"},
 				PublishedAt: publishedAt,
 				PhotoCount:  87,
-				CoverUrl:    pgtype.Text{String: "https://files.example.com/photos/cover.jpg", Valid: true},
+				CoverUrl: pgtype.Text{
+					String: "https://files.example.com/photos/cover.jpg",
+					Valid:  true,
+				},
 				CoverWidth:  2400,
 				CoverHeight: 1600,
 			},
@@ -197,8 +206,11 @@ func TestGetPublishedAlbumSupportsETagRevalidation(t *testing.T) {
 			Title:       "城市夜色",
 			Description: "一组夜景。",
 			Tags:        []string{},
-			PublishedAt: pgtype.Timestamptz{Time: time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC), Valid: true},
-			PhotoCount:  3,
+			PublishedAt: pgtype.Timestamptz{
+				Time:  time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC),
+				Valid: true,
+			},
+			PhotoCount: 3,
 		},
 	}
 	handler := NewHandler(store)
@@ -237,8 +249,14 @@ func TestListPublishedAlbumPhotosReturnsContractFields(t *testing.T) {
 				Alt:     "夜色中的天桥",
 				Width:   2400,
 				Height:  1600,
-				Url:     pgtype.Text{String: "https://files.example.com/photos/01.jpg", Valid: true},
-				TakenAt: pgtype.Timestamptz{Time: time.Date(2026, 10, 1, 18, 42, 0, 0, time.UTC), Valid: true},
+				Url: pgtype.Text{
+					String: "https://files.example.com/photos/01.jpg",
+					Valid:  true,
+				},
+				TakenAt: pgtype.Timestamptz{
+					Time:  time.Date(2026, 10, 1, 18, 42, 0, 0, time.UTC),
+					Valid: true,
+				},
 			},
 		},
 	}
@@ -455,7 +473,10 @@ func TestUploadAlbumPhotoRequiresPublicBaseURL(t *testing.T) {
 
 func TestReorderAlbumPhotosRequiresFullSet(t *testing.T) {
 	store := &albumStoreStub{
-		albumByID: dbgen.GetPhotoAlbumByIDRow{AlbumID: uuidForTest(testAlbumID), Status: dbgen.PhotoAlbumStatusDraft},
+		albumByID: dbgen.GetPhotoAlbumByIDRow{
+			AlbumID: uuidForTest(testAlbumID),
+			Status:  dbgen.PhotoAlbumStatusDraft,
+		},
 		albumPhotos: []dbgen.ListAlbumPhotosRow{
 			{PhotoID: uuidForTest(testPhotoID)},
 			{PhotoID: uuidForTest("33333333-3333-3333-3333-333333333333")},
@@ -474,7 +495,10 @@ func TestReorderAlbumPhotosRequiresFullSet(t *testing.T) {
 
 func TestSetAlbumCoverValidatesPhotoInAlbum(t *testing.T) {
 	store := &albumStoreStub{
-		albumByID:    dbgen.GetPhotoAlbumByIDRow{AlbumID: uuidForTest(testAlbumID), Status: dbgen.PhotoAlbumStatusDraft},
+		albumByID: dbgen.GetPhotoAlbumByIDRow{
+			AlbumID: uuidForTest(testAlbumID),
+			Status:  dbgen.PhotoAlbumStatusDraft,
+		},
 		photoByIDErr: pgx.ErrNoRows,
 	}
 	router := authenticatedAlbumRouter(t, NewHandler(store))
@@ -527,7 +551,12 @@ func encodeTestPNG(t *testing.T, width, height int) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
-			img.Set(x, y, color.RGBA{R: 0x22, G: 0x44, B: 0x66, A: 0xFF})
+			img.Set(x, y, color.RGBA{
+				R: 0x22,
+				G: 0x44,
+				B: 0x66,
+				A: 0xFF,
+			})
 		}
 	}
 	var buf bytes.Buffer
@@ -580,7 +609,12 @@ type fakePutCall struct {
 }
 
 func (s *fakeObjectStore) PutObject(ctx context.Context, key string, body []byte, contentType string, cacheControl string) error {
-	s.putCalls = append(s.putCalls, fakePutCall{key: key, body: append([]byte{}, body...), contentType: contentType, cacheControl: cacheControl})
+	s.putCalls = append(s.putCalls, fakePutCall{
+		key:          key,
+		body:         append([]byte{}, body...),
+		contentType:  contentType,
+		cacheControl: cacheControl,
+	})
 	return nil
 }
 

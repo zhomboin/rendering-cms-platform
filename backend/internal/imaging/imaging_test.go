@@ -17,7 +17,12 @@ func encodePNG(t *testing.T, width, height int) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
-			img.Set(x, y, color.RGBA{R: uint8(x), G: uint8(y), B: 0x7F, A: 0xFF})
+			img.Set(x, y, color.RGBA{
+				R: uint8(x),
+				G: uint8(y),
+				B: 0x7F,
+				A: 0xFF,
+			})
 		}
 	}
 	var buf bytes.Buffer
@@ -32,7 +37,12 @@ func encodeJPEG(t *testing.T, width, height int) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
-			img.Set(x, y, color.RGBA{R: uint8(y), G: uint8(x), B: 0x33, A: 0xFF})
+			img.Set(x, y, color.RGBA{
+				R: uint8(y),
+				G: uint8(x),
+				B: 0x33,
+				A: 0xFF,
+			})
 		}
 	}
 	var buf bytes.Buffer

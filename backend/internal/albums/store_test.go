@@ -37,6 +37,7 @@ func jsonUnmarshal(data []byte, target *map[string]interface{}) error {
 }
 
 type albumStoreStub struct {
+	cleanupJobs       map[string]dbgen.EnqueueAlbumObjectCleanupParams
 	publishedTotal    int32
 	publishedRows     []dbgen.ListPublishedPhotoAlbumsRow
 	publishedAlbum    dbgen.GetPublishedPhotoAlbumBySlugRow
@@ -164,14 +165,20 @@ func (s *albumStoreStub) PublishPhotoAlbum(ctx context.Context, albumID pgtype.U
 	if s.publishErr != nil {
 		return dbgen.PhotoAlbum{}, s.publishErr
 	}
-	return dbgen.PhotoAlbum{AlbumID: albumID, Status: dbgen.PhotoAlbumStatusPublished}, nil
+	return dbgen.PhotoAlbum{
+		AlbumID: albumID,
+		Status:  dbgen.PhotoAlbumStatusPublished,
+	}, nil
 }
 
 func (s *albumStoreStub) UnpublishPhotoAlbum(ctx context.Context, albumID pgtype.UUID) (dbgen.PhotoAlbum, error) {
 	if s.unpublishErr != nil {
 		return dbgen.PhotoAlbum{}, s.unpublishErr
 	}
-	return dbgen.PhotoAlbum{AlbumID: albumID, Status: dbgen.PhotoAlbumStatusDraft}, nil
+	return dbgen.PhotoAlbum{
+		AlbumID: albumID,
+		Status:  dbgen.PhotoAlbumStatusDraft,
+	}, nil
 }
 
 func (s *albumStoreStub) SetPhotoAlbumCover(ctx context.Context, arg dbgen.SetPhotoAlbumCoverParams) (dbgen.PhotoAlbum, error) {
@@ -179,7 +186,10 @@ func (s *albumStoreStub) SetPhotoAlbumCover(ctx context.Context, arg dbgen.SetPh
 	if s.setCoverErr != nil {
 		return dbgen.PhotoAlbum{}, s.setCoverErr
 	}
-	return dbgen.PhotoAlbum{AlbumID: arg.AlbumID, CoverPhotoID: arg.CoverPhotoID}, nil
+	return dbgen.PhotoAlbum{
+		AlbumID:      arg.AlbumID,
+		CoverPhotoID: arg.CoverPhotoID,
+	}, nil
 }
 
 func (s *albumStoreStub) DeletePhotoAlbum(ctx context.Context, albumID pgtype.UUID) error {
@@ -246,7 +256,10 @@ func (s *albumStoreStub) UpdateAlbumPhoto(ctx context.Context, arg dbgen.UpdateA
 	if s.updatePhotoErr != nil {
 		return dbgen.AlbumPhoto{}, s.updatePhotoErr
 	}
-	return dbgen.AlbumPhoto{PhotoID: arg.PhotoID, Alt: arg.Alt}, nil
+	return dbgen.AlbumPhoto{
+		PhotoID: arg.PhotoID,
+		Alt:     arg.Alt,
+	}, nil
 }
 
 func (s *albumStoreStub) DeleteAlbumPhoto(ctx context.Context, arg dbgen.DeleteAlbumPhotoParams) (int64, error) {
@@ -274,5 +287,8 @@ func (s *albumStoreStub) SoftDeleteAlbumAssets(ctx context.Context, albumID pgty
 }
 
 func (s *albumStoreStub) UpdateAssetStatus(ctx context.Context, arg dbgen.UpdateAssetStatusParams) (dbgen.Asset, error) {
-	return dbgen.Asset{AssetID: arg.AssetID, Status: arg.Status}, nil
+	return dbgen.Asset{
+		AssetID: arg.AssetID,
+		Status:  arg.Status,
+	}, nil
 }

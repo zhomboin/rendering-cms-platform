@@ -217,12 +217,16 @@ func registerLimitedPublicRoutes(router chi.Router, config RouterConfig) {
 	}
 
 	readLimiter := NewClientRateLimiter(ClientRateLimitOptions{
-		RatePerSecond: limits.ReadRatePerSecond, Burst: limits.ReadBurst,
-		MaxClients: limits.MaxClients, ClientTTL: limits.ClientTTL,
+		RatePerSecond: limits.ReadRatePerSecond,
+		Burst:         limits.ReadBurst,
+		MaxClients:    limits.MaxClients,
+		ClientTTL:     limits.ClientTTL,
 	})
 	searchLimiter := NewClientRateLimiter(ClientRateLimitOptions{
-		RatePerSecond: limits.SearchRatePerSecond, Burst: limits.SearchBurst,
-		MaxClients: limits.MaxClients, ClientTTL: limits.ClientTTL,
+		RatePerSecond: limits.SearchRatePerSecond,
+		Burst:         limits.SearchBurst,
+		MaxClients:    limits.MaxClients,
+		ClientTTL:     limits.ClientTTL,
 	})
 	concurrencyLimit := ConcurrencyLimitMiddleware(limits.MaxInFlight)
 

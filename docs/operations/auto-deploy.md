@@ -4,6 +4,8 @@
 
 ## 触发机制
 
+自动部署仅维护已初始化且运行中的 PostgreSQL；容器停止、缺失或状态检查失败时，在拉取应用代码、构建及迁移前中止。首次初始化使用人工部署流程，不会自动跳过数据库备份。
+
 ```text
 cms-rendering-deploy.timer（每小时整点，OnCalendar=hourly）
   -> cms-rendering-deploy.service（systemd oneshot）

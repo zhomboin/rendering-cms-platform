@@ -253,5 +253,7 @@ func validImageURL(raw string) bool {
 			return false
 		}
 	}
-	return !strings.ContainsFunc(u.Path, func(ch rune) bool { return ch < 32 || ch == 127 })
+	return !strings.ContainsFunc(u.Path, func(ch rune) bool {
+		return ch < 32 || ch == 127
+	})
 }

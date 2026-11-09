@@ -12,12 +12,14 @@
     "test:dashboard": "node --test scripts/test-dashboard.mjs",
     "test:article-images": "node --test scripts/test-article-images.mjs",
     "test:upload-limits": "node --test scripts/test-upload-limits.mjs",
-    "test:postbridge": "node --test scripts/test-postbridge.mjs"
+    "test:postbridge": "node --test scripts/test-postbridge.mjs",
+    "format": "prettier --write src scripts *.json *.ts index.html",
+    "format:check": "prettier --check src scripts *.json *.ts index.html"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.7",
     "antd": "^6.0.0",
-    "axios": "1.16.0",
+    "axios": "1.21.0",
     "mdast-util-from-markdown": "^2.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -28,6 +30,7 @@
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^5.1.0",
     "playwright": "1.64.1",
+    "prettier": "3.6.2",
     "typescript": "^5.9.3",
     "vite": "^7.1.12"
   }

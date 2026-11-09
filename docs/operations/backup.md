@@ -4,7 +4,7 @@
 
 ## 备份时机
 
-- 已启用自动部署时，`deploy/auto-deploy.sh` 在每次发布执行 migration 前自动备份到 `/var/lib/rendering-cms/backups/`（保留最近 14 份），无需人工干预。
+- 自动部署要求 PostgreSQL 已初始化并运行，状态无法确认时在拉取、构建和迁移前中止；首次初始化使用人工部署流程。每次 migration 前必须完成有效备份，保留最近 14 份，不提供跳过备份的自动分支。
 - 每次生产 migration 前必须备份 PostgreSQL（自动部署已内置，手动发布勿跳过）。
 - 每次大版本发布前必须备份 PostgreSQL。
 - 手动修改生产数据前必须备份 PostgreSQL。
@@ -122,3 +122,5 @@ rclone sync "r2:$S3_BUCKET" "/var/lib/rendering-cms/backups/r2-$S3_BUCKET-$(date
 ```
 
 执行跨存储备份前应先在服务器上配置只读或最小权限的 R2 访问凭据。若使用服务器磁盘快照，只能覆盖 PostgreSQL volume，不能替代 R2 对象备份。
+
+备份文件从创建时即使用 0600 权限，包括导出、压缩或后续校验失败时保留的文件；日志和其它目录的默认权限不受影响。

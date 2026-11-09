@@ -228,7 +228,9 @@ func testLoginDeps(finder UserFinder, store LoginAttemptStore, now time.Time) Lo
 		Secret:   "secret-32-characters-minimum-value",
 		Finder:   finder,
 		Attempts: store,
-		Now:      func() time.Time { return now },
+		Now: func() time.Time {
+			return now
+		},
 	}
 }
 

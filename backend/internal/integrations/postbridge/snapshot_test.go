@@ -58,7 +58,11 @@ func TestSnapshotContentPolicy(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			normalized, _, err := ValidateSnapshot(Snapshot{Title: "合成文章标题", Body: tc.body, BodyFormat: "markdown"})
+			normalized, _, err := ValidateSnapshot(Snapshot{
+				Title:      "合成文章标题",
+				Body:       tc.body,
+				BodyFormat: "markdown",
+			})
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
@@ -70,22 +74,46 @@ func TestSnapshotContentPolicy(t *testing.T) {
 }
 
 func TestSnapshotRejectsIncompatibleMetadata(t *testing.T) {
-	base := Snapshot{Title: "合成文章标题", Body: "正文", BodyFormat: "markdown"}
+	base := Snapshot{
+		Title:      "合成文章标题",
+		Body:       "正文",
+		BodyFormat: "markdown",
+	}
 	cases := []struct {
 		name string
 		set  func(*Snapshot)
 		want error
 	}{
-		{"short title", func(s *Snapshot) { s.Title = " 标题 " }, ErrUnsupportedContent},
-		{"long title", func(s *Snapshot) { s.Title = strings.Repeat("文", 101) }, ErrUnsupportedContent},
-		{"long summary", func(s *Snapshot) { s.Summary = strings.Repeat("文", 2001) }, ErrInvalidRequest},
-		{"blank tag", func(s *Snapshot) { s.Tags = []string{" "} }, ErrInvalidRequest},
-		{"long tag", func(s *Snapshot) { s.Tags = []string{strings.Repeat("文", 65)} }, ErrInvalidRequest},
-		{"null byte", func(s *Snapshot) { s.Title += "\x00" }, ErrInvalidRequest},
-		{"invalid original link", func(s *Snapshot) { s.OriginalURL = "javascript:alert(1)" }, ErrInvalidRequest},
-		{"cover", func(s *Snapshot) { s.CoverImageURL = "https://image.example/cover" }, ErrUnsupportedContent},
-		{"asset", func(s *Snapshot) { s.Assets = []SnapshotAsset{{ID: "test-image"}} }, ErrUnsupportedContent},
-		{"format", func(s *Snapshot) { s.BodyFormat = "mdx" }, ErrUnsupportedContent},
+		{"short title", func(s *Snapshot) {
+			s.Title = " 标题 "
+		}, ErrUnsupportedContent},
+		{"long title", func(s *Snapshot) {
+			s.Title = strings.Repeat("文", 101)
+		}, ErrUnsupportedContent},
+		{"long summary", func(s *Snapshot) {
+			s.Summary = strings.Repeat("文", 2001)
+		}, ErrInvalidRequest},
+		{"blank tag", func(s *Snapshot) {
+			s.Tags = []string{" "}
+		}, ErrInvalidRequest},
+		{"long tag", func(s *Snapshot) {
+			s.Tags = []string{strings.Repeat("文", 65)}
+		}, ErrInvalidRequest},
+		{"null byte", func(s *Snapshot) {
+			s.Title += "\x00"
+		}, ErrInvalidRequest},
+		{"invalid original link", func(s *Snapshot) {
+			s.OriginalURL = "javascript:alert(1)"
+		}, ErrInvalidRequest},
+		{"cover", func(s *Snapshot) {
+			s.CoverImageURL = "https://image.example/cover"
+		}, ErrUnsupportedContent},
+		{"asset", func(s *Snapshot) {
+			s.Assets = []SnapshotAsset{{ID: "test-image"}}
+		}, ErrUnsupportedContent},
+		{"format", func(s *Snapshot) {
+			s.BodyFormat = "mdx"
+		}, ErrUnsupportedContent},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -39,59 +39,6 @@ func exifPayload(data []byte, contentType string) ([]byte, bool) {
 	}
 }
 
-// JPEG：按段结构遍历到 SOS 为止，丢弃元数据段，其余字节原样保留。
-// 丢弃：APP1（EXIF / XMP / 扩展 XMP）、APP3–APP13、APP15（厂商私有元数据，含 Photoshop IRB）、COM（注释）。
-// 保留：APP0（JFIF）、APP2（ICC 色彩描述）、APP14（Adobe 色彩变换，影响解码）及全部解码段。
-func stripJPEGMetadata(data []byte) ([]byte, bool, error) {
-	if len(data) < 4 || data[0] != 0xFF || data[1] != 0xD8 {
-		return nil, false, ErrCorrupted
-	}
-	out := make([]byte, 0, len(data))
-	out = append(out, data[0], data[1])
-	changed := false
-	pos := 2
-	for pos < len(data) {
-		if data[pos] != 0xFF {
-			return nil, false, ErrCorrupted
-		}
-		pos++
-		// 段标记前允许填充 0xFF。
-		for pos < len(data) && data[pos] == 0xFF {
-			pos++
-		}
-		if pos >= len(data) {
-			return nil, false, ErrCorrupted
-		}
-		marker := data[pos]
-		pos++
-		if marker == 0xD8 || marker == 0xD9 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7) {
-			// 独立标记：无长度字段。
-			out = append(out, 0xFF, marker)
-			continue
-		}
-		if pos+2 > len(data) {
-			return nil, false, ErrCorrupted
-		}
-		segmentLength := int(data[pos])<<8 | int(data[pos+1])
-		if segmentLength < 2 || pos+segmentLength > len(data) {
-			return nil, false, ErrCorrupted
-		}
-		if jpegMetadataMarker(marker) {
-			changed = true
-		} else {
-			out = append(out, 0xFF, marker)
-			out = append(out, data[pos:pos+segmentLength]...)
-		}
-		if marker == 0xDA {
-			// SOS 之后是熵编码数据，原样接回并结束。
-			out = append(out, data[pos+segmentLength:]...)
-			return out, changed, nil
-		}
-		pos += segmentLength
-	}
-	return out, changed, nil
-}
-
 // jpegMetadataMarker 判定段是否为可安全丢弃的元数据段（APP1/APP3..APP13/APP15/COM）。
 // APP0（JFIF）、APP2（ICC）、APP14（Adobe 色彩变换）参与解码或色彩还原，不在其列。
 func jpegMetadataMarker(marker byte) bool {

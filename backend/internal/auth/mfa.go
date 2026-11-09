@@ -187,14 +187,20 @@ func (svc *loginService) codeRecentlySent(ctx context.Context, email string) (bo
 // dispatchLoginCode 生成验证码、入库并发送；已知限流与发送失败以 *mfaDispatchError 返回状态码。
 func (svc *loginService) dispatchLoginCode(ctx context.Context, user UserRecord) error {
 	count, err := svc.codes.CountRecentLoginEmailCodes(ctx, dbgen.CountRecentLoginEmailCodesParams{
-		Email:     user.Email,
-		CreatedAt: pgtype.Timestamptz{Time: svc.now().Add(-time.Hour), Valid: true},
+		Email: user.Email,
+		CreatedAt: pgtype.Timestamptz{
+			Time:  svc.now().Add(-time.Hour),
+			Valid: true,
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("count recent login codes: %w", err)
 	}
 	if count >= loginCodeHourlySendLimit {
-		return &mfaDispatchError{status: http.StatusTooManyRequests, message: "验证码发送过于频繁，请稍后再试"}
+		return &mfaDispatchError{
+			status:  http.StatusTooManyRequests,
+			message: "验证码发送过于频繁，请稍后再试",
+		}
 	}
 
 	code, err := GenerateLoginCode()
@@ -206,10 +212,16 @@ func (svc *loginService) dispatchLoginCode(ctx context.Context, user UserRecord)
 		return fmt.Errorf("parse user id: %w", err)
 	}
 	_, err = svc.codes.CreateLoginEmailCode(ctx, dbgen.CreateLoginEmailCodeParams{
-		UserID:    pgtype.UUID{Bytes: userID, Valid: true},
-		Email:     user.Email,
-		CodeHash:  HashLoginCode(svc.secret, code),
-		ExpiresAt: pgtype.Timestamptz{Time: svc.now().Add(loginCodeTTL), Valid: true},
+		UserID: pgtype.UUID{
+			Bytes: userID,
+			Valid: true,
+		},
+		Email:    user.Email,
+		CodeHash: HashLoginCode(svc.secret, code),
+		ExpiresAt: pgtype.Timestamptz{
+			Time:  svc.now().Add(loginCodeTTL),
+			Valid: true,
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("create login code: %w", err)
@@ -217,7 +229,10 @@ func (svc *loginService) dispatchLoginCode(ctx context.Context, user UserRecord)
 
 	if svc.sender != nil {
 		if err := svc.sender.SendLoginCode(user.Email, code, loginCodeTTL); err != nil {
-			return &mfaDispatchError{status: http.StatusInternalServerError, message: "验证码邮件发送失败"}
+			return &mfaDispatchError{
+				status:  http.StatusInternalServerError,
+				message: "验证码邮件发送失败",
+			}
 		}
 		return nil
 	}
@@ -225,7 +240,10 @@ func (svc *loginService) dispatchLoginCode(ctx context.Context, user UserRecord)
 		svc.devLog("登录验证码（LOGIN_MFA_DEV_LOG）：email=%s code=%s", user.Email, code)
 		return nil
 	}
-	return &mfaDispatchError{status: http.StatusInternalServerError, message: "邮件验证码功能未正确配置"}
+	return &mfaDispatchError{
+		status:  http.StatusInternalServerError,
+		message: "邮件验证码功能未正确配置",
+	}
 }
 
 func (svc *loginService) writeDispatchError(w http.ResponseWriter, err error) {
@@ -344,7 +362,12 @@ func NewMFAVerifyHandler(deps LoginDeps) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, LoginResponse{
 			Token:        tokens.Token,
 			RefreshToken: tokens.RefreshToken,
-			User:         LoginUser{UserID: user.UserID, Email: user.Email, Name: user.Name, Role: user.Role},
+			User: LoginUser{
+				UserID: user.UserID,
+				Email:  user.Email,
+				Name:   user.Name,
+				Role:   user.Role,
+			},
 		})
 	}
 }
@@ -406,7 +429,13 @@ func (svc *loginService) updateLastLoginIP(ctx context.Context, userID string, i
 		return
 	}
 	_ = svc.codes.UpdateUserLastLoginIPHash(ctx, dbgen.UpdateUserLastLoginIPHashParams{
-		IpHash: pgtype.Text{String: ipHash, Valid: true},
-		UserID: pgtype.UUID{Bytes: parsed, Valid: true},
+		IpHash: pgtype.Text{
+			String: ipHash,
+			Valid:  true,
+		},
+		UserID: pgtype.UUID{
+			Bytes: parsed,
+			Valid: true,
+		},
 	})
 }

@@ -20,7 +20,10 @@ export function headingAnchorId(prefix: string, index: number) {
   return `${prefix}heading-${index}`;
 }
 
-export function collectHeadingAnchors(blocks: PreviewBlock[], headingIdPrefix: string): HeadingAnchor[] {
+export function collectHeadingAnchors(
+  blocks: PreviewBlock[],
+  headingIdPrefix: string,
+): HeadingAnchor[] {
   const headings: HeadingAnchor[] = [];
   blocks.forEach((block, index) => {
     if (block.type === 'heading') {
@@ -37,34 +40,61 @@ export function collectHeadingAnchors(blocks: PreviewBlock[], headingIdPrefix: s
 const readingStyles = {
   paragraph: { margin: '0 0 18px', color: '#334155', fontSize: 16, lineHeight: 1.85 },
   listText: '#334155',
-  quote: { margin: '20px 0 22px', padding: '14px 18px', borderLeft: '3px solid #7C3AED', background: '#F8FAFC', color: '#475569', fontSize: 15.5, lineHeight: 1.8 },
+  quote: {
+    margin: '20px 0 22px',
+    padding: '14px 18px',
+    borderLeft: '3px solid #7C3AED',
+    background: '#F8FAFC',
+    color: '#475569',
+    fontSize: 15.5,
+    lineHeight: 1.8,
+  },
   code: { margin: '18px 0 22px', padding: 18, fontSize: 13.5, lineHeight: 1.75 },
   tableText: '#334155',
   tableFontSize: 14.5,
   headingFontSizes: { 1: 30, 2: 24, 3: 19 } as Record<1 | 2 | 3, number>,
-  headingMargins: { 1: '44px 0 16px', 2: '36px 0 14px', 3: '28px 0 12px' } as Record<1 | 2 | 3, string>,
+  headingMargins: { 1: '44px 0 16px', 2: '36px 0 14px', 3: '28px 0 12px' } as Record<
+    1 | 2 | 3,
+    string
+  >,
 };
 
 const previewStyles = {
   paragraph: { margin: '0 0 14px', color: '#334155', fontSize: 14, lineHeight: 1.8 },
   listText: '#334155',
-  quote: { margin: '12px 0 16px', padding: '10px 14px', borderLeft: '3px solid #4F46E5', background: '#F8FAFC', color: '#475569' },
+  quote: {
+    margin: '12px 0 16px',
+    padding: '10px 14px',
+    borderLeft: '3px solid #4F46E5',
+    background: '#F8FAFC',
+    color: '#475569',
+  },
   code: { margin: '12px 0 16px', padding: 16, fontSize: 13, lineHeight: 1.7 },
   tableText: '#334155',
   tableFontSize: 14,
   headingFontSizes: { 1: 24, 2: 20, 3: 17 } as Record<1 | 2 | 3, number>,
-  headingMargins: { 1: '20px 0 10px', 2: '20px 0 10px', 3: '20px 0 10px' } as Record<1 | 2 | 3, string>,
+  headingMargins: { 1: '20px 0 10px', 2: '20px 0 10px', 3: '20px 0 10px' } as Record<
+    1 | 2 | 3,
+    string
+  >,
 };
 
-export function MdxBlockRenderer({ blocks, variant = 'preview', headingIdPrefix = 'mdx' }: MdxBlockRendererProps) {
+export function MdxBlockRenderer({
+  blocks,
+  variant = 'preview',
+  headingIdPrefix = 'mdx',
+}: MdxBlockRendererProps) {
   return (
-    <>
-      {blocks.map((block, index) => renderMdxBlock(block, index, variant, headingIdPrefix))}
-    </>
+    <>{blocks.map((block, index) => renderMdxBlock(block, index, variant, headingIdPrefix))}</>
   );
 }
 
-function renderMdxBlock(block: PreviewBlock, index: number, variant: MdxRenderVariant, headingIdPrefix: string): ReactNode {
+function renderMdxBlock(
+  block: PreviewBlock,
+  index: number,
+  variant: MdxRenderVariant,
+  headingIdPrefix: string,
+): ReactNode {
   const styles = variant === 'reading' ? readingStyles : previewStyles;
 
   if (block.type === 'heading') {
@@ -268,7 +298,8 @@ function CodeBlock({
 }
 
 function renderInlineMarkdown(text: string): ReactNode[] {
-  const pattern = /(!\[((?:\\.|[^\]\\])*)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)|\*\*([^*]+)\*\*|~~([^~]+)~~|<u>(.*?)<\/u>|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+|mailto:[^)\s]+)\)|\*([^*\n]+)\*)/g;
+  const pattern =
+    /(!\[((?:\\.|[^\]\\])*)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)|\*\*([^*]+)\*\*|~~([^~]+)~~|<u>(.*?)<\/u>|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+|mailto:[^)\s]+)\)|\*([^*\n]+)\*)/g;
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -303,7 +334,10 @@ function renderInlineMarkdown(text: string): ReactNode[] {
       nodes.push(<u key={key}>{match[6]}</u>);
     } else if (match[7]) {
       nodes.push(
-        <code key={key} style={{ padding: '2px 5px', borderRadius: 4, background: '#F1F5F9', color: '#0F172A' }}>
+        <code
+          key={key}
+          style={{ padding: '2px 5px', borderRadius: 4, background: '#F1F5F9', color: '#0F172A' }}
+        >
           {match[7]}
         </code>,
       );

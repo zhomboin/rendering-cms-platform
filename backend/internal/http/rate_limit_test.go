@@ -10,8 +10,13 @@ import (
 func TestClientRateLimiterEnforcesBurstAndRefill(t *testing.T) {
 	now := time.Date(2026, 7, 13, 0, 0, 0, 0, time.UTC)
 	limiter := NewClientRateLimiter(ClientRateLimitOptions{
-		RatePerSecond: 2, Burst: 2, MaxClients: 10, ClientTTL: time.Minute,
-		Now: func() time.Time { return now },
+		RatePerSecond: 2,
+		Burst:         2,
+		MaxClients:    10,
+		ClientTTL:     time.Minute,
+		Now: func() time.Time {
+			return now
+		},
 	})
 	if allowed, _ := limiter.Allow("client-a"); !allowed {
 		t.Fatal("first request should be allowed")
@@ -34,8 +39,13 @@ func TestClientRateLimiterEnforcesBurstAndRefill(t *testing.T) {
 func TestClientRateLimiterBoundsAndExpiresClientState(t *testing.T) {
 	now := time.Date(2026, 7, 13, 0, 0, 0, 0, time.UTC)
 	limiter := NewClientRateLimiter(ClientRateLimitOptions{
-		RatePerSecond: 1, Burst: 1, MaxClients: 2, ClientTTL: time.Minute,
-		Now: func() time.Time { return now },
+		RatePerSecond: 1,
+		Burst:         1,
+		MaxClients:    2,
+		ClientTTL:     time.Minute,
+		Now: func() time.Time {
+			return now
+		},
 	})
 	limiter.Allow("client-a")
 	limiter.Allow("client-b")
@@ -58,7 +68,10 @@ func TestClientRateLimiterBoundsAndExpiresClientState(t *testing.T) {
 
 func TestRateLimitMiddlewareUsesTrustedClientAddress(t *testing.T) {
 	limiter := NewClientRateLimiter(ClientRateLimitOptions{
-		RatePerSecond: 1, Burst: 1, MaxClients: 10, ClientTTL: time.Minute,
+		RatePerSecond: 1,
+		Burst:         1,
+		MaxClients:    10,
+		ClientTTL:     time.Minute,
 	})
 	handler := RateLimitMiddleware(limiter)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)

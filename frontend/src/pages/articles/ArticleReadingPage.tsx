@@ -1,7 +1,12 @@
 import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Alert, Button, Empty, Skeleton, Space, Tag } from 'antd';
-import { ArrowLeftOutlined, EditOutlined, CalendarOutlined, HistoryOutlined } from '@ant-design/icons';
+import {
+  ArrowLeftOutlined,
+  EditOutlined,
+  CalendarOutlined,
+  HistoryOutlined,
+} from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { listAdminArticles } from '../../api/articles';
 import type { ArticleStatus } from '../../api/articles';
@@ -43,10 +48,7 @@ export default function ArticleReadingPage() {
   );
 
   const blocks = useMemo(() => parsePreviewBlocks(article?.bodyMdx ?? ''), [article?.bodyMdx]);
-  const headings = useMemo(
-    () => collectHeadingAnchors(blocks, id ?? 'article'),
-    [blocks, id],
-  );
+  const headings = useMemo(() => collectHeadingAnchors(blocks, id ?? 'article'), [blocks, id]);
 
   const handleTocClick = (anchorId: string) => (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -93,7 +95,9 @@ export default function ArticleReadingPage() {
           <Alert
             type="error"
             showIcon
-            message={articlesQuery.error instanceof Error ? articlesQuery.error.message : '文章读取失败'}
+            message={
+              articlesQuery.error instanceof Error ? articlesQuery.error.message : '文章读取失败'
+            }
             action={
               <Button size="small" onClick={() => articlesQuery.refetch()}>
                 重试
@@ -148,7 +152,11 @@ export default function ArticleReadingPage() {
               {blocks.length === 0 ? (
                 <Empty description="暂无正文内容" image={Empty.PRESENTED_IMAGE_SIMPLE} />
               ) : (
-                <MdxBlockRenderer blocks={blocks} variant="reading" headingIdPrefix={id ?? 'article'} />
+                <MdxBlockRenderer
+                  blocks={blocks}
+                  variant="reading"
+                  headingIdPrefix={id ?? 'article'}
+                />
               )}
             </div>
           </main>

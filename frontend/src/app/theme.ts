@@ -18,7 +18,8 @@ const themeTokens = {
   fontSizeHeading1: 24,
   fontSizeHeading2: 18,
   fontSizeHeading3: 16,
-  fontFamily: "Inter, PingFang SC, 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif",
+  fontFamily:
+    "Inter, PingFang SC, 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif",
   lineHeight: 1.6,
   controlHeight: 36,
   controlHeightLG: 44,

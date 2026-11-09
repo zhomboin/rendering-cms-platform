@@ -15,7 +15,8 @@
 
 ## 开发与运维
 
-- [本地开发](operations/development-environment.md)。
+- [本地开发](operations/development-environment.md)；相册写入依赖 migration 000017，前置条件见[生产部署](operations/deployment.md#数据安全与迁移前置条件)。
+- 代码格式与职责拆分见 [前端架构](guides/frontend-architecture.md)和 [Go 后端导读](guides/go-backend-guide.md)；检视发现的未修复问题统一进入[当前任务](plans/current-tasks.md)。
 - [代理配置检查](../scripts/env/check-nginx-config.sh)：在 CI 临时容器中校验 CMS 两层 Nginx 配置。
 - [生产部署](operations/deployment.md)、[自动部署](operations/auto-deploy.md)、[运维速查](operations/maintenance.md)、[固定运维流程](operations/runbook.md)。
 - [生产访问与安全](operations/production-access.md)：操作授权与配置隔离；本机专用配置仅保存在主工作区本地，不随仓库分发。

@@ -46,7 +46,10 @@ func IssueTokenPairWithClock(secret string, userID string, role string, now func
 	if err != nil {
 		return TokenPair{}, err
 	}
-	return TokenPair{Token: accessToken, RefreshToken: refreshToken}, nil
+	return TokenPair{
+		Token:        accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }
 
 func issueTokenWithClock(secret string, userID string, role string, tokenType string, ttl time.Duration, now func() time.Time) (string, error) {

@@ -97,7 +97,7 @@ GET /api/v1/articles/{slug}
 - 未发布或不存在时返回 `404`。
 - 该接口用于 Rendering 博客的 `/blog/<slug>` 页面渲染。
 - `{slug}` 必须使用 CMS 返回的 6 位短链码。
-- 兼容期内，如果 `{slug}` 不是 6 位短链码，后端会尝试按 `articleName` 查找并返回对应文章。
+- 优先按已发布短链查找，未命中时按有效英文名 articleName 回退，包含六位英文名；同时匹配时短链优先。
 - 响应中的 `canonicalSlug` 永远是实际短链；`resolvedBy` 取值为 `slug` 或 `articleName`。
 - Rendering 博客如果收到 `resolvedBy: "articleName"`，必须把浏览器地址重定向或替换为 `/blog/<canonicalSlug>`。
 - 非法标识符、未发布文章和不存在文章统一返回 `404`；标识符最多 128 个 Unicode 字符。

@@ -142,7 +142,7 @@ func (h Handler) updateAlbum(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// slug 是 Rendering 路由 /photos/{slug} 的稳定标识，发布后不允许修改。
-	if current.Status == dbgen.PhotoAlbumStatusPublished && payload.Slug != current.Slug {
+	if (current.Status == dbgen.PhotoAlbumStatusPublished || current.PublishedAt.Valid) && payload.Slug != current.Slug {
 		writeError(w, http.StatusConflict, "已发布相册的 slug 不可修改")
 		return
 	}
@@ -156,6 +156,10 @@ func (h Handler) updateAlbum(w http.ResponseWriter, r *http.Request) {
 		Tags:          payload.Tags,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusConflict, "相册状态已变化，已发布相册的 slug 不可修改")
+			return
+		}
 		if isUniqueViolation(err, "photo_albums_slug") {
 			writeError(w, http.StatusBadRequest, "相册 slug 已存在")
 			return
@@ -175,34 +179,15 @@ func (h Handler) publishAlbum(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	current, err := h.queries.GetPhotoAlbumByID(r.Context(), albumID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+	if err := h.publishAlbumRecord(r.Context(), albumID); err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
 			writeError(w, http.StatusNotFound, "相册不存在")
-			return
+		case errors.Is(err, errAlbumPublished), errors.Is(err, errAlbumEmpty):
+			writeError(w, http.StatusConflict, err.Error())
+		default:
+			writeError(w, http.StatusInternalServerError, "相册发布失败")
 		}
-		writeError(w, http.StatusInternalServerError, "相册读取失败")
-		return
-	}
-	if current.Status == dbgen.PhotoAlbumStatusPublished {
-		writeError(w, http.StatusConflict, "相册已发布")
-		return
-	}
-	count, err := h.queries.CountAlbumPhotosByID(r.Context(), albumID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "相册照片读取失败")
-		return
-	}
-	if count < 1 {
-		writeError(w, http.StatusConflict, "相册至少需要一张照片才能发布")
-		return
-	}
-	if _, err := h.queries.PublishPhotoAlbum(r.Context(), albumID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusConflict, "相册已发布")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "相册发布失败")
 		return
 	}
 	h.writeAdminAlbumByID(w, r, albumID)
@@ -248,29 +233,18 @@ func (h Handler) deleteAlbum(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := h.queries.GetPhotoAlbumByID(r.Context(), albumID); err != nil {
+	keys, err := h.removeAlbum(r.Context(), albumID)
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "相册不存在")
-			return
+		} else {
+			writeError(w, http.StatusInternalServerError, "相册删除失败")
 		}
-		writeError(w, http.StatusInternalServerError, "相册读取失败")
 		return
 	}
-	keys, err := h.queries.ListAlbumAssetKeys(r.Context(), albumID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "相册照片读取失败")
-		return
+	for _, key := range keys {
+		h.cleanupObjectAfterWrite(r.Context(), key)
 	}
-	if _, err := h.queries.SoftDeleteAlbumAssets(r.Context(), albumID); err != nil {
-		writeError(w, http.StatusInternalServerError, "相册资源清理失败")
-		return
-	}
-	if err := h.queries.DeletePhotoAlbum(r.Context(), albumID); err != nil {
-		writeError(w, http.StatusInternalServerError, "相册删除失败")
-		return
-	}
-	// 对象存储文件尽力删除；失败不影响相册删除结果，残留对象由存储生命周期兜底。
-	h.deleteObjectsBestEffort(r, keys)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -315,7 +289,10 @@ func (h Handler) updateAlbumPhoto(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := h.queries.GetAlbumPhotoByID(r.Context(), dbgen.GetAlbumPhotoByIDParams{AlbumID: albumID, PhotoID: photoID}); err != nil {
+	if _, err := h.queries.GetAlbumPhotoByID(r.Context(), dbgen.GetAlbumPhotoByIDParams{
+		AlbumID: albumID,
+		PhotoID: photoID,
+	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "照片不存在")
 			return
@@ -337,7 +314,10 @@ func (h Handler) updateAlbumPhoto(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "照片更新失败")
 		return
 	}
-	row, err := h.queries.GetAlbumPhotoByID(r.Context(), dbgen.GetAlbumPhotoByIDParams{AlbumID: albumID, PhotoID: photoID})
+	row, err := h.queries.GetAlbumPhotoByID(r.Context(), dbgen.GetAlbumPhotoByIDParams{
+		AlbumID: albumID,
+		PhotoID: photoID,
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "照片读取失败")
 		return
@@ -353,40 +333,16 @@ func (h Handler) deleteAlbumPhoto(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	photo, err := h.queries.GetAlbumPhotoByID(r.Context(), dbgen.GetAlbumPhotoByIDParams{AlbumID: albumID, PhotoID: photoID})
+	key, err := h.removePhoto(r.Context(), albumID, photoID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "照片不存在")
-			return
+			writeError(w, http.StatusNotFound, "相册或照片不存在")
+		} else {
+			writeError(w, http.StatusInternalServerError, "照片删除失败")
 		}
-		writeError(w, http.StatusInternalServerError, "照片读取失败")
 		return
 	}
-	deleted, err := h.queries.DeleteAlbumPhoto(r.Context(), dbgen.DeleteAlbumPhotoParams{AlbumID: albumID, PhotoID: photoID})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "照片删除失败")
-		return
-	}
-	if deleted == 0 {
-		writeError(w, http.StatusNotFound, "照片不存在")
-		return
-	}
-	if err := h.queries.ClearPhotoAlbumCoverIfRemoved(r.Context(), dbgen.ClearPhotoAlbumCoverIfRemovedParams{
-		AlbumID:      albumID,
-		CoverPhotoID: photoID,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "相册封面更新失败")
-		return
-	}
-	if _, err := h.queries.UpdateAssetStatus(r.Context(), dbgen.UpdateAssetStatusParams{
-		AssetID:   photo.AssetID,
-		Status:    dbgen.AssetStatusDeleted,
-		DeletedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "照片资源清理失败")
-		return
-	}
-	h.deleteObjectBestEffort(r, photo.StorageKey)
+	h.cleanupObjectAfterWrite(r.Context(), key)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -403,42 +359,16 @@ func (h Handler) reorderAlbumPhotos(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "请求体格式不正确")
 		return
 	}
-	existing, err := h.queries.ListAlbumPhotos(r.Context(), albumID)
+	rows, err := h.reorderPhotos(r.Context(), albumID, payload.PhotoIds)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "相册照片读取失败")
-		return
-	}
-	if len(payload.PhotoIds) != len(existing) {
-		writeError(w, http.StatusBadRequest, "排序数组必须包含相册内全部照片")
-		return
-	}
-	known := make(map[string]bool, len(existing))
-	for _, photo := range existing {
-		known[photo.PhotoID.String()] = true
-	}
-	photoIDs := make([]pgtype.UUID, 0, len(payload.PhotoIds))
-	positions := make([]int32, 0, len(payload.PhotoIds))
-	for index, rawID := range payload.PhotoIds {
-		id, err := uuidFromString(rawID)
-		if err != nil || !known[rawID] {
-			writeError(w, http.StatusBadRequest, "排序数组必须包含相册内全部照片且不重复")
-			return
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			writeError(w, http.StatusNotFound, "相册不存在")
+		case errors.Is(err, errPhotoOrder):
+			writeError(w, http.StatusBadRequest, errPhotoOrder.Error())
+		default:
+			writeError(w, http.StatusInternalServerError, "照片排序失败")
 		}
-		delete(known, rawID)
-		photoIDs = append(photoIDs, id)
-		positions = append(positions, int32(index+1))
-	}
-	if err := h.queries.ReorderAlbumPhotos(r.Context(), dbgen.ReorderAlbumPhotosParams{
-		PhotoIds:  photoIDs,
-		Positions: positions,
-		AlbumID:   albumID,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "照片排序失败")
-		return
-	}
-	rows, err := h.queries.ListAlbumPhotos(r.Context(), albumID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "相册照片读取失败")
 		return
 	}
 	writeJSON(w, http.StatusOK, mapAdminPhotos(rows))
@@ -457,36 +387,21 @@ func (h Handler) setAlbumCover(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "请求体格式不正确")
 		return
 	}
-	if _, err := h.queries.GetPhotoAlbumByID(r.Context(), albumID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "相册不存在")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "相册读取失败")
-		return
-	}
-	coverPhotoID := pgtype.UUID{}
+	coverID := pgtype.UUID{}
 	if payload.PhotoID != nil && *payload.PhotoID != "" {
-		photoID, err := uuidFromString(*payload.PhotoID)
+		var err error
+		coverID, err = uuidFromString(*payload.PhotoID)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "照片 ID 无效")
 			return
 		}
-		if _, err := h.queries.GetAlbumPhotoByID(r.Context(), dbgen.GetAlbumPhotoByIDParams{AlbumID: albumID, PhotoID: photoID}); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				writeError(w, http.StatusNotFound, "封面照片不存在于该相册")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "照片读取失败")
-			return
-		}
-		coverPhotoID = photoID
 	}
-	if _, err := h.queries.SetPhotoAlbumCover(r.Context(), dbgen.SetPhotoAlbumCoverParams{
-		AlbumID:      albumID,
-		CoverPhotoID: coverPhotoID,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "相册封面更新失败")
+	if err := h.setCoverPhoto(r.Context(), albumID, coverID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "相册或封面照片不存在")
+		} else {
+			writeError(w, http.StatusInternalServerError, "相册封面更新失败")
+		}
 		return
 	}
 	h.writeAdminAlbumByID(w, r, albumID)
@@ -715,5 +630,8 @@ func parseTakenAt(w http.ResponseWriter, raw *string) (pgtype.Timestamptz, bool)
 		writeError(w, http.StatusBadRequest, "拍摄时间格式不正确")
 		return pgtype.Timestamptz{}, false
 	}
-	return pgtype.Timestamptz{Time: taken, Valid: true}, true
+	return pgtype.Timestamptz{
+		Time:  taken,
+		Valid: true,
+	}, true
 }

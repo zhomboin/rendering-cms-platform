@@ -125,9 +125,12 @@ func (c *Client) Register(ctx context.Context, invitation, name string, grant Re
 		}
 	}
 	payload, err := json.Marshal(registrationInput{
-		Name: name, Environment: c.environment, SourceID: grant.SourceID, Accounts: grant.Accounts,
-		Scopes:     scopes,
-		Operations: []string{"save_draft"},
+		Name:        name,
+		Environment: c.environment,
+		SourceID:    grant.SourceID,
+		Accounts:    grant.Accounts,
+		Scopes:      scopes,
+		Operations:  []string{"save_draft"},
 	})
 	if err != nil {
 		return Registration{}, err
@@ -229,7 +232,11 @@ func (c *Client) request(ctx context.Context, method, path string, body []byte, 
 		if json.Unmarshal(raw, &upstream) == nil && errorCode.MatchString(upstream.Code) {
 			code = upstream.Code
 		}
-		return &UpstreamError{Status: resp.StatusCode, Code: code, RetryAfter: resp.Header.Get("Retry-After")}
+		return &UpstreamError{
+			Status:     resp.StatusCode,
+			Code:       code,
+			RetryAfter: resp.Header.Get("Retry-After"),
+		}
 	}
 	if err := json.Unmarshal(raw, result); err != nil {
 		return ErrUnavailable

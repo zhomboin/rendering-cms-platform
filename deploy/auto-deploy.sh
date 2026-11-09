@@ -113,12 +113,15 @@ notify() {
   escaped="${1//\\/\\\\}"
   escaped="${escaped//\"/\\\"}"
   curl -fsS -m 10 -X POST -H 'Content-Type: application/json' \
-    -d "{\"text\": \"$escaped\"}" "$NOTIFY_WEBHOOK" >/dev/null 2>&1 \
-    || log "警告：通知 webhook 调用失败"
+    -d "{\"text\": \"$escaped\"}" "$NOTIFY_WEBHOOK" >/dev/null 2>&1 ||
+    log "警告：通知 webhook 调用失败"
   return 0
 }
 
-die_preflight() { log "预检查失败：$1"; exit 1; }
+die_preflight() {
+  log "预检查失败：$1"
+  exit 1
+}
 
 postgres_running() {
   local id
@@ -127,22 +130,38 @@ postgres_running() {
   [ "$(docker inspect -f '{{.State.Running}}' "$id" 2>/dev/null || true)" = "true" ]
 }
 
-backup_postgres() {
+backup_postgres() (
   local file bytes
+  umask 077
   file="$BACKUP_DIR/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
   # 本函数由条件调用，不能依赖 set -e；pipefail 会捕获导出或压缩失败。
-  if ! compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$file"; then
+  if ! compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip >"$file"; then
     log "错误：PostgreSQL 导出或压缩失败：$file"
     return 1
   fi
-  [ -s "$file" ] || { log "错误：备份文件为空：$file"; return 1; }
-  gzip -t "$file" || { log "错误：备份文件 gzip 校验失败：$file"; return 1; }
+  [ -s "$file" ] || {
+    log "错误：备份文件为空：$file"
+    return 1
+  }
+  gzip -t "$file" || {
+    log "错误：备份文件 gzip 校验失败：$file"
+    return 1
+  }
   # 读完解压流再判断字节数，避免消费者提前结束导致 gzip 收到 SIGPIPE。
-  bytes="$(gzip -dc "$file" | wc -c)" || { log "错误：备份文件解压校验失败：$file"; return 1; }
-  [ "$bytes" -gt 0 ] || { log "错误：PostgreSQL 导出内容为空：$file"; return 1; }
-  chmod 600 "$file" || { log "错误：备份文件权限设置失败：$file"; return 1; }
+  bytes="$(gzip -dc "$file" | wc -c)" || {
+    log "错误：备份文件解压校验失败：$file"
+    return 1
+  }
+  [ "$bytes" -gt 0 ] || {
+    log "错误：PostgreSQL 导出内容为空：$file"
+    return 1
+  }
+  chmod 600 "$file" || {
+    log "错误：备份文件权限设置失败：$file"
+    return 1
+  }
   log "PostgreSQL 备份完成：$file（$(du -h "$file" | cut -f1)）"
-}
+)
 
 prune_backups() {
   local old
@@ -171,7 +190,7 @@ wait_health() {
 write_state() {
   local new_commit="$1" prev_recorded
   prev_recorded="$(grep -m1 '^LAST_SUCCESS_COMMIT=' "$STATE_FILE" 2>/dev/null | cut -d= -f2- || true)"
-  cat > "$STATE_FILE" <<EOF
+  cat >"$STATE_FILE" <<EOF
 LAST_SUCCESS_COMMIT=$new_commit
 LAST_SUCCESS_AT=$(date -Is)
 PREVIOUS_SUCCESS_COMMIT=${prev_recorded:-$PREV_COMMIT}
@@ -186,7 +205,10 @@ rollback_code() {
   log "回滚后重新构建旧版本镜像"
   compose build || return 1
   compose up -d backend frontend || return 1
-  wait_health || { log "回滚后健康检查仍未通过，请立即人工介入"; return 1; }
+  wait_health || {
+    log "回滚后健康检查仍未通过，请立即人工介入"
+    return 1
+  }
   log "代码回滚完成，服务已恢复到 $PREV_COMMIT"
 }
 
@@ -259,6 +281,13 @@ if [ -n "$(git_cmd status --porcelain --untracked-files=no)" ]; then
   exit 1
 fi
 
+# 自动部署仅维护已初始化且正在运行的数据库；首次部署走人工初始化流程。
+# 无法确认数据库状态时，不拉取应用、不启动容器，也不尝试 migration。
+if ! postgres_running; then
+  log "数据库状态无法确认：需要正在运行的 PostgreSQL 和有效备份，部署已中止。"
+  exit 1
+fi
+
 PREV_COMMIT="$LOCAL_COMMIT"
 NEW_COMMIT="$REMOTE_COMMIT"
 
@@ -271,11 +300,7 @@ git_cmd pull --ff-only "$GIT_REMOTE" "$GIT_BRANCH" || deploy_failed "git pull �
 
 compose build || deploy_failed "镜像构建失败"
 
-if postgres_running; then
-  backup_postgres || deploy_failed "数据库备份失败"
-else
-  log "警告：postgres 容器未运行，跳过本次备份（首次部署场景）。"
-fi
+backup_postgres || deploy_failed "数据库备份失败"
 
 compose --profile migrate run --rm migrate || deploy_failed_migrate
 

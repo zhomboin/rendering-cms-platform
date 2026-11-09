@@ -225,6 +225,15 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 	return string(ns.UserRole), nil
 }
 
+type AlbumObjectCleanup struct {
+	StorageKey    string
+	Attempts      int32
+	NextAttemptAt pgtype.Timestamptz
+	LeaseToken    string
+	LeaseUntil    pgtype.Timestamptz
+	CreatedAt     pgtype.Timestamptz
+}
+
 type AlbumPhoto struct {
 	PhotoID   pgtype.UUID
 	AlbumID   pgtype.UUID

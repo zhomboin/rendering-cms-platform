@@ -8,11 +8,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-rendering}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rendering_dev_password}
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - rendering_cms_postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rendering} -d ${POSTGRES_DB:-rendering_cms}"]
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-rendering} -d ${POSTGRES_DB:-rendering_cms}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,8 +28,8 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-rendering_dev_password}
       MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_API_CORS_ALLOW_ORIGIN:-http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - '9000:9000'
+      - '9001:9001'
     volumes:
       - rendering_cms_minio:/data
 
@@ -90,7 +91,7 @@ services:
       POSTBRIDGE_KEY_ID: ${POSTBRIDGE_KEY_ID:-}
       POSTBRIDGE_CLIENT_SECRET_FILE: ${POSTBRIDGE_CLIENT_SECRET_FILE:-}
     ports:
-      - "8080:8080"
+      - '8080:8080'
     depends_on:
       postgres:
         condition: service_healthy
@@ -120,7 +121,7 @@ services:
     environment:
       VITE_API_BASE: ${VITE_API_BASE:-http://127.0.0.1:8080/api/v1}
     ports:
-      - "5173:5173"
+      - '5173:5173'
     volumes:
       - ../..:/workspace
       - rendering_cms_frontend_node_modules:/workspace/frontend/node_modules
