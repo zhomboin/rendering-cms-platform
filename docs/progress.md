@@ -23,7 +23,7 @@
 
 ## Markdown 统一
 
-CMS 预览与后台阅读共用与博客相同的受控 MDX 核心，覆盖 GFM 表格、安全换行、JVM 名称兼容、一至六级标题与唯一目录锚点。19 项契约、4 项浏览器、20 项文章编辑回归与前端构建通过；三篇真实 Java 正文离线编译通过。本地代码检视通过，PR 待 CI，未合并、未部署。规则见 [Markdown](guides/markdown.md)，生产验收见当前任务 V11。
+CMS 预览与后台阅读共用与博客相同的受控 MDX 核心，覆盖 GFM 表格、安全换行、JVM 名称兼容、一至六级标题与唯一目录锚点。19 项契约、4 项浏览器、20 项文章编辑回归与前端构建通过；三篇真实 Java 正文离线编译通过。本地代码检视通过；[修复 PR #30](https://github.com/zhomboin/rendering-cms-platform/pull/30) 未合并、未部署，全量 CI 以对应提交的检查结果为准。规则见 [Markdown](guides/markdown.md)，生产验收见当前任务 V11。
 
 ## 本地验证
 
