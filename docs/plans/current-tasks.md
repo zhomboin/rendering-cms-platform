@@ -39,7 +39,7 @@
 
 ## Markdown 环境验收
 
-V11：统一解析规则的[CMS PR #30](https://github.com/zhomboin/rendering-cms-platform/pull/30) 与 [博客 PR #35](https://github.com/zhomboin/Rendering/pull/35) 未合并、未部署。代码与本地验证不关闭生产验收；待获部署授权后，核对 Java 正则、Stream、反汇编三篇的公开正文、表格、一至六级标题、目录跳转及手机显示，再单独核对 Pagefind。入口见 [Markdown 规则](../guides/markdown.md)。
+V11：统一解析规则的[CMS PR #30](https://github.com/zhomboin/rendering-cms-platform/pull/30) 与 [博客 PR #35](https://github.com/zhomboin/Rendering/pull/35) 的交付状态以对应 PR 为准。服务器按既有定时器自动部署；代码与本地验证不关闭生产验收，部署完成后核对 Java 正则、Stream、反汇编三篇的公开正文、表格、一至六级标题、目录跳转及手机显示，再单独核对 Pagefind。入口见 [Markdown 规则](../guides/markdown.md)。
 
 ## 代码维护评估
 
