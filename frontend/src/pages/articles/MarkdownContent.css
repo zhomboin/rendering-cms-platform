@@ -1,0 +1,117 @@
+.markdown-content {
+  color: #334155;
+  font-size: 16px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.markdown-content :is(h1, h2, h3, h4, h5, h6) {
+  color: #0f172a;
+  line-height: 1.4;
+  margin: 1.6em 0 0.65em;
+  scroll-margin-top: 24px;
+}
+.markdown-content h1 {
+  font-size: 1.9em;
+}
+.markdown-content h2 {
+  font-size: 1.6em;
+}
+.markdown-content h3 {
+  font-size: 1.3em;
+}
+.markdown-content h4 {
+  font-size: 1.15em;
+}
+.markdown-content h5 {
+  font-size: 1.05em;
+}
+.markdown-content h6 {
+  font-size: 1em;
+}
+.markdown-content > :first-child {
+  margin-top: 0;
+}
+.markdown-content p {
+  margin: 0 0 1em;
+}
+.markdown-content :is(ul, ol) {
+  padding-left: 1.6em;
+}
+.markdown-content blockquote {
+  margin: 1em 0;
+  padding: 0.75em 1em;
+  border-left: 3px solid #7c3aed;
+  background: #f8fafc;
+}
+.markdown-content code {
+  background: #f1f5f9;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+.markdown-content a {
+  color: #4f46e5;
+  text-decoration: underline;
+}
+.markdown-content img {
+  max-width: 100%;
+  height: auto;
+}
+.markdown-content input[type='checkbox'] {
+  margin-right: 0.5em;
+}
+.markdown-table {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 1em 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+.markdown-table:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+.markdown-table table {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+.markdown-table :is(th, td) {
+  padding: 10px 14px;
+  border-bottom: 1px solid #cbd5e1;
+  text-align: left;
+  vertical-align: top;
+  min-width: 100px;
+}
+.markdown-table th {
+  background: #f8fafc;
+  color: #0f172a;
+}
+.markdown-code {
+  margin: 1em 0;
+  background: #0f172a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.markdown-code__toolbar {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 14px;
+  color: #e2e8f0;
+}
+.markdown-code__toolbar button {
+  color: inherit;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.markdown-code pre {
+  margin: 0;
+  padding: 14px;
+  overflow-x: auto;
+  color: #e2e8f0;
+}
+.markdown-code pre code {
+  padding: 0;
+  background: transparent;
+  white-space: pre;
+}

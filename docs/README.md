@@ -10,6 +10,7 @@
 - [数据库说明](sql/schema.md)：数据表、索引、隐私字段与迁移规则。
 - [Go 后端导读](guides/go-backend-guide.md)、[前端架构](guides/frontend-architecture.md)、[前端设计](guides/frontend-design.md)。
 - [首页说明](guides/dashboard.md)：模块、统计口径与验证入口。
+- [Markdown 与目录](guides/markdown.md)：与博客统一的正文规则、安全边界和验证入口。
 - [文章编辑与插图](guides/article-images.md)：英文名、封面、标签、插图来源及验证入口。
 - [文件](apis/assets.md)与[相册](apis/photos.md)：图片 50MB、其它文件 20MB 的上传边界及接口规则。
 
