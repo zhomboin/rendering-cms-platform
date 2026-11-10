@@ -135,3 +135,5 @@ rendering-cms-platform/
 CMS 提供认证、文章管理、修订与私有阅读、统计、评论、文件、相册及后台首页；管理端根路径进入仪表盘，公开阅读由 Rendering 博客负责。完整能力见 [技术基线](docs/cms-platform-technical-recommendation.zh-CN.md)。
 
 代码实现、本地验证和生产验收分别记录。当前待办统一见 [任务清单](docs/plans/current-tasks.md)，整体状态见 [项目进度](docs/progress.md)。
+
+正文预览、表格与目录支持见 [Markdown 规则](docs/guides/markdown.md)。

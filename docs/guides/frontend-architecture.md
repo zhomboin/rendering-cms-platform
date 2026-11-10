@@ -55,8 +55,8 @@ frontend/
       articles/ArticleListPage.tsx
       articles/ArticleReadingPage.tsx
       articles/MdxPreview.tsx
-      articles/MdxPreviewParser.ts
-      articles/MdxBlockRenderer.tsx
+      articles/useArticleMarkdown.ts
+      articles/MarkdownContent.tsx
       articles/revisionDiff.ts
       assets/AssetsPage.tsx
       auth/LoginPage.tsx
@@ -149,9 +149,12 @@ cd /home/ubuntu/workspace/rendering-cms-platform
 grep -RIn -E '\bapi(Get|Post|Patch)\b|\bapiClient\b|\bfetch\s*[(]|\baxios\b' frontend/src/pages frontend/src/layouts
 ```
 
-
 ## 首页模块
 
 首页由 dashboard 目录内的页面、趋势、图文集合、概况区块、共享状态和格式工具组合。所有数据请求封装在 [dashboard API](../../frontend/src/api/dashboard.ts) 与 [analytics API](../../frontend/src/api/analytics.ts)，按统计区间区分查询缓存。模块职责与验证入口见 [首页说明](dashboard.md)。
 
 TypeScript 构建启用未使用局部声明和参数检查，删除失效请求时同步移除其专用类型，保留仍被调用的接口。
+
+## 文章正文
+
+编辑预览与后台阅读共同调用 frontend/src/markdown/ 的受控解析核心，React 展示与异步结果管理位于文章页面模块；[规则、目录与验证](markdown.md)是正文维护入口。

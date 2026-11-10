@@ -1,12 +1,17 @@
 import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Alert, Button, Empty, Skeleton, Space, Tag } from 'antd';
-import { ArrowLeftOutlined, EditOutlined, CalendarOutlined, HistoryOutlined } from '@ant-design/icons';
+import {
+  ArrowLeftOutlined,
+  EditOutlined,
+  CalendarOutlined,
+  HistoryOutlined,
+} from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { listAdminArticles } from '../../api/articles';
 import type { ArticleStatus } from '../../api/articles';
-import { MdxBlockRenderer, collectHeadingAnchors } from './MdxBlockRenderer';
-import { parsePreviewBlocks } from './MdxPreviewParser';
+import { MarkdownContent } from './MarkdownContent';
+import { useArticleMarkdown } from './useArticleMarkdown';
 import './ArticleReadingPage.css';
 
 const statusConfig: Record<ArticleStatus, { color: string; label: string }> = {
@@ -42,11 +47,8 @@ export default function ArticleReadingPage() {
     [articlesQuery.data, id],
   );
 
-  const blocks = useMemo(() => parsePreviewBlocks(article?.bodyMdx ?? ''), [article?.bodyMdx]);
-  const headings = useMemo(
-    () => collectHeadingAnchors(blocks, id ?? 'article'),
-    [blocks, id],
-  );
+  const parsed = useArticleMarkdown(article?.bodyMdx ?? '');
+  const headings = parsed.article?.headings ?? [];
 
   const handleTocClick = (anchorId: string) => (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -93,7 +95,9 @@ export default function ArticleReadingPage() {
           <Alert
             type="error"
             showIcon
-            message={articlesQuery.error instanceof Error ? articlesQuery.error.message : '文章读取失败'}
+            message={
+              articlesQuery.error instanceof Error ? articlesQuery.error.message : '文章读取失败'
+            }
             action={
               <Button size="small" onClick={() => articlesQuery.refetch()}>
                 重试
@@ -145,10 +149,10 @@ export default function ArticleReadingPage() {
             </header>
 
             <div className="article-reading__body">
-              {blocks.length === 0 ? (
+              {!article.bodyMdx.trim() ? (
                 <Empty description="暂无正文内容" image={Empty.PRESENTED_IMAGE_SIMPLE} />
               ) : (
-                <MdxBlockRenderer blocks={blocks} variant="reading" headingIdPrefix={id ?? 'article'} />
+                <MarkdownContent {...parsed} />
               )}
             </div>
           </main>
@@ -163,7 +167,7 @@ export default function ArticleReadingPage() {
                   data-level={heading.level}
                   onClick={handleTocClick(heading.id)}
                 >
-                  {heading.text}
+                  {heading.heading}
                 </a>
               ))}
             </nav>

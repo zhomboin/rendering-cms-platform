@@ -1,0 +1,16 @@
+{
+  "contract": "rendering-markdown-1",
+  "dependencies": {
+    "@mdx-js/mdx": "3.1.1",
+    "mdast-util-from-markdown": "2.1.0",
+    "mdast-util-gfm": "3.1.0",
+    "micromark-extension-gfm": "3.0.0",
+    "remark-gfm": "4.0.1"
+  },
+  "files": {
+    "engine.js": "51c9187979153c2578306a02110d01495ca97a583564d880217c687eeab050ef",
+    "headings.js": "22f3b3aa884d61c5e6bcfe315f9f3edcb8d690d9cbb02e36a1d75b592d5c80a1",
+    "safety.js": "d0ccbdea8ceff34774fc84e5574a5c80c8e8f94349ef18526879064a7f2f5ea8",
+    "engine.test.js": "7583a59dae8ec120c5c168317dc7e986ba55f092524ece2aab785542531365d9"
+  }
+}

@@ -6,6 +6,10 @@
 
 正文插图可上传、手动填写地址，或从相册及资源中选择已有长期公开地址的图片；支持预览、搜索与多选，按打开弹窗时的正文选区插入。选择不复制图片，不改变权限、资源或相册状态，不使用临时下载签名。使用说明见 [文章插图](../guides/article-images.md)。
 
+## 正文格式
+
+bodyMdx 使用与博客一致的受控 Markdown/MDX 规则，包含 GFM 表格、一至六级标题、目录和静态图片组件。支持范围与校验入口见 [Markdown 规则](../guides/markdown.md)。保存和发布接口不执行博客页面生成，不代表正文已通过博客编译或已刷新。
+
 ## 数据模型
 
 以下完整模型只用于后台文章管理接口，公开接口使用后续章节定义的最小字段集合：
@@ -71,17 +75,17 @@ GET /api/v1/articles
 
 公开列表字段：
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `slug` / `canonicalSlug` | string | 6 位 canonical 短链码 |
-| `articleName` | string | 兼容期文章英文名 |
-| `title` / `summary` | string | 标题与摘要 |
-| `tags` | string[] | 标签 |
-| `publishedAt` / `updatedAt` | string/null | 发布时间与更新时间 |
-| `isFeatured` | boolean | 是否精选 |
-| `featuredRank` | number | 精选排序 |
-| `featuredAt` | string/null | 精选设置时间 |
-| `coverImageUrl` | string/null | 封面地址 |
+| 字段                        | 类型        | 说明                  |
+| --------------------------- | ----------- | --------------------- |
+| `slug` / `canonicalSlug`    | string      | 6 位 canonical 短链码 |
+| `articleName`               | string      | 兼容期文章英文名      |
+| `title` / `summary`         | string      | 标题与摘要            |
+| `tags`                      | string[]    | 标签                  |
+| `publishedAt` / `updatedAt` | string/null | 发布时间与更新时间    |
+| `isFeatured`                | boolean     | 是否精选              |
+| `featuredRank`              | number      | 精选排序              |
+| `featuredAt`                | string/null | 精选设置时间          |
+| `coverImageUrl`             | string/null | 封面地址              |
 
 列表明确不返回 `bodyMdx`、`articleId`、`authorId`、`version` 和其他后台字段。
 
@@ -133,12 +137,12 @@ ETag: "<sha256>"
 
 应用层和 Nginx 会分别限制公开读取与搜索压力。超过速率返回 `429 Too Many Requests` 并携带 `Retry-After`；超过应用并发上限时返回 `503 Service Unavailable` 和 `Retry-After: 1`。后台、登录和写入接口不使用公开读取桶，但在 Nginx 边界有独立额度。
 
-| 状态码 | 语义 |
-|---|---|
-| `400` | 搜索词为空或超过 100 个 Unicode 字符 |
-| `404` | 标识符非法、文章不存在或未发布 |
-| `429` | 触发边界或应用速率限制 |
-| `500` | 数据库或服务内部错误，不允许缓存 |
+| 状态码 | 语义                                 |
+| ------ | ------------------------------------ |
+| `400`  | 搜索词为空或超过 100 个 Unicode 字符 |
+| `404`  | 标识符非法、文章不存在或未发布       |
+| `429`  | 触发边界或应用速率限制               |
+| `500`  | 数据库或服务内部错误，不允许缓存     |
 
 ## 文章状态流转
 

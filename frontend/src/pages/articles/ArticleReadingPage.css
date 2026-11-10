@@ -113,7 +113,9 @@
   color: #475569;
   line-height: 1.6;
   text-decoration: none;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .article-reading__toc a:hover {
@@ -151,4 +153,14 @@
   .article-reading__title {
     font-size: 26px;
   }
+}
+
+.article-reading__toc a[data-level='4'] {
+  padding-left: 48px;
+}
+.article-reading__toc a[data-level='5'] {
+  padding-left: 60px;
+}
+.article-reading__toc a[data-level='6'] {
+  padding-left: 72px;
 }
