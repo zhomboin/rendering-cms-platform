@@ -44,16 +44,33 @@ ASSUME_YES=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --commit)
-      [ $# -ge 2 ] || { echo "参数错误：--commit 需要提交号" >&2; exit 2; }
-      TARGET_COMMIT="$2"; shift 2 ;;
+      [ $# -ge 2 ] || {
+        echo "参数错误：--commit 需要提交号" >&2
+        exit 2
+      }
+      TARGET_COMMIT="$2"
+      shift 2
+      ;;
     --backup)
-      [ $# -ge 2 ] || { echo "参数错误：--backup 需要文件路径或 latest" >&2; exit 2; }
-      BACKUP_FILE="$2"; shift 2 ;;
-    --yes|-y) ASSUME_YES=true; shift ;;
-    -h|--help)
+      [ $# -ge 2 ] || {
+        echo "参数错误：--backup 需要文件路径或 latest" >&2
+        exit 2
+      }
+      BACKUP_FILE="$2"
+      shift 2
+      ;;
+    --yes | -y)
+      ASSUME_YES=true
+      shift
+      ;;
+    -h | --help)
       sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//'
-      exit 0 ;;
-    *) echo "未知参数：$1（使用 --help 查看用法）" >&2; exit 2 ;;
+      exit 0
+      ;;
+    *)
+      echo "未知参数：$1（使用 --help 查看用法）" >&2
+      exit 2
+      ;;
   esac
 done
 
@@ -73,7 +90,12 @@ git_cmd() {
   fi
 }
 
-compose() { docker compose --env-file "$PRODUCTION_ENV_FILE" -f "$COMPOSE_FILE" "$@"; }
+compose() {
+  APP_IMAGE_TAG="$DEPLOY_IMAGE_TAG" docker compose --env-file "$PRODUCTION_ENV_FILE" -f "$COMPOSE_FILE" "$@"
+}
+
+# shellcheck source=deploy/build-images.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/build-images.sh"
 
 wait_health() {
   local i
@@ -100,8 +122,14 @@ fi
 # ---------------------------------------------------------------------------
 # 计算回滚目标
 # ---------------------------------------------------------------------------
-[ -d "$APP_DIR/.git" ] || { log "错误：$APP_DIR 不是 Git 仓库"; exit 1; }
-[ -r "$PRODUCTION_ENV_FILE" ] || { log "错误：缺少 $PRODUCTION_ENV_FILE"; exit 1; }
+[ -d "$APP_DIR/.git" ] || {
+  log "错误：$APP_DIR 不是 Git 仓库"
+  exit 1
+}
+[ -r "$PRODUCTION_ENV_FILE" ] || {
+  log "错误：缺少 $PRODUCTION_ENV_FILE"
+  exit 1
+}
 
 LAST_SUCCESS="$(grep -m1 '^LAST_SUCCESS_COMMIT=' "$STATE_FILE" 2>/dev/null | cut -d= -f2- || true)"
 PREV_SUCCESS="$(grep -m1 '^PREVIOUS_SUCCESS_COMMIT=' "$STATE_FILE" 2>/dev/null | cut -d= -f2- || true)"
@@ -113,15 +141,25 @@ if [ -z "$TARGET_COMMIT" ]; then
     TARGET_COMMIT="$(git_cmd rev-parse "${LAST_SUCCESS}^" 2>/dev/null || true)"
   fi
 fi
-[ -n "$TARGET_COMMIT" ] || { log "错误：无法确定回滚目标提交，请用 --commit <sha> 指定。"; exit 1; }
-git_cmd rev-parse --verify -q "$TARGET_COMMIT^{commit}" >/dev/null \
-  || { log "错误：提交不存在：$TARGET_COMMIT"; exit 1; }
+[ -n "$TARGET_COMMIT" ] || {
+  log "错误：无法确定回滚目标提交，请用 --commit <sha> 指定。"
+  exit 1
+}
+git_cmd rev-parse --verify -q "$TARGET_COMMIT^{commit}" >/dev/null ||
+  {
+    log "错误：提交不存在：$TARGET_COMMIT"
+    exit 1
+  }
 TARGET_COMMIT="$(git_cmd rev-parse "$TARGET_COMMIT^{commit}")"
+DEPLOY_IMAGE_TAG="commit-$TARGET_COMMIT"
 
 # 解析数据库备份
 if [ -n "$BACKUP_FILE" ] && [ "$BACKUP_FILE" = "latest" ]; then
   BACKUP_FILE="$(ls -1t "$BACKUP_DIR"/rendering-cms-*.sql.gz "$BACKUP_DIR"/rendering-cms-*.sql 2>/dev/null | head -n 1 || true)"
-  [ -n "$BACKUP_FILE" ] || { log "错误：$BACKUP_DIR 下没有可用的数据库备份。"; exit 1; }
+  [ -n "$BACKUP_FILE" ] || {
+    log "错误：$BACKUP_DIR 下没有可用的数据库备份。"
+    exit 1
+  }
 fi
 if [ -n "$BACKUP_FILE" ] && [ ! -f "$BACKUP_FILE" ]; then
   log "错误：备份文件不存在：$BACKUP_FILE"
@@ -140,7 +178,10 @@ if [ -n "$BACKUP_FILE" ]; then
 fi
 if [ "$ASSUME_YES" != "true" ]; then
   read -r -p "确认执行回滚？(输入 yes 继续)：" answer
-  [ "$answer" = "yes" ] || { log "已取消。"; exit 1; }
+  [ "$answer" = "yes" ] || {
+    log "已取消。"
+    exit 1
+  }
 fi
 
 # ---------------------------------------------------------------------------
@@ -155,9 +196,15 @@ fi
 
 if [ -n "$BACKUP_FILE" ]; then
   if [[ "$BACKUP_FILE" == *.gz ]]; then
-    gzip -t "$BACKUP_FILE" || { log "错误：备份 gzip 校验失败，已中止。"; exit 1; }
+    gzip -t "$BACKUP_FILE" || {
+      log "错误：备份 gzip 校验失败，已中止。"
+      exit 1
+    }
   fi
-  [ -s "$BACKUP_FILE" ] || { log "错误：备份文件为空，已中止。"; exit 1; }
+  [ -s "$BACKUP_FILE" ] || {
+    log "错误：备份文件为空，已中止。"
+    exit 1
+  }
 
   log "停止 backend，避免恢复期间继续写入……"
   compose stop backend
@@ -175,7 +222,7 @@ if [ -n "$BACKUP_FILE" ]; then
   if [[ "$BACKUP_FILE" == *.gz ]]; then
     gzip -dc "$BACKUP_FILE" | compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
   else
-    compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$BACKUP_FILE"
+    compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <"$BACKUP_FILE"
   fi
   log "数据库恢复完成。"
 fi
@@ -184,16 +231,20 @@ log "回滚代码到 $TARGET_COMMIT ……"
 git_cmd reset --hard "$TARGET_COMMIT"
 
 log "重建镜像并启动应用……"
-compose build
+compose_build
 compose up -d backend frontend
 
-wait_health || { log "回滚后健康检查失败，请查看容器日志：docker compose logs backend"; exit 1; }
+wait_health || {
+  log "回滚后健康检查失败，请查看容器日志：docker compose logs backend"
+  exit 1
+}
 
 # 更新状态文件，把本次回滚记录为当前成功状态
-cat > "$STATE_FILE" <<EOF
+cat >"$STATE_FILE" <<EOF
 LAST_SUCCESS_COMMIT=$TARGET_COMMIT
 LAST_SUCCESS_AT=$(date -Is)
 PREVIOUS_SUCCESS_COMMIT=${LAST_SUCCESS:-}
+LAST_IMAGE_TAG=$DEPLOY_IMAGE_TAG
 EOF
 
 log "==== 回滚完成：$TARGET_COMMIT ===="

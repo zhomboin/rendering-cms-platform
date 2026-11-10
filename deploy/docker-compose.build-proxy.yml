@@ -1,0 +1,22 @@
+# 安装到仓库外的受保护配置目录；仅由 compose_build 加载。
+x-build-proxy: &build-proxy
+  HTTP_PROXY: ${CMS_BUILD_PROXY:?CMS_BUILD_PROXY is required}
+  HTTPS_PROXY: ${CMS_BUILD_PROXY:?CMS_BUILD_PROXY is required}
+  http_proxy: ${CMS_BUILD_PROXY:?CMS_BUILD_PROXY is required}
+  https_proxy: ${CMS_BUILD_PROXY:?CMS_BUILD_PROXY is required}
+  NO_PROXY: ${CMS_BUILD_NO_PROXY:-localhost,127.0.0.1,::1}
+  no_proxy: ${CMS_BUILD_NO_PROXY:-localhost,127.0.0.1,::1}
+
+services:
+  backend:
+    build:
+      network: host
+      entitlements:
+        - network.host
+      args: *build-proxy
+  frontend:
+    build:
+      network: host
+      entitlements:
+        - network.host
+      args: *build-proxy

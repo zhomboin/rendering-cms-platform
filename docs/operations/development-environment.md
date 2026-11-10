@@ -368,3 +368,7 @@ bash scripts/env/stop-dev-services.sh
 - 不要把上传文件写入 Git 或 `frontend/public/`。
 - 开发环境 MinIO 只用于本地联调，不等同于生产 MinIO 的 HTTPS 域名、凭据和备份模型。
 - 生产 migration 前必须先备份 PostgreSQL。
+
+## 部署脚本隔离验证
+
+迁移部署脚本的针对性测试入口见 [部署收尾](deploy-readiness.md#本地检查与环境证据)。测试在 temp 内运行 Git 和外部工具替身，不启动数据库或容器。修改部署脚本不要求在本地重复前后端全量构建，完整应用验证交由 GitHub CI。

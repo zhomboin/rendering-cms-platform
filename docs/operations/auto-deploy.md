@@ -165,3 +165,11 @@ sudo bash deploy/setup.sh --user rendering-deploy
 - 自动部署覆盖「发布更新」章节的全部步骤，是生产默认发布方式。
 - 手动流程（`docs/operations/deployment.md`）仍是基线 SOP：排查故障、首次部署、执行特殊操作（如更换对象存储、恢复数据库）时使用手动流程，并先 `sudo systemctl stop cms-rendering-deploy.timer` 暂停自动部署。
 - migration 相关安全规则不变：生产 migration 前自动备份 PostgreSQL，恢复与回滚决策见 `docs/operations/restore.md`。
+
+## 完整收尾与构建代理
+
+启用前逐项完成 [部署收尾清单](deploy-readiness.md)。自动部署只维护已初始化且运行中的 PostgreSQL，无法确认状态时在应用拉取、构建与 migration 前中止；首次初始化走人工部署。
+
+正常发布与源码回退共用 deploy/build-images.sh，代理配置见 deploy/auto-deploy.env.example。BUILD_PROXY_COMPOSE_FILE 应放在仓库外，回退时仍然可读。构建按提交生成 commit-完整提交号标签，成功状态保存 LAST_IMAGE_TAG，PRUNE_IMAGES 默认 false。
+
+隔离测试及 CI 通过不等于完成生产发布验收。定时器关闭是可明确保留的运行状态，不能由安装脚本或构建成功自动变为启用。
