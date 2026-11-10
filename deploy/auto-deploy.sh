@@ -44,7 +44,7 @@ DEPLOY_ENV_FILE="${DEPLOY_ENV_FILE:-/etc/rendering-cms/deploy.env}"
 : "${HEALTH_INTERVAL:=5}"
 : "${BACKUP_KEEP:=14}"
 : "${AUTO_ROLLBACK:=true}"
-: "${PRUNE_IMAGES:=true}"
+: "${PRUNE_IMAGES:=false}"
 : "${NOTIFY_WEBHOOK:=}"
 
 # 备份保留数必须是正整数，防止误配置（如 0）时把备份全部清掉
@@ -104,7 +104,16 @@ as_repo_user() {
 
 git_cmd() { as_repo_user git -C "$APP_DIR" "$@"; }
 
-compose() { docker compose --env-file "$PRODUCTION_ENV_FILE" -f "$COMPOSE_FILE" "$@"; }
+compose() {
+  if [[ -n "${DEPLOY_IMAGE_TAG:-}" ]]; then
+    APP_IMAGE_TAG="$DEPLOY_IMAGE_TAG" docker compose --env-file "$PRODUCTION_ENV_FILE" -f "$COMPOSE_FILE" "$@"
+  else
+    docker compose --env-file "$PRODUCTION_ENV_FILE" -f "$COMPOSE_FILE" "$@"
+  fi
+}
+
+# shellcheck source=deploy/build-images.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/build-images.sh"
 
 # 可选 webhook 通知；未配置时为空操作，不影响退出码。
 notify() {
@@ -113,12 +122,15 @@ notify() {
   escaped="${1//\\/\\\\}"
   escaped="${escaped//\"/\\\"}"
   curl -fsS -m 10 -X POST -H 'Content-Type: application/json' \
-    -d "{\"text\": \"$escaped\"}" "$NOTIFY_WEBHOOK" >/dev/null 2>&1 \
-    || log "警告：通知 webhook 调用失败"
+    -d "{\"text\": \"$escaped\"}" "$NOTIFY_WEBHOOK" >/dev/null 2>&1 ||
+    log "警告：通知 webhook 调用失败"
   return 0
 }
 
-die_preflight() { log "预检查失败：$1"; exit 1; }
+die_preflight() {
+  log "预检查失败：$1"
+  exit 1
+}
 
 postgres_running() {
   local id
@@ -127,22 +139,38 @@ postgres_running() {
   [ "$(docker inspect -f '{{.State.Running}}' "$id" 2>/dev/null || true)" = "true" ]
 }
 
-backup_postgres() {
+backup_postgres() (
   local file bytes
+  umask 077
   file="$BACKUP_DIR/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
   # 本函数由条件调用，不能依赖 set -e；pipefail 会捕获导出或压缩失败。
-  if ! compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$file"; then
+  if ! compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip >"$file"; then
     log "错误：PostgreSQL 导出或压缩失败：$file"
     return 1
   fi
-  [ -s "$file" ] || { log "错误：备份文件为空：$file"; return 1; }
-  gzip -t "$file" || { log "错误：备份文件 gzip 校验失败：$file"; return 1; }
+  [ -s "$file" ] || {
+    log "错误：备份文件为空：$file"
+    return 1
+  }
+  gzip -t "$file" || {
+    log "错误：备份文件 gzip 校验失败：$file"
+    return 1
+  }
   # 读完解压流再判断字节数，避免消费者提前结束导致 gzip 收到 SIGPIPE。
-  bytes="$(gzip -dc "$file" | wc -c)" || { log "错误：备份文件解压校验失败：$file"; return 1; }
-  [ "$bytes" -gt 0 ] || { log "错误：PostgreSQL 导出内容为空：$file"; return 1; }
-  chmod 600 "$file" || { log "错误：备份文件权限设置失败：$file"; return 1; }
+  bytes="$(gzip -dc "$file" | wc -c)" || {
+    log "错误：备份文件解压校验失败：$file"
+    return 1
+  }
+  [ "$bytes" -gt 0 ] || {
+    log "错误：PostgreSQL 导出内容为空：$file"
+    return 1
+  }
+  chmod 600 "$file" || {
+    log "错误：备份文件权限设置失败：$file"
+    return 1
+  }
   log "PostgreSQL 备份完成：$file（$(du -h "$file" | cut -f1)）"
-}
+)
 
 prune_backups() {
   local old
@@ -171,10 +199,11 @@ wait_health() {
 write_state() {
   local new_commit="$1" prev_recorded
   prev_recorded="$(grep -m1 '^LAST_SUCCESS_COMMIT=' "$STATE_FILE" 2>/dev/null | cut -d= -f2- || true)"
-  cat > "$STATE_FILE" <<EOF
+  cat >"$STATE_FILE" <<EOF
 LAST_SUCCESS_COMMIT=$new_commit
 LAST_SUCCESS_AT=$(date -Is)
 PREVIOUS_SUCCESS_COMMIT=${prev_recorded:-$PREV_COMMIT}
+LAST_IMAGE_TAG=$DEPLOY_IMAGE_TAG
 EOF
 }
 
@@ -183,10 +212,14 @@ EOF
 rollback_code() {
   log "开始代码回滚：git reset --hard $PREV_COMMIT"
   git_cmd reset --hard "$PREV_COMMIT" || return 1
+  DEPLOY_IMAGE_TAG="commit-$PREV_COMMIT"
   log "回滚后重新构建旧版本镜像"
-  compose build || return 1
+  compose_build || return 1
   compose up -d backend frontend || return 1
-  wait_health || { log "回滚后健康检查仍未通过，请立即人工介入"; return 1; }
+  wait_health || {
+    log "回滚后健康检查仍未通过，请立即人工介入"
+    return 1
+  }
   log "代码回滚完成，服务已恢复到 $PREV_COMMIT"
 }
 
@@ -259,8 +292,15 @@ if [ -n "$(git_cmd status --porcelain --untracked-files=no)" ]; then
   exit 1
 fi
 
+# 自动部署只维护已初始化数据库；状态未知时不拉取应用、构建或迁移。
+if ! postgres_running; then
+  log "数据库状态无法确认：需要正在运行的 PostgreSQL 和有效备份，部署已中止。"
+  exit 1
+fi
+
 PREV_COMMIT="$LOCAL_COMMIT"
 NEW_COMMIT="$REMOTE_COMMIT"
+DEPLOY_IMAGE_TAG="commit-$NEW_COMMIT"
 
 log "检测到新提交：$PREV_COMMIT -> $NEW_COMMIT"
 log "待发布提交："
@@ -269,13 +309,13 @@ git_cmd log --oneline --no-decorate "$PREV_COMMIT..$NEW_COMMIT" || true
 # 5. 按固定 SOP 依次执行：pull -> build -> backup -> migrate -> up -> health
 git_cmd pull --ff-only "$GIT_REMOTE" "$GIT_BRANCH" || deploy_failed "git pull 失败（非快进或网络异常）"
 
-compose build || deploy_failed "镜像构建失败"
-
-if postgres_running; then
-  backup_postgres || deploy_failed "数据库备份失败"
-else
-  log "警告：postgres 容器未运行，跳过本次备份（首次部署场景）。"
+if [[ "$(git_cmd rev-parse HEAD)" != "$NEW_COMMIT" ]]; then
+  deploy_failed "拉取后的提交与预检提交不一致"
 fi
+
+compose_build || deploy_failed "镜像构建失败"
+
+backup_postgres || deploy_failed "数据库备份失败"
 
 compose --profile migrate run --rm migrate || deploy_failed_migrate
 

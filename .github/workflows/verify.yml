@@ -89,3 +89,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: 校验容器与公网代理配置
         run: bash scripts/env/check-nginx-config.sh
+
+  deployment:
+    name: 部署保护与代理
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: 验证部署异常路径
+        run: |
+          bash -n deploy/auto-deploy.sh deploy/rollback.sh deploy/build-images.sh
+          python3 scripts/env/test-auto-deploy-backup.py
+          python3 scripts/env/test-auto-deploy-logging.py
+          python3 scripts/env/test-build-proxy.py
