@@ -37,7 +37,7 @@ CMS 预览与后台阅读共用与博客相同的受控 MDX 核心，覆盖 GFM 
 | 代理配置   | 本地脚本语法检查通过；真实 Nginx 配置检查由 CI 独立任务执行                                    |
 | 文档与差异 | UTF-8 无 BOM、Markdown 相对链接与差异检查通过                                                  |
 
-全量后端、数据库、MDX、相册、首页、文章插图与资源边界回归由 [GitHub CI](../.github/workflows/verify.yml) 执行。构建保留现有包体大小提示，不影响构建结果。
+全量后端、数据库、MDX、相册、首页、文章插图与资源边界回归由 [GitHub CI](../.github/workflows/verify.yml) 执行。前端 CI 使用与锁定依赖版本一致的 Playwright 镜像运行浏览器回归。构建保留现有包体大小提示，不影响构建结果。
 
 ## 环境验收
 
