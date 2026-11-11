@@ -10,6 +10,7 @@
 | 登录           | 密码、失败锁定、风险触发邮箱验证码                                                         | [认证 API](apis/auth.md)                                                    |
 | 相册与文件     | 相册管理、上传进度与预览、图片 50MB／其它文件 20MB、对象存储和下载审计                     | [相册 API](apis/photos.md)、[文件 API](apis/assets.md)                      |
 | 首页与统计     | 7／30／90 天趋势、内容图文展示、待办与资源概况                                             | [首页说明](guides/dashboard.md)、[统计 API](apis/analytics.md)              |
+| 后台界面       | 浅色拟物主题、手机至 4K 自适应，媒体上传按文件反馈                                     | [前端设计](guides/frontend-design.md)                                       |
 | 评论           | 匿名提交、默认待审核与后台审核                                                             | [评论 API](apis/comments.md)                                                |
 | 公开接口与部署 | PostgreSQL 搜索、缓存、应用限流及自动部署保护                                              | [部署说明](operations/deployment.md)、[自动部署](operations/auto-deploy.md) |
 
@@ -36,7 +37,7 @@ CMS 预览与后台阅读共用与博客相同的受控 MDX 核心，覆盖 GFM 
 | 代理配置   | 本地脚本语法检查通过；真实 Nginx 配置检查由 CI 独立任务执行                                    |
 | 文档与差异 | UTF-8 无 BOM、Markdown 相对链接与差异检查通过                                                  |
 
-全量后端、数据库、MDX、相册、首页、文章插图与资源边界回归由 [GitHub CI](../.github/workflows/verify.yml) 执行。构建保留现有包体大小提示，不影响构建结果。
+全量后端、数据库、MDX、相册、首页、文章插图与资源边界回归由 [GitHub CI](../.github/workflows/verify.yml) 执行。前端 CI 使用与锁定依赖版本一致的 Playwright 镜像运行浏览器回归。构建保留现有包体大小提示，不影响构建结果。
 
 ## 环境验收
 

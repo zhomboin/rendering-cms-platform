@@ -1,12 +1,12 @@
 .markdown-content {
-  color: #334155;
+  color: var(--cms-ink);
   font-size: 16px;
   line-height: 1.85;
   overflow-wrap: anywhere;
   min-width: 0;
 }
 .markdown-content :is(h1, h2, h3, h4, h5, h6) {
-  color: #0f172a;
+  color: var(--cms-ink);
   line-height: 1.4;
   margin: 1.6em 0 0.65em;
   scroll-margin-top: 24px;
@@ -41,16 +41,16 @@
 .markdown-content blockquote {
   margin: 1em 0;
   padding: 0.75em 1em;
-  border-left: 3px solid #7c3aed;
-  background: #f8fafc;
+  border-left: 3px solid var(--cms-primary);
+  background: var(--cms-canvas);
 }
 .markdown-content code {
-  background: #f1f5f9;
+  background: var(--cms-well);
   padding: 2px 5px;
   border-radius: 4px;
 }
 .markdown-content a {
-  color: #4f46e5;
+  color: var(--cms-primary);
   text-decoration: underline;
 }
 .markdown-content img {
@@ -64,11 +64,11 @@
   max-width: 100%;
   overflow-x: auto;
   margin: 1em 0;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--cms-line);
   border-radius: 8px;
 }
 .markdown-table:focus-visible {
-  outline: 2px solid #4f46e5;
+  outline: 2px solid var(--cms-primary);
   outline-offset: 2px;
 }
 .markdown-table table {
@@ -77,18 +77,18 @@
 }
 .markdown-table :is(th, td) {
   padding: 10px 14px;
-  border-bottom: 1px solid #cbd5e1;
+  border-bottom: 1px solid var(--cms-line);
   text-align: left;
   vertical-align: top;
   min-width: 100px;
 }
 .markdown-table th {
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--cms-canvas);
+  color: var(--cms-ink);
 }
 .markdown-code {
   margin: 1em 0;
-  background: #0f172a;
+  background: var(--cms-ink);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -96,7 +96,7 @@
   display: flex;
   justify-content: space-between;
   padding: 6px 14px;
-  color: #e2e8f0;
+  color: var(--cms-line);
 }
 .markdown-code__toolbar button {
   color: inherit;
@@ -108,7 +108,7 @@
   margin: 0;
   padding: 14px;
   overflow-x: auto;
-  color: #e2e8f0;
+  color: var(--cms-line);
 }
 .markdown-code pre code {
   padding: 0;

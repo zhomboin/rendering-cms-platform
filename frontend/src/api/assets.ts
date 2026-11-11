@@ -47,7 +47,13 @@ export async function getAdminAssetDownloadUrl(assetId: string) {
   return apiGet<DownloadURLResponse>(`/admin/assets/${assetId}/download-url`);
 }
 
-export async function uploadAdminAsset(file: File, usage: UploadAssetUsage = 'asset-file') {
+export async function uploadAdminAsset(
+  file: File,
+  usage: UploadAssetUsage = 'asset-file',
+  options: {
+    onProgress?: (event: { loaded: number; total?: number }) => void;
+  } = {},
+) {
   validateUploadSize(file);
   const upload = await apiPost<UploadURLResponse>('/admin/assets/upload-url', {
     filename: file.name,
@@ -58,6 +64,7 @@ export async function uploadAdminAsset(file: File, usage: UploadAssetUsage = 'as
   await axios.put(upload.uploadUrl, file, {
     headers: upload.headers,
     withCredentials: false,
+    onUploadProgress: options.onProgress,
   });
   return upload.asset;
 }

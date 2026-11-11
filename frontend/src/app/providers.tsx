@@ -1,4 +1,4 @@
-import { ConfigProvider } from 'antd';
+import { App, ConfigProvider } from 'antd';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppRoutes } from '../routes';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -19,9 +19,11 @@ export function AppProviders() {
   return (
     <QueryClientProvider client={queryClient}>
       <ConfigProvider theme={appTheme}>
-        <ErrorBoundary>
-          <AppRoutes />
-        </ErrorBoundary>
+        <App component={false}>
+          <ErrorBoundary>
+            <AppRoutes />
+          </ErrorBoundary>
+        </App>
       </ConfigProvider>
     </QueryClientProvider>
   );

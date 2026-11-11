@@ -1,6 +1,14 @@
-import { useState } from 'react';
-import { Upload, Table, Button, Tag, Typography, message, Modal, Image } from 'antd';
-import { InboxOutlined, DownloadOutlined, ReloadOutlined, EyeOutlined, CopyOutlined } from '@ant-design/icons';
+import { UploadProgressList, uploadTransferProgress } from '../../components/UploadProgressList';
+import type { UploadProgressItem } from '../../components/UploadProgressList';
+import { useRef, useState } from 'react';
+import { App, Upload, Table, Button, Tag, Typography, Modal, Image } from 'antd';
+import {
+  InboxOutlined,
+  DownloadOutlined,
+  ReloadOutlined,
+  EyeOutlined,
+  CopyOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps } from 'antd/es/upload/interface';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -74,11 +82,18 @@ async function copyTextToClipboard(text: string): Promise<void> {
 }
 
 function AssetsPage() {
+  const { message } = App.useApp();
   const queryClient = useQueryClient();
-  const { data = [], isLoading, refetch } = useQuery({
+  const {
+    data = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['admin-assets'],
     queryFn: listAdminAssets,
   });
+  const uploadSequence = useRef(0);
+  const [uploads, setUploads] = useState<UploadProgressItem[]>([]);
   const [preview, setPreview] = useState<{ asset: AssetFile; url: string } | null>(null);
 
   const handleDownload = async (asset: AssetFile) => {
@@ -131,7 +146,9 @@ function AssetsPage() {
       title: '文件名',
       dataIndex: 'filename',
       key: 'filename',
-      render: (name: string) => <Text style={{ color: '#0F172A', fontWeight: 500 }}>{name}</Text>,
+      render: (name: string) => (
+        <Text style={{ color: 'var(--cms-ink)', fontWeight: 500 }}>{name}</Text>
+      ),
     },
     {
       title: '类型',
@@ -140,7 +157,10 @@ function AssetsPage() {
       width: 150,
       render: (type: string, record: AssetFile) => (
         <>
-          <Tag color={contentTypeColor[type] || 'default'} style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px' }}>
+          <Tag
+            color={contentTypeColor[type] || 'default'}
+            style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px' }}
+          >
             {contentTypeMap[type] || type}
           </Tag>
           {record.publicUrl && (
@@ -157,14 +177,18 @@ function AssetsPage() {
       key: 'byteSize',
       width: 100,
       align: 'right',
-      render: (size: number) => <Text style={{ color: '#64748B' }}>{formatBytes(size)}</Text>,
+      render: (size: number) => (
+        <Text style={{ color: 'var(--cms-muted)' }}>{formatBytes(size)}</Text>
+      ),
     },
     {
       title: '上传时间',
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (date: string) => <Text style={{ color: '#64748B' }}>{formatDate(date)}</Text>,
+      render: (date: string) => (
+        <Text style={{ color: 'var(--cms-muted)' }}>{formatDate(date)}</Text>
+      ),
     },
     {
       title: '操作',
@@ -177,7 +201,7 @@ function AssetsPage() {
               type="text"
               size="small"
               icon={<EyeOutlined />}
-              style={{ color: '#4F46E5', borderRadius: 8 }}
+              style={{ color: 'var(--cms-primary)', borderRadius: 8 }}
               onClick={() => handlePreview(record)}
             >
               预览
@@ -187,7 +211,7 @@ function AssetsPage() {
             type="text"
             size="small"
             icon={<CopyOutlined />}
-            style={{ color: '#4F46E5', borderRadius: 8 }}
+            style={{ color: 'var(--cms-primary)', borderRadius: 8 }}
             onClick={() => handleCopyUrl(record)}
           >
             复制链接
@@ -196,7 +220,7 @@ function AssetsPage() {
             type="text"
             size="small"
             icon={<DownloadOutlined />}
-            style={{ color: '#4F46E5', borderRadius: 8 }}
+            style={{ color: 'var(--cms-primary)', borderRadius: 8 }}
             onClick={() => handleDownload(record)}
           >
             下载
@@ -218,83 +242,74 @@ function AssetsPage() {
         options.onError?.(new Error('不支持的文件类型'));
         return;
       }
+      const uid = String(++uploadSequence.current);
+      const update = (changes: Partial<UploadProgressItem>) =>
+        setUploads((items) =>
+          items.map((item) => (item.uid === uid ? { ...item, ...changes } : item)),
+        );
+      setUploads((items) => [...items, { uid, name: file.name, status: 'uploading' }]);
       try {
-        const asset = await uploadAdminAsset(file);
+        const asset = await uploadAdminAsset(file, 'asset-file', {
+          onProgress: ({ loaded, total }) => update(uploadTransferProgress(loaded, total)),
+        });
+        update({ percent: 100, status: 'done' });
         message.success(`${file.name} 已上传`);
         await queryClient.invalidateQueries({ queryKey: ['admin-assets'] });
         options.onSuccess?.(asset);
       } catch (error) {
         const uploadError = error instanceof Error ? error : new Error('上传失败');
-        message.error(uploadError.message);
+        update({ status: 'error', error: uploadError.message });
         options.onError?.(uploadError);
       }
-    },
-    onDrop() {
-      message.info('文件已加入上传处理');
     },
   };
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-        <Title
-          level={4}
-          style={{
-            fontSize: 24,
-            fontWeight: 700,
-            marginBottom: 24,
-            marginTop: 0,
-            color: '#0F172A',
-          }}
-        >
-          资源管理
-        </Title>
+      <div className="cms-page-heading">
+        <Title level={1}>资源管理</Title>
         <Button icon={<ReloadOutlined />} loading={isLoading} onClick={() => refetch()}>
           刷新
         </Button>
       </div>
 
-      <Dragger
-        {...draggerProps}
-        style={{
-          borderRadius: 8,
-          background: '#FAFAFA',
-          border: '2px dashed #E2E8F0',
-          padding: '32px 0',
-          marginBottom: 24,
-        }}
-      >
-        <p style={{ fontSize: 48, color: '#4F46E5', margin: 0, lineHeight: 1, marginBottom: 12 }}>
-          <InboxOutlined />
-        </p>
-        <p style={{ fontSize: 16, color: '#0F172A', fontWeight: 500, margin: 0, marginBottom: 8 }}>
-          点击或拖拽文件到此处上传
-        </p>
-        <p style={{ fontSize: 13, color: '#64748B', margin: 0 }}>
-          支持 PNG、JPEG、WebP、PDF、TXT、ZIP，图片最大 50MB，其它文件最大 20MB
-        </p>
-      </Dragger>
-
-      <div
-        style={{
-          background: '#FFFFFF',
-          borderRadius: 8,
-          border: '1px solid #E2E8F0',
-          boxShadow: '0 1px 3px 0 rgba(0,0,0,0.06)',
-          padding: 20,
-        }}
-      >
-        <Table
-          columns={columns}
-          dataSource={data}
-          rowKey="assetId"
-          loading={isLoading}
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 820 }}
-          style={{ borderRadius: 8 }}
-          onRow={() => ({ style: { height: 48 } })}
-        />
+      <div className="cms-assets-upload">
+        <Dragger {...draggerProps}>
+          <p className="ant-upload-drag-icon">
+            <InboxOutlined />
+          </p>
+          <p className="ant-upload-text">点击或拖拽文件到此处上传</p>
+          <p className="ant-upload-hint">
+            支持 PNG、JPEG、WebP、PDF、TXT、ZIP，图片最大 50MB，其它文件最大 20MB
+          </p>
+        </Dragger>
+        {uploads.length > 0 && (
+          <>
+            <Button
+              type="text"
+              disabled={!uploads.some(({ status }) => status === 'done' || status === 'error')}
+              onClick={() =>
+                setUploads((items) =>
+                  items.filter(({ status }) => status === 'uploading' || status === 'processing'),
+                )
+              }
+            >
+              清除记录
+            </Button>
+            <UploadProgressList items={uploads} />
+          </>
+        )}
       </div>
+
+      <Table
+        columns={columns}
+        dataSource={data}
+        rowKey="assetId"
+        loading={isLoading}
+        pagination={{ pageSize: 10 }}
+        scroll={{ x: 820 }}
+        style={{ borderRadius: 8 }}
+      />
 
       <Modal
         open={Boolean(preview)}
@@ -311,11 +326,24 @@ function AssetsPage() {
               alt={preview.asset.filename}
               style={{ maxHeight: '70vh', objectFit: 'contain' }}
             />
-            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+            <div
+              style={{
+                marginTop: 12,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
               <Text type="secondary">
                 {preview.asset.filename} · {formatBytes(preview.asset.byteSize)}
               </Text>
-              <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => handleCopyUrl(preview.asset)}>
+              <Button
+                type="link"
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={() => handleCopyUrl(preview.asset)}
+              >
                 复制 URL
               </Button>
             </div>

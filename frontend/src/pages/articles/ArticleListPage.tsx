@@ -1,10 +1,23 @@
 import { useMemo, useState } from 'react';
 import { createSearchParams, Link, useNavigate } from 'react-router-dom';
-import { Table, Button, Tag, Input, Select, Space, Typography, Alert, Popconfirm, message } from 'antd';
-import { PlusOutlined, EditOutlined, ReloadOutlined, StopOutlined, EyeOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import { App, Table, Button, Tag, Input, Select, Space, Typography, Alert, Popconfirm } from 'antd';
+import {
+  PlusOutlined,
+  EditOutlined,
+  ReloadOutlined,
+  StopOutlined,
+  EyeOutlined,
+  LockOutlined,
+  UnlockOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { listAdminArticles, unpublishAdminArticle, markAdminArticlePrivate, restoreAdminArticleToDraft } from '../../api/articles';
+import {
+  listAdminArticles,
+  unpublishAdminArticle,
+  markAdminArticlePrivate,
+  restoreAdminArticleToDraft,
+} from '../../api/articles';
 import type { AdminArticleRecord } from '../../api/articles';
 import { getAuthUser } from '../../api/auth';
 
@@ -22,8 +35,8 @@ const statusOptions = [
 const statusConfig: Record<AdminArticleRecord['status'], { color: string; label: string }> = {
   draft: { color: 'default', label: '草稿' },
   published: { color: 'success', label: '已发布' },
-  private: { color: 'purple', label: '私有' },
-  archived: { color: 'warning', label: '已归档' },
+  private: { color: 'processing', label: '私有' },
+  archived: { color: 'default', label: '已归档' },
 };
 
 function formatDate(value: string | null) {
@@ -38,12 +51,18 @@ function formatDate(value: string | null) {
 }
 
 export default function ArticleListPage() {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const isAdmin = getAuthUser()?.role === 'admin';
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
-  const { data = [], isLoading, error, refetch } = useQuery({
+  const {
+    data = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['admin-articles'],
     queryFn: listAdminArticles,
   });
@@ -86,10 +105,11 @@ export default function ArticleListPage() {
       data.filter((article) => {
         const matchStatus = !statusFilter || article.status === statusFilter;
         const keyword = searchText.trim().toLowerCase();
-        const matchTitle = !keyword
-          || article.title.toLowerCase().includes(keyword)
-          || article.slug.toLowerCase().includes(keyword)
-          || article.articleName.toLowerCase().includes(keyword);
+        const matchTitle =
+          !keyword ||
+          article.title.toLowerCase().includes(keyword) ||
+          article.slug.toLowerCase().includes(keyword) ||
+          article.articleName.toLowerCase().includes(keyword);
         return matchStatus && matchTitle;
       }),
     [data, searchText, statusFilter],
@@ -101,9 +121,13 @@ export default function ArticleListPage() {
       dataIndex: 'title',
       key: 'title',
       render: (text: string, record: AdminArticleRecord) => (
-        <a onClick={() => navigate(`/admin/articles/${record.articleId}/edit`)} style={{ color: '#4F46E5', fontWeight: 500 }}>
+        <Link
+          className="cms-table-title"
+          to={'/admin/articles/' + record.articleId + '/edit'}
+          onClick={(event) => event.stopPropagation()}
+        >
           {text}
-        </a>
+        </Link>
       ),
     },
     {
@@ -125,7 +149,11 @@ export default function ArticleListPage() {
       width: 110,
       render: (status: AdminArticleRecord['status']) => {
         const cfg = statusConfig[status];
-        return <Tag color={cfg.color}>{cfg.label}</Tag>;
+        return (
+          <Tag color={cfg.color} icon={status === 'private' ? <LockOutlined /> : undefined}>
+            {cfg.label}
+          </Tag>
+        );
       },
     },
     {
@@ -155,10 +183,26 @@ export default function ArticleListPage() {
       width: isAdmin ? 360 : 240,
       render: (_: unknown, record: AdminArticleRecord) => (
         <Space size={0} wrap>
-          <Button type="link" size="small" icon={<EyeOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/articles/${record.articleId}/read`); }}>
+          <Button
+            type="link"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/admin/articles/${record.articleId}/read`);
+            }}
+          >
             阅读
           </Button>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/articles/${record.articleId}/edit`); }}>
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/admin/articles/${record.articleId}/edit`);
+            }}
+          >
             编辑
           </Button>
           {record.status === 'draft' && (
@@ -173,7 +217,12 @@ export default function ArticleListPage() {
               }}
               onCancel={(e) => e?.stopPropagation()}
             >
-              <Button type="link" size="small" icon={<LockOutlined />} onClick={(e) => e.stopPropagation()}>
+              <Button
+                type="link"
+                size="small"
+                icon={<LockOutlined />}
+                onClick={(e) => e.stopPropagation()}
+              >
                 私有
               </Button>
             </Popconfirm>
@@ -190,14 +239,25 @@ export default function ArticleListPage() {
               }}
               onCancel={(e) => e?.stopPropagation()}
             >
-              <Button type="link" size="small" icon={<UnlockOutlined />} onClick={(e) => e.stopPropagation()}>
+              <Button
+                type="link"
+                size="small"
+                icon={<UnlockOutlined />}
+                onClick={(e) => e.stopPropagation()}
+              >
                 转草稿
               </Button>
             </Popconfirm>
           )}
           {isAdmin && record.status === 'published' && Boolean(record.version) && (
             <Link
-              to={{ pathname: '/admin/postbridge', search: createSearchParams({ articleId: record.articleId, prepare: '1' }).toString() }}
+              to={{
+                pathname: '/admin/postbridge',
+                search: createSearchParams({
+                  articleId: record.articleId,
+                  prepare: '1',
+                }).toString(),
+              }}
               onClick={(event) => event.stopPropagation()}
               style={{ paddingInline: 8 }}
             >
@@ -217,7 +277,13 @@ export default function ArticleListPage() {
               }}
               onCancel={(e) => e?.stopPropagation()}
             >
-              <Button type="link" size="small" danger icon={<StopOutlined />} onClick={(e) => e.stopPropagation()}>
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<StopOutlined />}
+                onClick={(e) => e.stopPropagation()}
+              >
                 下架
               </Button>
             </Popconfirm>
@@ -228,11 +294,9 @@ export default function ArticleListPage() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, gap: 16 }}>
-        <Title level={1} style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>
-          文章管理
-        </Title>
+    <div>
+      <div className="cms-page-heading">
+        <Title level={1}>文章管理</Title>
         <Space>
           <Button icon={<ReloadOutlined />} loading={isLoading} onClick={() => refetch()}>
             刷新
@@ -240,7 +304,6 @@ export default function ArticleListPage() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5' }}
             onClick={() => navigate('/admin/articles/new')}
           >
             新建文章
@@ -249,11 +312,23 @@ export default function ArticleListPage() {
       </div>
 
       {error && (
-        <Alert type="error" showIcon message={error instanceof Error ? error.message : '后台文章列表读取失败'} style={{ marginBottom: 20 }} />
+        <Alert
+          type="error"
+          showIcon
+          message={error instanceof Error ? error.message : '后台文章列表读取失败'}
+          style={{ marginBottom: 20 }}
+        />
       )}
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <Select value={statusFilter} onChange={setStatusFilter} options={statusOptions} style={{ width: 140 }} placeholder="状态筛选" />
+      <div className="cms-list-filters">
+        <Select
+          aria-label="状态筛选"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={statusOptions}
+          style={{ width: 140 }}
+          placeholder="状态筛选"
+        />
         <Search
           placeholder="搜索标题、英文名或短链"
           allowClear
@@ -261,7 +336,7 @@ export default function ArticleListPage() {
           onChange={(e) => {
             if (!e.target.value) setSearchText('');
           }}
-          style={{ width: 280 }}
+          style={{ width: 280, maxWidth: '100%' }}
         />
       </div>
 
@@ -278,9 +353,8 @@ export default function ArticleListPage() {
         scroll={{ x: isAdmin ? 1240 : 1120 }}
         onRow={(record) => ({
           onClick: () => navigate(`/admin/articles/${record.articleId}/edit`),
-          style: { cursor: 'pointer', height: 48 },
+          style: { cursor: 'pointer' },
         })}
-        style={{ borderCollapse: 'collapse' }}
       />
     </div>
   );
