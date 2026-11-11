@@ -1,16 +1,10 @@
 .login-page {
-  min-height: 100vh;
   display: grid;
+  min-height: 100dvh;
   place-items: center;
   padding: 32px 16px;
-  overflow: hidden;
-  color: #1f2937;
-  background-color: #f4f7fb;
-  background-image:
-    radial-gradient(rgba(148, 163, 184, 0.42) 1px, transparent 1px),
-    linear-gradient(135deg, #fbfdff 0%, #eef3f8 100%);
-  background-size: 20px 20px, cover;
-  font-family: Inter, "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--cms-ink);
+  background: var(--cms-page-background);
 }
 
 .login-shell {
@@ -18,25 +12,26 @@
 }
 
 .login-heading {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   text-align: center;
 }
 
-.login-logo {
-  width: 64px;
-  height: 64px;
+.login-logo,
+.login-mfa-icon {
   display: inline-grid;
+  width: 56px;
+  height: 56px;
   place-items: center;
-  margin-bottom: 16px;
-  border: 1px solid rgba(226, 232, 240, 0.86);
-  border-radius: 16px;
-  color: #2563eb;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--cms-line);
+  border-radius: 14px;
+  color: var(--cms-primary);
+  background: var(--cms-panel);
+  box-shadow: var(--cms-raised);
+  font-size: 26px;
 }
 
-.login-logo .anticon {
-  font-size: 30px;
+.login-logo {
+  margin-bottom: 16px;
 }
 
 .login-heading .ant-typography {
@@ -45,146 +40,53 @@
 
 .login-heading h1.ant-typography {
   margin-bottom: 8px;
-  color: #111827;
   font-size: 26px;
-  font-weight: 700;
-  line-height: 1.25;
 }
 
-.login-heading span.ant-typography {
-  color: #4b5563;
-  font-size: 14px;
+.login-heading span.ant-typography,
+.login-mfa-hint,
+.login-footnote {
+  color: var(--cms-muted);
 }
 
 .login-card {
-  padding: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow:
-    0 25px 50px -12px rgba(15, 23, 42, 0.18),
-    0 10px 15px -3px rgba(15, 23, 42, 0.08),
-    0 0 0 1px rgba(15, 23, 42, 0.05);
-  backdrop-filter: blur(12px);
-}
-
-.login-form {
-  width: 100%;
-}
-
-.login-form .ant-form-item {
-  margin-bottom: 20px;
-}
-
-.login-form .ant-form-item-label {
-  padding-bottom: 8px;
+  padding: clamp(18px, 6vw, 32px);
+  border: 1px solid var(--cms-line);
+  border-radius: 20px;
+  background: var(--cms-panel);
+  box-shadow: var(--cms-raised);
 }
 
 .login-form .ant-form-item-label > label {
-  height: auto;
-  color: #374151;
-  font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-.login-input.ant-input-affix-wrapper {
-  height: 42px;
-  border-color: #d1d5db;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: none;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.login-input.ant-input-affix-wrapper:hover,
-.login-input.ant-input-affix-wrapper-focused {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.26);
-}
-
-.login-input .ant-input,
-.login-input .ant-input-password {
-  color: #1f2937;
-  background: transparent;
-  font-size: 14px;
-}
-
-.login-input .ant-input::placeholder {
-  color: #9ca3af;
-}
-
-.login-input .anticon {
-  color: #9ca3af;
-}
-
-.login-input .ant-input-password-icon:hover {
-  color: #4b5563;
+.login-input.ant-input-affix-wrapper,
+.login-button.ant-btn {
+  min-height: 44px;
 }
 
 .login-options {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin: -2px 0 22px;
-  font-size: 14px;
-}
-
-.login-remember {
-  color: #4b5563;
-  font-size: 14px;
-}
-
-.login-remember .ant-checkbox-checked .ant-checkbox-inner {
-  border-color: #2563eb;
-  background-color: #2563eb;
+  gap: 8px 16px;
+  margin-bottom: 20px;
 }
 
 .login-help {
-  color: #2563eb;
-  font-size: 14px;
-  font-weight: 500;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.login-help:hover {
-  color: #1d4ed8;
+  color: var(--cms-primary);
+  text-underline-offset: 2px;
 }
 
 .login-action {
-  margin-bottom: 0 !important;
-}
-
-.login-button.ant-btn {
-  height: 42px;
-  border: 0;
-  border-radius: 8px;
-  background: #2563eb;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.login-button.ant-btn:hover,
-.login-button.ant-btn:focus-visible {
-  background: #1d4ed8 !important;
-  box-shadow: 0 10px 22px rgba(29, 78, 216, 0.26);
-}
-
-.login-button.ant-btn[disabled],
-.login-button.ant-btn[disabled]:hover {
-  background: #2563eb !important;
-  opacity: 0.72;
+  margin-bottom: 0;
 }
 
 .login-footnote {
-  margin: 28px 0 0;
-  color: #64748b;
+  margin: 24px 0 0;
   font-size: 12px;
-  line-height: 1.6;
   text-align: center;
 }
 
@@ -192,48 +94,25 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
-}
-
-.login-mfa-icon {
-  width: 56px;
-  height: 56px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid rgba(226, 232, 240, 0.86);
-  border-radius: 14px;
-  color: #2563eb;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1);
-}
-
-.login-mfa-icon .anticon {
-  font-size: 26px;
+  gap: 16px;
 }
 
 .login-mfa-hint {
-  color: #4b5563;
-  font-size: 14px;
-  line-height: 1.7;
   text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .login-mfa .ant-otp {
   width: 100%;
+  justify-content: center;
 }
 
 .login-mfa .ant-otp .ant-otp-segment {
-  height: 46px;
-  border-color: #d1d5db;
-  border-radius: 8px;
-  color: #1f2937;
+  height: 44px;
+  min-width: 0;
   font-size: 18px;
   font-weight: 600;
-}
-
-.login-mfa .ant-otp .ant-otp-segment:focus-within {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.26);
+  font-variant-numeric: tabular-nums;
 }
 
 .login-mfa-submit {
@@ -242,33 +121,11 @@
 
 .login-mfa-links {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
 }
 
 .login-mfa-link.ant-btn {
-  padding: 0 8px;
-  color: #2563eb;
-  font-size: 13px;
-}
-
-.login-mfa-link.ant-btn:hover {
-  color: #1d4ed8;
-}
-
-@media (max-width: 520px) {
-  .login-page {
-    padding: 24px 14px;
-  }
-
-  .login-card {
-    padding: 24px;
-  }
-
-  .login-options {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
-  }
+  padding-inline: 8px;
 }

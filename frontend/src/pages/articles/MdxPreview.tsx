@@ -26,7 +26,7 @@ export function MdxPreview({ source, fillHeight = false, onEnterFullscreen }: Md
         }}
       >
         <div>
-          <Text strong style={{ display: 'block', color: '#0F172A', marginBottom: 4 }}>
+          <Text strong style={{ display: 'block', color: 'var(--cms-ink)', marginBottom: 4 }}>
             MDX 预览
           </Text>
         </div>
@@ -48,9 +48,9 @@ export function MdxPreview({ source, fillHeight = false, onEnterFullscreen }: Md
           maxHeight: fillHeight ? 'calc(100vh - 145px)' : 720,
           overflow: 'auto',
           padding: 24,
-          border: '1px solid #E2E8F0',
+          border: '1px solid var(--cms-line)',
           borderRadius: 8,
-          background: '#FFFFFF',
+          background: 'var(--cms-panel)',
         }}
       >
         {!source.trim() ? (

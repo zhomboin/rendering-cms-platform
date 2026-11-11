@@ -1,10 +1,35 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Table, Button, Tag, Input, Select, Space, Typography, Alert, Popconfirm, message, Image } from 'antd';
-import { PlusOutlined, PictureOutlined, EditOutlined, ReloadOutlined, StopOutlined, CloudUploadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  App,
+  Table,
+  Button,
+  Tag,
+  Input,
+  Select,
+  Space,
+  Typography,
+  Alert,
+  Popconfirm,
+  Image,
+} from 'antd';
+import {
+  PlusOutlined,
+  PictureOutlined,
+  EditOutlined,
+  ReloadOutlined,
+  StopOutlined,
+  CloudUploadOutlined,
+  DeleteOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { deleteAdminAlbum, listAdminAlbums, publishAdminAlbum, unpublishAdminAlbum } from '../../api/albums';
+import {
+  deleteAdminAlbum,
+  listAdminAlbums,
+  publishAdminAlbum,
+  unpublishAdminAlbum,
+} from '../../api/albums';
 import type { AdminAlbum } from '../../api/albums';
 
 const { Title } = Typography;
@@ -33,11 +58,17 @@ function formatDate(value: string | null) {
 }
 
 export default function AlbumsPage() {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
-  const { data = [], isLoading, error, refetch } = useQuery({
+  const {
+    data = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['admin-albums'],
     queryFn: listAdminAlbums,
   });
@@ -82,9 +113,10 @@ export default function AlbumsPage() {
       data.filter((album) => {
         const matchStatus = !statusFilter || album.status === statusFilter;
         const keyword = searchText.trim().toLowerCase();
-        const matchTitle = !keyword
-          || album.title.toLowerCase().includes(keyword)
-          || album.slug.toLowerCase().includes(keyword);
+        const matchTitle =
+          !keyword ||
+          album.title.toLowerCase().includes(keyword) ||
+          album.slug.toLowerCase().includes(keyword);
         return matchStatus && matchTitle;
       }),
     [data, searchText, statusFilter],
@@ -98,7 +130,7 @@ export default function AlbumsPage() {
       width: 96,
       render: (url: string | null, record: AdminAlbum) =>
         url ? (
-          <div onClick={event => event.stopPropagation()}>
+          <div onClick={(event) => event.stopPropagation()}>
             <Image
               src={url}
               alt="相册封面"
@@ -115,10 +147,10 @@ export default function AlbumsPage() {
               width: 64,
               height: 44,
               borderRadius: 6,
-              background: '#EEF2F7',
+              background: 'var(--cms-well)',
               display: 'grid',
               placeItems: 'center',
-              color: '#94A3B8',
+              color: 'var(--cms-muted)',
               fontSize: 12,
             }}
           >
@@ -131,9 +163,13 @@ export default function AlbumsPage() {
       dataIndex: 'title',
       key: 'title',
       render: (text: string, record: AdminAlbum) => (
-        <a onClick={() => navigate(`/admin/albums/${record.albumId}/edit`)} style={{ color: '#4F46E5', fontWeight: 500 }}>
+        <Link
+          className="cms-table-title"
+          to={'/admin/albums/' + record.albumId + '/edit'}
+          onClick={(event) => event.stopPropagation()}
+        >
           {text}
-        </a>
+        </Link>
       ),
     },
     {
@@ -185,14 +221,39 @@ export default function AlbumsPage() {
       width: 340,
       render: (_: unknown, record: AdminAlbum) => (
         <Space size={0}>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/albums/${record.albumId}/edit`); }}>
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/admin/albums/${record.albumId}/edit`);
+            }}
+          >
             基本信息
           </Button>
-          <Button aria-label="图片管理" type="link" size="small" icon={<PictureOutlined />} onClick={(e) => { e.stopPropagation(); navigate(`/admin/albums/${record.albumId}/photos`); }}>
+          <Button
+            aria-label="图片管理"
+            type="link"
+            size="small"
+            icon={<PictureOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/admin/albums/${record.albumId}/photos`);
+            }}
+          >
             图片管理
           </Button>
           {record.status === 'draft' && (
-            <Button type="link" size="small" icon={<CloudUploadOutlined />} onClick={(e) => { e.stopPropagation(); publishMutation.mutate(record.albumId); }}>
+            <Button
+              type="link"
+              size="small"
+              icon={<CloudUploadOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                publishMutation.mutate(record.albumId);
+              }}
+            >
               发布
             </Button>
           )}
@@ -209,7 +270,13 @@ export default function AlbumsPage() {
               }}
               onCancel={(e) => e?.stopPropagation()}
             >
-              <Button type="link" size="small" danger icon={<StopOutlined />} onClick={(e) => e.stopPropagation()}>
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<StopOutlined />}
+                onClick={(e) => e.stopPropagation()}
+              >
                 下架
               </Button>
             </Popconfirm>
@@ -226,7 +293,13 @@ export default function AlbumsPage() {
             }}
             onCancel={(e) => e?.stopPropagation()}
           >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()}>
+            <Button
+              type="link"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={(e) => e.stopPropagation()}
+            >
               删除
             </Button>
           </Popconfirm>
@@ -236,11 +309,9 @@ export default function AlbumsPage() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, gap: 16 }}>
-        <Title level={1} style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>
-          相册管理
-        </Title>
+    <div>
+      <div className="cms-page-heading">
+        <Title level={1}>相册管理</Title>
         <Space>
           <Button icon={<ReloadOutlined />} loading={isLoading} onClick={() => refetch()}>
             刷新
@@ -248,7 +319,6 @@ export default function AlbumsPage() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5' }}
             onClick={() => navigate('/admin/albums/new')}
           >
             新建相册
@@ -257,19 +327,31 @@ export default function AlbumsPage() {
       </div>
 
       {error && (
-        <Alert type="error" showIcon message={error instanceof Error ? error.message : '后台相册列表读取失败'} style={{ marginBottom: 20 }} />
+        <Alert
+          type="error"
+          showIcon
+          message={error instanceof Error ? error.message : '后台相册列表读取失败'}
+          style={{ marginBottom: 20 }}
+        />
       )}
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <Select value={statusFilter} onChange={setStatusFilter} options={statusOptions} style={{ width: 140 }} placeholder="状态筛选" />
+      <div className="cms-list-filters">
+        <Select
+          aria-label="状态筛选"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={statusOptions}
+          style={{ width: 140 }}
+          placeholder="状态筛选"
+        />
         <Search
-          placeholder="搜索标题或 slug"
+          placeholder="搜索标题或短链"
           allowClear
           onSearch={setSearchText}
           onChange={(e) => {
             if (!e.target.value) setSearchText('');
           }}
-          style={{ width: 280 }}
+          style={{ width: 280, maxWidth: '100%' }}
         />
       </div>
 
@@ -288,7 +370,6 @@ export default function AlbumsPage() {
           onClick: () => navigate(`/admin/albums/${record.albumId}/edit`),
           style: { cursor: 'pointer', height: 56 },
         })}
-        style={{ borderCollapse: 'collapse' }}
       />
     </div>
   );

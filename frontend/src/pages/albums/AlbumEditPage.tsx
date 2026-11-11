@@ -1,9 +1,34 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Button, Card, Col, Form, Input, Popconfirm, Row, Select, Space, Typography, message } from 'antd';
-import { ArrowLeftOutlined, CloudUploadOutlined, PictureOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons';
+import {
+  App,
+  Alert,
+  Button,
+  Card,
+  Col,
+  Form,
+  Input,
+  Popconfirm,
+  Row,
+  Select,
+  Space,
+  Typography,
+} from 'antd';
+import {
+  ArrowLeftOutlined,
+  CloudUploadOutlined,
+  PictureOutlined,
+  SaveOutlined,
+  StopOutlined,
+} from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createAdminAlbum, getAdminAlbum, publishAdminAlbum, unpublishAdminAlbum, updateAdminAlbum } from '../../api/albums';
+import {
+  createAdminAlbum,
+  getAdminAlbum,
+  publishAdminAlbum,
+  unpublishAdminAlbum,
+  updateAdminAlbum,
+} from '../../api/albums';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -18,6 +43,7 @@ interface AlbumFormValues {
 }
 
 export default function AlbumEditPage() {
+  const { message } = App.useApp();
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -97,7 +123,13 @@ export default function AlbumEditPage() {
           返回列表
         </Button>
         {!isCreating && album && (
-          <Button aria-label="管理图片" icon={<PictureOutlined />} onClick={() => navigate(`/admin/albums/${id}/photos`)}>管理图片</Button>
+          <Button
+            aria-label="管理图片"
+            icon={<PictureOutlined />}
+            onClick={() => navigate(`/admin/albums/${id}/photos`)}
+          >
+            管理图片
+          </Button>
         )}
         {!isCreating && isPublished && (
           <Popconfirm
@@ -108,7 +140,9 @@ export default function AlbumEditPage() {
             cancelText="取消"
             onConfirm={() => unpublishMutation.mutate()}
           >
-            <Button danger icon={<StopOutlined />}>下架</Button>
+            <Button danger icon={<StopOutlined />}>
+              下架
+            </Button>
           </Popconfirm>
         )}
         {!isCreating && !isPublished && (
@@ -119,9 +153,7 @@ export default function AlbumEditPage() {
             cancelText="取消"
             onConfirm={() => publishMutation.mutate()}
           >
-            <Button type="primary" icon={<CloudUploadOutlined />} style={{ backgroundColor: '#16A34A' }}>
-              发布相册
-            </Button>
+            <Button icon={<CloudUploadOutlined />}>发布相册</Button>
           </Popconfirm>
         )}
       </Space>
@@ -162,7 +194,11 @@ export default function AlbumEditPage() {
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
+              <Form.Item
+                name="title"
+                label="标题"
+                rules={[{ required: true, message: '请输入标题' }]}
+              >
                 <Input placeholder="城市夜色" />
               </Form.Item>
             </Col>
@@ -174,7 +210,11 @@ export default function AlbumEditPage() {
           </Row>
           <Row gutter={16}>
             <Col xs={24} md={12}>
-              <Form.Item name="description" label="导语" rules={[{ required: true, message: '请输入导语' }]}>
+              <Form.Item
+                name="description"
+                label="导语"
+                rules={[{ required: true, message: '请输入导语' }]}
+              >
                 <TextArea rows={3} placeholder="一组夜景。" />
               </Form.Item>
             </Col>
@@ -185,20 +225,23 @@ export default function AlbumEditPage() {
             </Col>
           </Row>
           <Form.Item name="tags" label="标签">
-            <Select mode="tags" placeholder="photography、city…" tokenSeparators={[',', ' ']} open={false} />
+            <Select
+              mode="tags"
+              placeholder="photography、city…"
+              tokenSeparators={[',', ' ']}
+              open={false}
+            />
           </Form.Item>
           <Button
             type="primary"
             htmlType="submit"
             icon={<SaveOutlined />}
             loading={saveMutation.isPending}
-            style={{ backgroundColor: '#4F46E5' }}
           >
             {isCreating ? '创建相册并继续' : '保存信息'}
           </Button>
         </Form>
       </Card>
-
     </div>
   );
 }

@@ -1,6 +1,6 @@
 .article-reading {
   min-height: 100vh;
-  background: #f8fafc;
+  background: var(--cms-canvas);
 }
 
 .article-reading__topbar {
@@ -14,7 +14,7 @@
   padding: 12px 24px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--cms-line);
 }
 
 .article-reading__topbar-meta {
@@ -36,8 +36,9 @@
 .article-reading__content {
   width: 100%;
   max-width: 760px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--cms-panel);
+  border: 1px solid var(--cms-line);
+  box-shadow: var(--cms-raised);
   border-radius: 12px;
   padding: 48px 56px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -46,7 +47,7 @@
 .article-reading__header {
   margin-bottom: 32px;
   padding-bottom: 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--cms-line);
 }
 
 .article-reading__title {
@@ -54,14 +55,14 @@
   font-size: 32px;
   font-weight: 700;
   line-height: 1.35;
-  color: #0f172a;
+  color: var(--cms-ink);
 }
 
 .article-reading__summary {
   margin: 0 0 16px;
   font-size: 15px;
   line-height: 1.8;
-  color: #64748b;
+  color: var(--cms-muted);
 }
 
 .article-reading__meta {
@@ -70,7 +71,7 @@
   align-items: center;
   gap: 8px 16px;
   font-size: 13px;
-  color: #64748b;
+  color: var(--cms-muted);
 }
 
 .article-reading__meta-item {
@@ -102,15 +103,15 @@
   margin-bottom: 10px;
   padding-left: 12px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--cms-muted);
   letter-spacing: 0.05em;
 }
 
 .article-reading__toc a {
   display: block;
   padding: 6px 12px;
-  border-left: 2px solid #e2e8f0;
-  color: #475569;
+  border-left: 2px solid var(--cms-line);
+  color: var(--cms-muted);
   line-height: 1.6;
   text-decoration: none;
   transition:
@@ -119,8 +120,8 @@
 }
 
 .article-reading__toc a:hover {
-  color: #4f46e5;
-  border-left-color: #4f46e5;
+  color: var(--cms-primary);
+  border-left-color: var(--cms-primary);
 }
 
 .article-reading__toc a[data-level='2'] {
@@ -130,7 +131,7 @@
 .article-reading__toc a[data-level='3'] {
   padding-left: 36px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--cms-muted);
 }
 
 .article-reading__empty {

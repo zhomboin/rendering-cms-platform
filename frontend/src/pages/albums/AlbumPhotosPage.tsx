@@ -1,10 +1,43 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Button, Card, Col, DatePicker, Divider, Form, Input, Modal, Popconfirm, Row, Space, Tag, Typography, Image, message } from 'antd';
-import { ArrowLeftOutlined, ArrowDownOutlined, ArrowUpOutlined, CopyOutlined, DeleteOutlined, EditOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
+import {
+  App,
+  Alert,
+  Button,
+  Card,
+  Col,
+  DatePicker,
+  Divider,
+  Form,
+  Input,
+  Modal,
+  Popconfirm,
+  Row,
+  Space,
+  Tag,
+  Typography,
+  Image,
+} from 'antd';
+import {
+  ArrowLeftOutlined,
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  StarFilled,
+  StarOutlined,
+} from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { deleteAdminAlbumPhoto, getAdminAlbum, listAdminAlbumPhotos, reorderAdminAlbumPhotos, setAdminAlbumCover, updateAdminAlbumPhoto } from '../../api/albums';
+import {
+  deleteAdminAlbumPhoto,
+  getAdminAlbum,
+  listAdminAlbumPhotos,
+  reorderAdminAlbumPhotos,
+  setAdminAlbumCover,
+  updateAdminAlbumPhoto,
+} from '../../api/albums';
 import type { AlbumPhoto } from '../../api/albums';
 import AlbumPhotoUpload from './AlbumPhotoUpload';
 
@@ -17,13 +50,22 @@ interface PhotoEditValues {
 }
 
 export default function AlbumPhotosPage() {
+  const { message } = App.useApp();
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [editForm] = Form.useForm<PhotoEditValues>();
   const [editingPhoto, setEditingPhoto] = useState<AlbumPhoto | null>(null);
-  const albumQuery = useQuery({ queryKey: ['admin-album', id], queryFn: () => getAdminAlbum(id), enabled: !!id });
-  const photosQuery = useQuery({ queryKey: ['admin-album-photos', id], queryFn: () => listAdminAlbumPhotos(id), enabled: !!id && !!albumQuery.data });
+  const albumQuery = useQuery({
+    queryKey: ['admin-album', id],
+    queryFn: () => getAdminAlbum(id),
+    enabled: !!id,
+  });
+  const photosQuery = useQuery({
+    queryKey: ['admin-album-photos', id],
+    queryFn: () => listAdminAlbumPhotos(id),
+    enabled: !!id && !!albumQuery.data,
+  });
   const album = albumQuery.data;
   const photos = useMemo(() => photosQuery.data ?? [], [photosQuery.data]);
   const invalidateAlbum = () => {
@@ -111,15 +153,42 @@ export default function AlbumPhotosPage() {
   return (
     <div style={{ padding: 24 }}>
       <Space wrap style={{ marginBottom: 20 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/albums')}>返回列表</Button>
-        <Button aria-label="编辑基本信息" icon={<EditOutlined />} onClick={() => navigate(`/admin/albums/${id}/edit`)}>编辑基本信息</Button>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/albums')}>
+          返回列表
+        </Button>
+        <Button
+          aria-label="编辑基本信息"
+          icon={<EditOutlined />}
+          onClick={() => navigate(`/admin/albums/${id}/edit`)}
+        >
+          编辑基本信息
+        </Button>
       </Space>
-      <Title level={1} style={{ fontSize: 24 }}>图片管理</Title>
-      {error ? <Alert type="error" showIcon message={error instanceof Error ? error.message : '图片读取失败'} /> : (
+      <Title level={1} style={{ fontSize: 24 }}>
+        图片管理
+      </Title>
+      {error ? (
+        <Alert
+          type="error"
+          showIcon
+          message={error instanceof Error ? error.message : '图片读取失败'}
+        />
+      ) : (
         <Card loading={albumQuery.isLoading || photosQuery.isLoading}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
             <Space size={8}>
-              <Title level={2} style={{ margin: 0, fontSize: 18 }}>照片</Title>
+              <Title level={2} style={{ margin: 0, fontSize: 18 }}>
+                照片
+              </Title>
               <Text type="secondary">{photos.length} 张</Text>
             </Space>
           </div>
@@ -137,8 +206,9 @@ export default function AlbumPhotosPage() {
                     ? album.coverPhotoId === photo.photoId
                     : index === 0;
                   return (
-                    <Col key={photo.photoId} xs={24} sm={12} md={8} lg={6}>
+                    <Col key={photo.photoId} xs={24} sm={12} lg={8} xxl={6}>
                       <Card
+                        className="cms-photo-card"
                         size="small"
                         cover={
                           photo.url ? (
@@ -155,15 +225,44 @@ export default function AlbumPhotosPage() {
                           ) : undefined
                         }
                         actions={[
-                          <Button aria-label="上移照片" key="up" type="text" size="small" icon={<ArrowUpOutlined />} disabled={index === 0 || reorderMutation.isPending} onClick={() => movePhoto(index, -1)} />,
-                          <Button aria-label="下移照片" key="down" type="text" size="small" icon={<ArrowDownOutlined />} disabled={index === photos.length - 1 || reorderMutation.isPending} onClick={() => movePhoto(index, 1)} />,
-                          <Button aria-label="编辑照片" key="edit" type="text" size="small" icon={<EditOutlined />} onClick={() => openPhotoEdit(photo)} />,
+                          <Button
+                            aria-label="上移照片"
+                            key="up"
+                            type="text"
+                            size="small"
+                            icon={<ArrowUpOutlined />}
+                            disabled={index === 0 || reorderMutation.isPending}
+                            onClick={() => movePhoto(index, -1)}
+                          />,
+                          <Button
+                            aria-label="下移照片"
+                            key="down"
+                            type="text"
+                            size="small"
+                            icon={<ArrowDownOutlined />}
+                            disabled={index === photos.length - 1 || reorderMutation.isPending}
+                            onClick={() => movePhoto(index, 1)}
+                          />,
+                          <Button
+                            aria-label="编辑照片"
+                            key="edit"
+                            type="text"
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => openPhotoEdit(photo)}
+                          />,
                           <Button
                             key="cover"
                             aria-label="设置照片封面"
                             type="text"
                             size="small"
-                            icon={isCover ? <StarFilled style={{ color: '#F59E0B' }} /> : <StarOutlined />}
+                            icon={
+                              isCover ? (
+                                <StarFilled style={{ color: 'var(--cms-warning)' }} />
+                              ) : (
+                                <StarOutlined />
+                              )
+                            }
                             onClick={() => coverMutation.mutate(isCover ? null : photo.photoId)}
                           />,
                           <Popconfirm
@@ -174,30 +273,53 @@ export default function AlbumPhotosPage() {
                             cancelText="取消"
                             onConfirm={() => deletePhotoMutation.mutate(photo.photoId)}
                           >
-                            <Button aria-label="删除照片" type="text" size="small" danger icon={<DeleteOutlined />} />
+                            <Button
+                              aria-label="删除照片"
+                              type="text"
+                              size="small"
+                              danger
+                              icon={<DeleteOutlined />}
+                            />
                           </Popconfirm>,
                         ]}
                       >
                         <Card.Meta
                           title={
                             <Space size={6}>
-                              <Text ellipsis style={{ maxWidth: 160 }}>{photo.alt}</Text>
-                              {isCover && <Tag color="gold">封面</Tag>}
+                              <Text ellipsis style={{ maxWidth: 160 }}>
+                                {photo.alt}
+                              </Text>
+                              {isCover && <Tag color="warning">封面</Tag>}
                             </Space>
                           }
                           description={
                             <Text type="secondary" style={{ fontSize: 12 }}>
                               {photo.width}×{photo.height}
-                              {photo.takenAt ? ` · ${dayjs(photo.takenAt).format('YYYY-MM-DD')}` : ''}
+                              {photo.takenAt
+                                ? ` · ${dayjs(photo.takenAt).format('YYYY-MM-DD')}`
+                                : ''}
                             </Text>
                           }
                         />
                         {photo.url ? (
                           <Space.Compact style={{ width: '100%', marginTop: 12 }}>
-                            <Input aria-label={`${photo.alt}的图片 URL`} readOnly value={photo.url} onFocus={(event) => event.target.select()} />
-                            <Button aria-label={`复制${photo.alt}的图片 URL`} icon={<CopyOutlined />} onClick={() => void copyPhotoURL(photo.url!)}>复制</Button>
+                            <Input
+                              aria-label={`${photo.alt}的图片 URL`}
+                              readOnly
+                              value={photo.url}
+                              onFocus={(event) => event.target.select()}
+                            />
+                            <Button
+                              aria-label={`复制${photo.alt}的图片 URL`}
+                              icon={<CopyOutlined />}
+                              onClick={() => void copyPhotoURL(photo.url!)}
+                            >
+                              复制
+                            </Button>
                           </Space.Compact>
-                        ) : <Text type="secondary">暂无图片 URL，请检查公开访问地址配置</Text>}
+                        ) : (
+                          <Text type="secondary">暂无图片 URL，请检查公开访问地址配置</Text>
+                        )}
                       </Card>
                     </Col>
                   );

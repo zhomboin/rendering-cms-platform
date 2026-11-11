@@ -1,9 +1,27 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Form, Input, AutoComplete, Select, Button, Typography, Modal, Space, message, Alert, Skeleton, Tooltip, Switch, InputNumber, Popconfirm, Drawer, Table, Tag } from 'antd';
+import {
+  App,
+  Card,
+  Form,
+  Input,
+  AutoComplete,
+  Select,
+  Button,
+  Typography,
+  Modal,
+  Space,
+  Alert,
+  Skeleton,
+  Tooltip,
+  Switch,
+  InputNumber,
+  Popconfirm,
+  Drawer,
+  Table,
+} from 'antd';
 import { HistoryOutlined, LockOutlined, EyeOutlined, UnlockOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createAdminArticle,
@@ -16,32 +34,35 @@ import {
   unpublishAdminArticle,
   updateAdminArticle,
 } from '../../api/articles';
-import type { AdminArticlePayload, ArticleFormData, ArticleRevisionSummary } from '../../api/articles';
+import type { ArticleFormData, ArticleRevisionSummary } from '../../api/articles';
 import { diffLines } from './revisionDiff';
 import { ArticleImageDialog } from './ArticleImageDialog';
 import { collectArticleImages } from './articleCoverImages';
 import { insertArticleImages } from './articleImageUtils';
 import type { ArticleImage } from './articleImageUtils';
 import { MdxPreview } from './MdxPreview';
+import {
+  initialFormData,
+  normalizeArticleName,
+  toPayload,
+  getArticleDraftKey,
+  loadArticleDraft,
+  saveArticleDraft,
+  clearArticleDraft,
+} from './articleEditorDraft';
+import { revisionListColumns, formatRevisionTime } from './articleRevisionColumns';
+import {
+  CodeInlineIcon,
+  CodeBlockIcon,
+  LinkIcon,
+  ImageIcon,
+  FullscreenIcon,
+  ExitFullscreenIcon,
+} from './ArticleEditorIcons';
 import './ArticleEditorPage.css';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
-
-const initialFormData: ArticleFormData = {
-  title: '',
-  slug: '',
-  articleName: '',
-  summary: '',
-  tags: [],
-  bodyMdx: '',
-  featured: false,
-  featuredRank: 100,
-  featuredAt: null,
-  coverImageUrl: '',
-};
-
-const ARTICLE_DRAFT_KEY_PREFIX = 'rendering-cms-article-editor-draft';
 
 type MarkdownAction = {
   id: 'bold' | 'italic' | 'underline' | 'strike' | 'inlineCode' | 'codeBlock' | 'link' | 'image';
@@ -54,182 +75,93 @@ type MarkdownAction = {
 };
 
 const markdownActions: MarkdownAction[] = [
-  { id: 'bold', icon: <strong>B</strong>, title: '加粗', shortcut: 'Ctrl+B', prefix: '**', suffix: '**', placeholder: '加粗文本' },
-  { id: 'italic', icon: <em>I</em>, title: '斜体', shortcut: 'Ctrl+I', prefix: '*', suffix: '*', placeholder: '斜体文本' },
-  { id: 'underline', icon: <span style={{ textDecoration: 'underline' }}>U</span>, title: '下划线', shortcut: 'Ctrl+U', prefix: '<u>', suffix: '</u>', placeholder: '下划线文本' },
-  { id: 'strike', icon: <span style={{ textDecoration: 'line-through' }}>S</span>, title: '删除线', prefix: '~~', suffix: '~~', placeholder: '删除线文本' },
-  { id: 'inlineCode', icon: <CodeInlineIcon />, title: '行内代码', prefix: '`', suffix: '`', placeholder: 'code' },
-  { id: 'codeBlock', icon: <CodeBlockIcon />, title: '代码块', prefix: '```ts\n', suffix: '\n```', placeholder: 'const example = true;' },
-  { id: 'link', icon: <LinkIcon />, title: '添加链接', shortcut: 'Ctrl+K', prefix: '[', suffix: '](https://example.com)', placeholder: '链接文本' },
+  {
+    id: 'bold',
+    icon: <strong>B</strong>,
+    title: '加粗',
+    shortcut: 'Ctrl+B',
+    prefix: '**',
+    suffix: '**',
+    placeholder: '加粗文本',
+  },
+  {
+    id: 'italic',
+    icon: <em>I</em>,
+    title: '斜体',
+    shortcut: 'Ctrl+I',
+    prefix: '*',
+    suffix: '*',
+    placeholder: '斜体文本',
+  },
+  {
+    id: 'underline',
+    icon: <span style={{ textDecoration: 'underline' }}>U</span>,
+    title: '下划线',
+    shortcut: 'Ctrl+U',
+    prefix: '<u>',
+    suffix: '</u>',
+    placeholder: '下划线文本',
+  },
+  {
+    id: 'strike',
+    icon: <span style={{ textDecoration: 'line-through' }}>S</span>,
+    title: '删除线',
+    prefix: '~~',
+    suffix: '~~',
+    placeholder: '删除线文本',
+  },
+  {
+    id: 'inlineCode',
+    icon: <CodeInlineIcon />,
+    title: '行内代码',
+    prefix: '`',
+    suffix: '`',
+    placeholder: 'code',
+  },
+  {
+    id: 'codeBlock',
+    icon: <CodeBlockIcon />,
+    title: '代码块',
+    prefix: '```ts\n',
+    suffix: '\n```',
+    placeholder: 'const example = true;',
+  },
+  {
+    id: 'link',
+    icon: <LinkIcon />,
+    title: '添加链接',
+    shortcut: 'Ctrl+K',
+    prefix: '[',
+    suffix: '](https://example.com)',
+    placeholder: '链接文本',
+  },
   { id: 'image', icon: <ImageIcon />, title: '插入图片' },
 ];
 
-function normalizeArticleName(value: string) {
-  return value
-    .normalize('NFKD')
-    .replace(/\p{Mark}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-function toPayload(values: ArticleFormData): AdminArticlePayload {
-  return {
-    articleName: values.articleName,
-    title: values.title,
-    summary: values.summary ?? '',
-    bodyMdx: values.bodyMdx,
-    tags: values.tags ?? [],
-    featured: values.featured ?? false,
-    featuredRank: values.featuredRank ?? 100,
-    featuredAt: values.featuredAt ?? null,
-    coverImageUrl: values.coverImageUrl ?? '',
-  };
-}
-
-type StoredArticleDraft = {
-  values: ArticleFormData;
-  updatedAt: string;
-};
-
-function getArticleDraftKey(articleId: string | undefined) {
-  return `${ARTICLE_DRAFT_KEY_PREFIX}:${articleId ?? 'new'}`;
-}
-
-function normalizeFormData(values: Partial<ArticleFormData>): ArticleFormData {
-  return {
-    title: values.title ?? '',
-    slug: values.slug ?? '',
-    articleName: values.articleName ?? '',
-    summary: values.summary ?? '',
-    tags: Array.isArray(values.tags) ? values.tags : [],
-    bodyMdx: values.bodyMdx ?? '',
-    featured: values.featured ?? false,
-    featuredRank: values.featuredRank ?? 100,
-    featuredAt: values.featuredAt ?? null,
-    coverImageUrl: values.coverImageUrl ?? '',
-  };
-}
-
-function hasMeaningfulDraft(values: ArticleFormData) {
-  return Boolean(
-    values.title.trim()
-      || values.articleName.trim()
-      || values.summary.trim()
-      || values.bodyMdx.trim()
-      || values.coverImageUrl.trim()
-      || values.featured
-      || values.featuredRank !== 100
-      || Boolean(values.featuredAt)
-      || values.tags.length > 0,
-  );
-}
-
-function loadArticleDraft(key: string): StoredArticleDraft | null {
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoredArticleDraft;
-    const values = normalizeFormData(parsed.values ?? {});
-    if (!hasMeaningfulDraft(values)) return null;
-    return {
-      values,
-      updatedAt: parsed.updatedAt,
-    };
-  } catch {
-    window.localStorage.removeItem(key);
-    return null;
-  }
-}
-
-function saveArticleDraft(key: string, values: Partial<ArticleFormData>) {
-  try {
-    const normalizedValues = normalizeFormData(values);
-    if (!hasMeaningfulDraft(normalizedValues)) {
-      window.localStorage.removeItem(key);
-      return;
-    }
-    const draft: StoredArticleDraft = {
-      values: normalizedValues,
-      updatedAt: new Date().toISOString(),
-    };
-    window.localStorage.setItem(key, JSON.stringify(draft));
-  } catch {
-    // Local draft is best-effort and must not block writing in the editor.
-  }
-}
-
-function clearArticleDraft(key: string) {
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    // Ignore storage errors after successful remote persistence.
-  }
-}
-
-const revisionStatusConfig: Record<string, { color: string; label: string }> = {
-  draft: { color: 'default', label: '草稿' },
-  published: { color: 'success', label: '已发布' },
-  private: { color: 'purple', label: '私有' },
-  archived: { color: 'warning', label: '已归档' },
-};
-
-function formatRevisionTime(value: string | null) {
-  if (!value) return '-';
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
-
-function revisionListColumns(currentVersion?: number): ColumnsType<ArticleRevisionSummary> {
-  return [
-    {
-      title: '版本',
-      dataIndex: 'version',
-      key: 'version',
-      width: 110,
-      render: (version: number) =>
-        version === currentVersion ? <Tag color="processing">v{version} 当前</Tag> : `v${version}`,
-    },
-    { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      width: 90,
-      render: (status: string) => {
-        const config = revisionStatusConfig[status];
-        return <Tag color={config?.color}>{config?.label ?? status}</Tag>;
-      },
-    },
-    {
-      title: '更新时间',
-      dataIndex: 'updatedAt',
-      key: 'updatedAt',
-      width: 150,
-      render: (value: string | null) => formatRevisionTime(value),
-    },
-  ];
-}
-
 export default function ArticleEditorPage() {
+  const { message, modal } = App.useApp();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form] = Form.useForm<ArticleFormData>();
   const bodyMdx = Form.useWatch('bodyMdx', form) ?? '';
   const coverSource = useDeferredValue(bodyMdx);
-  const coverOptions = useMemo(() => collectArticleImages(coverSource).map(({ url, alt }) => ({
-    value: url,
-    label: alt ? `${alt} ${url}` : url,
-  })), [coverSource]);
+  const coverOptions = useMemo(
+    () =>
+      collectArticleImages(coverSource).map(({ url, alt }) => ({
+        value: url,
+        label: alt ? `${alt} ${url}` : url,
+      })),
+    [coverSource],
+  );
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
-  const imageSelection = useRef({ currentValue: '', selectionStart: 0, selectionEnd: 0, selectedText: '' });
+  const imageSelection = useRef({
+    currentValue: '',
+    selectionStart: 0,
+    selectionEnd: 0,
+    selectedText: '',
+  });
   const [writerFullscreen, setWriterFullscreen] = useState(false);
   const [mobilePane, setMobilePane] = useState<'edit' | 'preview'>('edit');
   const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null);
@@ -243,8 +175,8 @@ export default function ArticleEditorPage() {
     queryFn: listAdminArticles,
   });
   const tagOptions = useMemo(() => {
-    const tags = new Set(articlesQuery.data?.flatMap(article => article.tags ?? []));
-    return [...tags].sort((a, b) => a.localeCompare(b)).map(value => ({ value }));
+    const tags = new Set(articlesQuery.data?.flatMap((article) => article.tags ?? []));
+    return [...tags].sort((a, b) => a.localeCompare(b)).map((value) => ({ value }));
   }, [articlesQuery.data]);
 
   const revisionsQuery = useQuery({
@@ -265,7 +197,8 @@ export default function ArticleEditorPage() {
   );
   const isPublishedArticle = currentArticle?.status === 'published';
   const isPrivateArticle = currentArticle?.status === 'private';
-  const isEditableArticle = currentArticle?.status === 'draft' || currentArticle?.status === 'private';
+  const isEditableArticle =
+    currentArticle?.status === 'draft' || currentArticle?.status === 'private';
   const isLockedArticle = Boolean(currentArticle) && !isEditableArticle;
 
   useEffect(() => {
@@ -321,9 +254,10 @@ export default function ArticleEditorPage() {
 
   const publishMutation = useMutation({
     mutationFn: async (values: ArticleFormData) => {
-      const saved = isEdit && id
-        ? await updateAdminArticle(id, toPayload(values))
-        : await createAdminArticle(toPayload(values));
+      const saved =
+        isEdit && id
+          ? await updateAdminArticle(id, toPayload(values))
+          : await createAdminArticle(toPayload(values));
       return publishAdminArticle(saved.articleId);
     },
     onSuccess: async () => {
@@ -382,15 +316,27 @@ export default function ArticleEditorPage() {
     const changes: Array<{ label: string; current: string; revision: string }> = [];
     const compare = (label: string, currentValue: string, revisionValue: string) => {
       if (currentValue !== revisionValue) {
-        changes.push({ label, current: currentValue || '（空）', revision: revisionValue || '（空）' });
+        changes.push({
+          label,
+          current: currentValue || '（空）',
+          revision: revisionValue || '（空）',
+        });
       }
     };
     compare('标题', currentArticle.title, revisionDetail.title);
     compare('英文名', currentArticle.articleName, revisionDetail.articleName);
     compare('摘要', currentArticle.summary ?? '', revisionDetail.summary ?? '');
     compare('标签', (currentArticle.tags ?? []).join('、'), (revisionDetail.tags ?? []).join('、'));
-    compare('首页精选', currentArticle.featured ? '是' : '否', revisionDetail.featured ? '是' : '否');
-    compare('精选排序', String(currentArticle.featuredRank ?? 100), String(revisionDetail.featuredRank ?? 100));
+    compare(
+      '首页精选',
+      currentArticle.featured ? '是' : '否',
+      revisionDetail.featured ? '是' : '否',
+    );
+    compare(
+      '精选排序',
+      String(currentArticle.featuredRank ?? 100),
+      String(revisionDetail.featuredRank ?? 100),
+    );
     compare('封面图片', currentArticle.coverImageUrl ?? '', revisionDetail.coverImageUrl ?? '');
     return changes;
   }, [currentArticle, revisionDetail]);
@@ -402,7 +348,7 @@ export default function ArticleEditorPage() {
 
   const handleRestoreRevision = () => {
     if (!revisionDetail || !currentArticle) return;
-    Modal.confirm({
+    modal.confirm({
       title: `恢复到 v${revisionDetail.version}？`,
       content: '该版本内容会载入编辑器并暂存为本地草稿，不会自动保存；请检查内容后手动保存草稿。',
       okText: '载入版本',
@@ -485,7 +431,9 @@ export default function ArticleEditorPage() {
 
     form.setFieldsValue({ bodyMdx: nextValue });
     window.requestAnimationFrame(() => {
-      const nextEditor = document.querySelector<HTMLTextAreaElement>('[data-article-body-editor="true"]');
+      const nextEditor = document.querySelector<HTMLTextAreaElement>(
+        '[data-article-body-editor="true"]',
+      );
       nextEditor?.focus();
       nextEditor?.setSelectionRange(nextSelectionStart, nextSelectionEnd);
     });
@@ -511,7 +459,9 @@ export default function ArticleEditorPage() {
     saveArticleDraft(draftKey, form.getFieldsValue());
     setImageModalOpen(false);
     window.requestAnimationFrame(() => {
-      const editor = document.querySelector<HTMLTextAreaElement>('[data-article-body-editor="true"]');
+      const editor = document.querySelector<HTMLTextAreaElement>(
+        '[data-article-body-editor="true"]',
+      );
       editor?.focus();
       editor?.setSelectionRange(next.cursor, next.cursor);
     });
@@ -542,7 +492,10 @@ export default function ArticleEditorPage() {
   };
 
   const renderFormatButton = (action: MarkdownAction) => (
-    <Tooltip key={action.id} title={action.shortcut ? `${action.title} (${action.shortcut})` : action.title}>
+    <Tooltip
+      key={action.id}
+      title={action.shortcut ? `${action.title} (${action.shortcut})` : action.title}
+    >
       <Button
         aria-label={action.shortcut ? `${action.title} ${action.shortcut}` : action.title}
         htmlType="button"
@@ -554,7 +507,13 @@ export default function ArticleEditorPage() {
   );
 
   const renderEditorWorkspace = (fullscreen: boolean) => (
-    <div className={fullscreen ? 'article-editor__writer article-editor__writer--fullscreen' : 'article-editor__writer'}>
+    <div
+      className={
+        fullscreen
+          ? 'article-editor__writer article-editor__writer--fullscreen'
+          : 'article-editor__writer'
+      }
+    >
       <div className="article-editor__writer-header">
         <Text strong>MDX 正文</Text>
         <Tooltip title={fullscreen ? '退出全屏写作' : '全屏写作：正文和预览并排展示'}>
@@ -571,7 +530,11 @@ export default function ArticleEditorPage() {
         {markdownActions.map(renderFormatButton)}
       </Space>
 
-      <Form.Item name="bodyMdx" rules={[{ required: true, message: '请输入文章正文' }]} style={{ marginBottom: 0 }}>
+      <Form.Item
+        name="bodyMdx"
+        rules={[{ required: true, message: '请输入文章正文' }]}
+        style={{ marginBottom: 0 }}
+      >
         <TextArea
           data-article-body-editor="true"
           className="article-editor__body-input"
@@ -602,10 +565,7 @@ export default function ArticleEditorPage() {
         </Title>
         {isEdit && (
           <Space>
-            <Button
-              icon={<EyeOutlined />}
-              onClick={() => navigate(`/admin/articles/${id}/read`)}
-            >
+            <Button icon={<EyeOutlined />} onClick={() => navigate(`/admin/articles/${id}/read`)}>
               阅读视图
             </Button>
             <Button
@@ -622,7 +582,14 @@ export default function ArticleEditorPage() {
       </div>
 
       {isEdit && articlesQuery.error && (
-        <Alert type="error" showIcon title={articlesQuery.error instanceof Error ? articlesQuery.error.message : '文章读取失败'} style={{ marginBottom: 20 }} />
+        <Alert
+          type="error"
+          showIcon
+          title={
+            articlesQuery.error instanceof Error ? articlesQuery.error.message : '文章读取失败'
+          }
+          style={{ marginBottom: 20 }}
+        />
       )}
 
       {restoredDraftAt && (
@@ -709,25 +676,27 @@ export default function ArticleEditorPage() {
             预览
           </Button>
         </div>
-        <div
-          onKeyDown={handleEditorShortcut}
-          className="article-editor__workspace"
-        >
+        <div onKeyDown={handleEditorShortcut} className="article-editor__workspace">
           <Form
             form={form}
-            className={mobilePane === 'preview' ? 'article-editor__form article-editor__pane-hidden-mobile' : 'article-editor__form'}
+            className={
+              mobilePane === 'preview'
+                ? 'article-editor__form article-editor__pane-hidden-mobile'
+                : 'article-editor__form'
+            }
             layout="vertical"
             initialValues={initialFormData}
             onValuesChange={(_, values) => saveArticleDraft(draftKey, values)}
           >
-            <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入文章标题' }]}>
+            <Form.Item
+              name="title"
+              label="标题"
+              rules={[{ required: true, message: '请输入文章标题' }]}
+            >
               <Input placeholder="输入文章标题" size="large" />
             </Form.Item>
 
-            <Form.Item
-              name="slug"
-              label="短链"
-            >
+            <Form.Item name="slug" label="短链">
               <Input prefix="/articles/" placeholder="保存后生成" size="large" disabled />
             </Form.Item>
 
@@ -737,7 +706,10 @@ export default function ArticleEditorPage() {
               validateTrigger={[]}
               rules={[
                 { required: true, message: '请输入文章英文名' },
-                { pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/, message: '英文名只能使用小写字母、数字和中划线' },
+                {
+                  pattern: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+                  message: '英文名只能使用小写字母、数字和中划线',
+                },
               ]}
             >
               <Input
@@ -765,7 +737,12 @@ export default function ArticleEditorPage() {
             </Form.Item>
 
             <Space size={16} align="start" wrap style={{ width: '100%', marginBottom: 20 }}>
-              <Form.Item name="featured" label="首页精选" valuePropName="checked" style={{ marginBottom: 0 }}>
+              <Form.Item
+                name="featured"
+                label="首页精选"
+                valuePropName="checked"
+                style={{ marginBottom: 0 }}
+              >
                 <Switch
                   onChange={(checked) => {
                     if (checked && !form.getFieldValue('featuredAt')) {
@@ -785,12 +762,8 @@ export default function ArticleEditorPage() {
 
             {!writerFullscreen && renderEditorWorkspace(false)}
             {writerFullscreen && (
-              <div
-                className="article-editor__fullscreen"
-              >
-                <div
-                  className="article-editor__fullscreen-grid"
-                >
+              <div className="article-editor__fullscreen">
+                <div className="article-editor__fullscreen-grid">
                   {renderEditorWorkspace(true)}
                   <div className="article-editor__fullscreen-preview">
                     <MdxPreview source={bodyMdx} fillHeight />
@@ -802,7 +775,7 @@ export default function ArticleEditorPage() {
             <Text
               style={{
                 display: 'block',
-                color: '#64748B',
+                color: 'var(--cms-muted)',
                 fontSize: 12,
                 marginTop: 8,
                 marginBottom: 20,
@@ -828,26 +801,26 @@ export default function ArticleEditorPage() {
           </Form>
 
           {!writerFullscreen && (
-            <div className={mobilePane === 'edit' ? 'article-editor__preview article-editor__pane-hidden-mobile' : 'article-editor__preview'}>
-              <MdxPreview
-                source={bodyMdx}
-                onEnterFullscreen={() => setWriterFullscreen(true)}
-              />
+            <div
+              className={
+                mobilePane === 'edit'
+                  ? 'article-editor__preview article-editor__pane-hidden-mobile'
+                  : 'article-editor__preview'
+              }
+            >
+              <MdxPreview source={bodyMdx} onEnterFullscreen={() => setWriterFullscreen(true)} />
             </div>
           )}
         </div>
       </Card>
 
-      <div
-        className="article-editor__actions"
-      >
+      <div className="article-editor__actions">
         <Button onClick={() => navigate('/admin/articles')}>取消</Button>
         <Space className="article-editor__actions-main" size={12}>
           <Button
             onClick={handleSaveDraft}
             loading={saveMutation.isPending}
             disabled={isLockedArticle}
-            style={{ borderColor: '#4F46E5', color: '#4F46E5' }}
           >
             {isPrivateArticle ? '保存' : '保存草稿'}
           </Button>
@@ -859,11 +832,7 @@ export default function ArticleEditorPage() {
               cancelText="取消"
               onConfirm={() => markPrivateMutation.mutate()}
             >
-              <Button
-                icon={<LockOutlined />}
-                loading={markPrivateMutation.isPending}
-                style={{ borderColor: '#7C3AED', color: '#7C3AED' }}
-              >
+              <Button icon={<LockOutlined />} loading={markPrivateMutation.isPending}>
                 设为私有
               </Button>
             </Popconfirm>
@@ -875,7 +844,6 @@ export default function ArticleEditorPage() {
                 size="large"
                 loading={publishMutation.isPending}
                 disabled={isLockedArticle || isPrivateArticle}
-                style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5', fontWeight: 600 }}
                 onClick={() => setPublishModalOpen(true)}
               >
                 发布
@@ -936,13 +904,16 @@ export default function ArticleEditorPage() {
                 ← 返回版本列表
               </Button>
               <Tooltip
-                title={isEditableArticle ? '' : '请先将文章恢复为可编辑状态（草稿或私有），再载入历史版本'}
+                title={
+                  isEditableArticle
+                    ? ''
+                    : '请先将文章恢复为可编辑状态（草稿或私有），再载入历史版本'
+                }
               >
                 <span>
                   <Button
                     type="primary"
                     size="small"
-                    style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5' }}
                     disabled={!isEditableArticle || !revisionDetail}
                     onClick={handleRestoreRevision}
                   >
@@ -957,14 +928,19 @@ export default function ArticleEditorPage() {
               <Alert
                 type="error"
                 showIcon
-                title={revisionDetailQuery.error instanceof Error ? revisionDetailQuery.error.message : '修订版本读取失败'}
+                title={
+                  revisionDetailQuery.error instanceof Error
+                    ? revisionDetailQuery.error.message
+                    : '修订版本读取失败'
+                }
               />
             )}
             {revisionDetail && (
               <>
                 <div>
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    对比方向：当前内容 → v{revisionDetail.version}（{formatRevisionTime(revisionDetail.updatedAt)} 的快照）。
+                    对比方向：当前内容 → v{revisionDetail.version}（
+                    {formatRevisionTime(revisionDetail.updatedAt)} 的快照）。
                   </Text>
                 </div>
 
@@ -973,9 +949,13 @@ export default function ArticleEditorPage() {
                     {revisionMetaChanges.map((change) => (
                       <div className="revision-meta__row" key={change.label}>
                         <span className="revision-meta__label">{change.label}</span>
-                        <span className="revision-meta__value revision-meta__value--current">{change.current}</span>
+                        <span className="revision-meta__value revision-meta__value--current">
+                          {change.current}
+                        </span>
                         <span className="revision-meta__arrow">→</span>
-                        <span className="revision-meta__value revision-meta__value--target">{change.revision}</span>
+                        <span className="revision-meta__value revision-meta__value--target">
+                          {change.revision}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -984,15 +964,22 @@ export default function ArticleEditorPage() {
                 )}
 
                 <div>
-                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
-                    正文差异：绿色为 v{revisionDetail.version} 内容（恢复后生效），红色为当前内容（恢复后移除）。
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 12, display: 'block', marginBottom: 8 }}
+                  >
+                    正文差异：绿色为 v{revisionDetail.version}{' '}
+                    内容（恢复后生效），红色为当前内容（恢复后移除）。
                   </Text>
                   {revisionBodyDiff.every((line) => line.type === 'same') ? (
                     <Alert type="info" showIcon title="正文无差异" />
                   ) : (
                     <div className="revision-diff">
                       {revisionBodyDiff.map((line, index) => (
-                        <div key={index} className={`revision-diff__line revision-diff__line--${line.type}`}>
+                        <div
+                          key={index}
+                          className={`revision-diff__line revision-diff__line--${line.type}`}
+                        >
                           {line.type === 'add' ? '+ ' : line.type === 'remove' ? '− ' : '  '}
                           {line.text || ' '}
                         </div>
@@ -1006,66 +993,5 @@ export default function ArticleEditorPage() {
         )}
       </Drawer>
     </div>
-  );
-}
-
-function CodeInlineIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="m8 9-4 3 4 3" />
-      <path d="m16 9 4 3-4 3" />
-    </svg>
-  );
-}
-
-function CodeBlockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 5h16" />
-      <path d="M4 19h16" />
-      <path d="m9 9-3 3 3 3" />
-      <path d="m15 9 3 3-3 3" />
-    </svg>
-  );
-}
-
-function LinkIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
-      <path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1" />
-    </svg>
-  );
-}
-
-function ImageIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <circle cx="8" cy="10" r="1.5" />
-      <path d="m21 16-5-5L5 19" />
-    </svg>
-  );
-}
-
-function FullscreenIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M8 3H3v5" />
-      <path d="M16 3h5v5" />
-      <path d="M8 21H3v-5" />
-      <path d="M16 21h5v-5" />
-    </svg>
-  );
-}
-
-function ExitFullscreenIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 14h6v6" />
-      <path d="M20 14h-6v6" />
-      <path d="M4 10h6V4" />
-      <path d="M20 10h-6V4" />
-    </svg>
   );
 }

@@ -1,17 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Tabs, Card, Button, Tag, Typography, Space, Badge, Empty, message } from 'antd';
+import { App, Tabs, Card, Button, Tag, Typography, Space, Badge, Empty } from 'antd';
 import { CheckOutlined, CloseOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listAdminComments, reviewAdminComment } from '../../api/comments';
 import type { AdminComment, CommentStatus } from '../../api/comments';
 
 const { Title, Text, Paragraph } = Typography;
-
-const statusBorderColor: Record<CommentStatus, string> = {
-  pending: '#F59E0B',
-  approved: '#22C55E',
-  rejected: '#EF4444',
-};
 
 const statusBadgeColor: Record<CommentStatus, 'warning' | 'success' | 'error'> = {
   pending: 'warning',
@@ -50,24 +44,33 @@ function CommentCard({
   return (
     <Card
       style={{
-        borderRadius: 8,
-        padding: 20,
-        background: '#FFFFFF',
-        border: '1px solid #E2E8F0',
-        borderLeft: `4px solid ${statusBorderColor[comment.status]}`,
-        boxShadow: '0 1px 3px 0 rgba(0,0,0,0.06)',
         marginBottom: 16,
       }}
-      styles={{ body: { padding: 0 } }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-            <Text strong style={{ fontSize: 14, color: '#0F172A' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 4,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Text strong style={{ fontSize: 14, color: 'var(--cms-ink)' }}>
               {comment.authorName}
             </Text>
             {comment.authorEmail && (
-              <Text style={{ fontSize: 12, color: '#64748B' }}>{comment.authorEmail}</Text>
+              <Text style={{ fontSize: 12, color: 'var(--cms-muted)' }}>{comment.authorEmail}</Text>
             )}
             <Tag
               color={statusBadgeColor[comment.status]}
@@ -80,22 +83,25 @@ function CommentCard({
           <Paragraph
             style={{
               fontSize: 14,
-              color: '#334155',
+              color: 'var(--cms-ink)',
               marginBottom: 8,
               lineHeight: 1.6,
               whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
             }}
           >
             {comment.body}
           </Paragraph>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <Text style={{ fontSize: 12, color: '#4F46E5' }}>
+            <Text style={{ fontSize: 12, color: 'var(--cms-primary)' }}>
               文章：{comment.articleTitle}
             </Text>
-            <Text style={{ fontSize: 12, color: '#64748B' }}>{formatDate(comment.createdAt)}</Text>
+            <Text style={{ fontSize: 12, color: 'var(--cms-muted)' }}>
+              {formatDate(comment.createdAt)}
+            </Text>
             {comment.reviewedAt && (
-              <Text style={{ fontSize: 12, color: '#64748B' }}>
+              <Text style={{ fontSize: 12, color: 'var(--cms-muted)' }}>
                 审核于 {formatDate(comment.reviewedAt)}
               </Text>
             )}
@@ -111,8 +117,8 @@ function CommentCard({
               loading={reviewing}
               style={{
                 borderRadius: 8,
-                background: '#22C55E',
-                borderColor: '#22C55E',
+                background: 'var(--cms-success)',
+                borderColor: 'var(--cms-success)',
               }}
               onClick={() => onApprove(comment.commentId)}
             >
@@ -136,10 +142,15 @@ function CommentCard({
 }
 
 function CommentsPage() {
+  const { message } = App.useApp();
   const [activeTab, setActiveTab] = useState<CommentStatus>('pending');
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const { data = [], isLoading, refetch } = useQuery({
+  const {
+    data = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['admin-comments'],
     queryFn: listAdminComments,
   });
@@ -192,19 +203,8 @@ function CommentsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-        <Title
-          level={4}
-          style={{
-            fontSize: 24,
-            fontWeight: 700,
-            marginBottom: 24,
-            marginTop: 0,
-            color: '#0F172A',
-          }}
-        >
-          评论审核
-        </Title>
+      <div className="cms-page-heading">
+        <Title level={1}>评论审核</Title>
         <Button icon={<ReloadOutlined />} loading={isLoading} onClick={() => refetch()}>
           刷新
         </Button>
@@ -224,7 +224,7 @@ function CommentsPage() {
                   count={commentsByStatus.pending.length}
                   size="small"
                   style={{
-                    backgroundColor: '#F59E0B',
+                    backgroundColor: 'var(--cms-warning)',
                     marginLeft: 6,
                     fontSize: 11,
                     minWidth: 18,

@@ -4,22 +4,22 @@ import {
   DashboardOutlined,
   DownOutlined,
   FileTextOutlined,
-  MessageOutlined,
   FolderOutlined,
   LogoutOutlined,
   MenuOutlined,
+  MessageOutlined,
   PictureOutlined,
   SendOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
-import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { clearAuthToken, getAuthToken, getAuthUser } from '../api/auth';
+import './AdminLayout.css';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
-const logoSrc = '/logo/icon.png';
 
 const baseMenuItems = [
   { key: '/admin', icon: <DashboardOutlined />, label: '仪表盘' },
@@ -29,16 +29,9 @@ const baseMenuItems = [
   { key: '/admin/assets', icon: <FolderOutlined />, label: '资源管理' },
 ];
 
-const pageTitleMap: Record<string, string> = {
-  '/admin': '仪表盘',
-  '/admin/articles': '文章管理',
-  '/admin/albums': '相册管理',
-  '/admin/comments': '评论审核',
-  '/admin/assets': '资源管理',
-  '/admin/postbridge': 'PostBridge',
-};
+const postBridgeItem = { key: '/admin/postbridge', icon: <SendOutlined />, label: 'PostBridge' };
 
-function AdminLayout() {
+export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
@@ -48,59 +41,36 @@ function AdminLayout() {
   const authToken = getAuthToken();
   const authUser = getAuthUser();
 
-  const menuItems = authUser?.role === 'admin'
-    ? [...baseMenuItems, { key: '/admin/postbridge', icon: <SendOutlined />, label: 'PostBridge' }]
-    : baseMenuItems;
-
   if (!authToken) {
     return <Navigate to="/admin/login" replace state={{ from: location }} />;
   }
 
-  // Determine the deepest matching menu key for the current path.
-  // This ensures sub-routes (e.g. /admin/articles/new) still highlight the
-  // parent menu item.
-  const selectedKey =
+  const menuItems = authUser?.role === 'admin' ? [...baseMenuItems, postBridgeItem] : baseMenuItems;
+  const activeItem =
     menuItems
-      .map((item) => item.key)
-      .filter(
-        (key) =>
-          location.pathname === key ||
-          location.pathname.startsWith(key + '/'),
-      )
-      .sort((a, b) => b.length - a.length)[0] ?? '/admin';
+      .filter(({ key }) => location.pathname === key || location.pathname.startsWith(key + '/'))
+      .sort((a, b) => b.key.length - a.key.length)[0] ?? baseMenuItems[0];
 
-  const pageTitle = pageTitleMap[selectedKey] ?? '';
   const userName = authUser?.name || '管理员';
   const userEmail = authUser?.email || '当前账号';
-  const userRole =
-    authUser?.role === 'admin'
-      ? '管理员'
-      : authUser?.role === 'editor'
-        ? '编辑'
-        : authUser?.role || '已登录';
-  const userInitial = userName.trim().slice(0, 1).toUpperCase() || 'A';
+  const role = authUser?.role;
+  const userRole = role === 'admin' ? '管理员' : role === 'editor' ? '编辑' : role || '已登录';
+  const userInitial = Array.from(userName.trim())[0]?.toUpperCase() || 'A';
 
   const userMenuItems: MenuProps['items'] = [
     {
       key: 'profile',
+      disabled: true,
       label: (
-        <div style={{ minWidth: 220, padding: '6px 4px' }}>
-          <Text strong style={{ display: 'block', color: '#0F172A', marginBottom: 4 }}>
-            {userName}
-          </Text>
-          <Text style={{ display: 'block', color: '#64748B', fontSize: 12, marginBottom: 4 }}>
-            {userEmail}
-          </Text>
-          <Text style={{ color: '#4F46E5', fontSize: 12 }}>{userRole}</Text>
+        <div className="cms-account-details">
+          <Text strong>{userName}</Text>
+          <Text type="secondary">{userEmail}</Text>
+          <small>{userRole}</small>
         </div>
       ),
     },
     { type: 'divider' },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: '退出登录',
-    },
+    { key: 'logout', icon: <LogoutOutlined />, label: '退出登录' },
   ];
 
   const handleUserMenuClick: MenuProps['onClick'] = ({ key }) => {
@@ -109,136 +79,79 @@ function AdminLayout() {
     navigate('/admin/login', { replace: true });
   };
 
-  const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
-    navigate(key);
-    setMobileMenuOpen(false);
-  };
+  const navMenu = (drawer = false) => (
+    <nav aria-label={drawer ? '移动端后台导航' : '后台导航'}>
+      <Menu
+        className="cms-nav"
+        mode="inline"
+        selectedKeys={[activeItem.key]}
+        items={menuItems}
+        onClick={({ key }) => {
+          navigate(key);
+          setMobileMenuOpen(false);
+        }}
+      />
+    </nav>
+  );
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout className="cms-shell">
       {!isMobile && (
         <Sider
-          width={240}
+          className="cms-sidebar"
+          width={224}
+          collapsedWidth={68}
           theme="light"
           collapsible
           collapsed={collapsed}
           onCollapse={setCollapsed}
-          style={{
-            background: '#FFFFFF',
-            borderRight: '1px solid #E2E8F0',
-          }}
+          trigger={null}
         >
-          <div
-            style={{
-              height: 80,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderBottom: '1px solid #E2E8F0',
-              padding: collapsed ? '0 16px' : '0 24px',
-            }}
-          >
-            <img
-              src={logoSrc}
-              alt="Rendering CMS"
-              style={{
-                display: 'block',
-                width: collapsed ? 44 : 160,
-                height: collapsed ? 44 : 52,
-                objectFit: 'contain',
-              }}
-            />
-          </div>
-
-          <Menu
-            mode="inline"
-            selectedKeys={[selectedKey]}
-            items={menuItems}
-            onClick={handleMenuClick}
-            style={{ borderInlineEnd: 'none', marginTop: 8 }}
+          <Link to="/admin" className="cms-brand" aria-label="Rendering CMS 仪表盘">
+            <span className="cms-brand-icon">
+              <img src="/logo/icon.png" alt="" />
+            </span>
+            {!collapsed && <strong>Rendering CMS</strong>}
+          </Link>
+          {navMenu()}
+          <Button
+            className="cms-collapse"
+            type="text"
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? '展开导航' : '收起导航'}
+            onClick={() => setCollapsed(!collapsed)}
+            icon={<MenuOutlined />}
           />
         </Sider>
       )}
 
-      <Layout>
-        <Header
-          style={{
-            height: isMobile ? 64 : 80,
-            lineHeight: isMobile ? '64px' : '80px',
-            background: '#FFFFFF',
-            borderBottom: '1px solid #E2E8F0',
-            padding: isMobile ? '0 12px' : '0 24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-            position: isMobile ? 'sticky' : undefined,
-            top: isMobile ? 0 : undefined,
-            zIndex: isMobile ? 100 : undefined,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      <Layout className="cms-main">
+        <Header className="cms-header">
+          <div className="cms-header-start">
             {isMobile && (
               <Button
                 aria-label="打开导航"
+                aria-expanded={mobileMenuOpen}
+                size="large"
                 icon={<MenuOutlined />}
                 onClick={() => setMobileMenuOpen(true)}
               />
             )}
-            <Text strong style={{ fontSize: isMobile ? 16 : 18, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {pageTitle}
+            <Text strong ellipsis>
+              {activeItem.label}
             </Text>
           </div>
-
           <Dropdown
             trigger={['click']}
             placement="bottomRight"
             menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
           >
-            <Button
-              type="text"
-              style={{
-                height: 44,
-                padding: '0 10px',
-                borderRadius: 8,
-                display: 'inline-flex',
-                alignItems: 'center',
-                lineHeight: 1,
-              }}
-            >
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  minWidth: 0,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                <Avatar
-                  size={28}
-                  icon={!authUser?.name ? <UserOutlined /> : undefined}
-                  style={{ backgroundColor: '#4F46E5', fontSize: 13 }}
-                >
-                  {authUser?.name ? userInitial : null}
-                </Avatar>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    maxWidth: isMobile ? 82 : 120,
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    lineHeight: '20px',
-                    verticalAlign: 'middle',
-                  }}
-                >
-                  {userName}
-                </span>
-                <DownOutlined
-                  style={{ flex: '0 0 auto', fontSize: 12, color: '#64748B' }}
-                />
-              </span>
+            <Button type="text" className="cms-account" aria-label={`账号菜单：${userName}`}>
+              <Avatar size={28} icon={!authUser?.name ? <UserOutlined /> : undefined}>
+                {authUser?.name ? userInitial : null}
+              </Avatar>
+              <span className="cms-account-name">{userName}</span>
+              <DownOutlined aria-hidden="true" />
             </Button>
           </Dropdown>
         </Header>
@@ -246,32 +159,18 @@ function AdminLayout() {
         <Drawer
           title="Rendering CMS"
           placement="left"
-          open={mobileMenuOpen}
+          open={isMobile && mobileMenuOpen}
           onClose={() => setMobileMenuOpen(false)}
           size={280}
-          styles={{ body: { padding: 0 } }}
+          styles={{ body: { padding: 8 } }}
         >
-          <Menu
-            mode="inline"
-            selectedKeys={[selectedKey]}
-            items={menuItems}
-            onClick={handleMenuClick}
-            style={{ borderInlineEnd: 'none' }}
-          />
+          {navMenu(true)}
         </Drawer>
 
-        <Content
-          style={{
-            padding: isMobile ? 12 : 24,
-            minHeight: isMobile ? 'calc(100vh - 64px)' : 'calc(100vh - 80px)',
-            background: '#F8FAFC',
-          }}
-        >
+        <Content className="cms-content">
           <Outlet />
         </Content>
       </Layout>
     </Layout>
   );
 }
-
-export default AdminLayout;

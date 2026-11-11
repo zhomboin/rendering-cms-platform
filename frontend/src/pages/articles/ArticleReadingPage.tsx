@@ -75,7 +75,6 @@ export default function ArticleReadingPage() {
             <Button
               type="primary"
               icon={<EditOutlined />}
-              style={{ backgroundColor: '#4F46E5', borderColor: '#4F46E5' }}
               onClick={() => navigate(`/admin/articles/${article.articleId}/edit`)}
             >
               编辑
