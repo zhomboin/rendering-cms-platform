@@ -135,6 +135,18 @@ body {
   }
 }
 
+@media (pointer: coarse) {
+  .cms-nav.ant-menu .ant-menu-item {
+    height: 44px;
+    line-height: 44px;
+  }
+
+  .cms-content .ant-btn-primary:not(.ant-btn-sm),
+  .cms-photo-card .ant-card-actions .ant-btn {
+    min-height: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -178,6 +190,16 @@ body {
 
 .cms-table-title:hover {
   text-decoration: underline;
+}
+
+.cms-detail-form {
+  max-inline-size: 1120px;
+}
+
+.cms-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 224px), 1fr));
+  gap: 16px;
 }
 
 .cms-photo-card.ant-card {

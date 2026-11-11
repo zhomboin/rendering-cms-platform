@@ -1,8 +1,10 @@
 .cms-shell.ant-layout {
-  max-width: 1720px;
-  width: calc(100% - clamp(24px, 5vw, 72px));
-  min-height: calc(100dvh - 48px);
-  margin: 24px auto;
+  --cms-shell-gutter: clamp(8px, 0.95vw, 28px);
+  --cms-shell-margin: clamp(8px, 1vw, 24px);
+  --cms-workspace-padding: clamp(16px, 1.65vw, 40px);
+  min-width: 0;
+  min-height: calc(100dvh - 2 * var(--cms-shell-margin));
+  margin: var(--cms-shell-margin) var(--cms-shell-gutter);
   padding: 8px;
   gap: 8px;
   border: 1px solid #cbd3ee;
@@ -15,9 +17,11 @@
 
 .cms-sidebar.ant-layout-sider {
   position: sticky;
-  top: 24px;
+  top: var(--cms-shell-margin);
   align-self: flex-start;
-  min-height: min(650px, calc(100dvh - 48px));
+  min-height: min(650px, calc(100dvh - 2 * var(--cms-shell-margin)));
+  max-height: calc(100dvh - 2 * var(--cms-shell-margin));
+  overflow-y: auto;
   border: 1px solid var(--cms-line);
   border-radius: 22px;
   background: linear-gradient(160deg, var(--cms-well), var(--cms-panel) 74%);
@@ -92,7 +96,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 clamp(16px, 2.4vw, 36px);
+  padding-inline: var(--cms-workspace-padding);
   border-bottom: 1px solid var(--cms-line);
   border-radius: 22px 22px 0 0;
   line-height: 1.5;
@@ -134,14 +138,13 @@
 
 .cms-content {
   min-width: 0;
-  padding: clamp(16px, 2.4vw, 36px);
+  padding: var(--cms-workspace-padding);
 }
 
 @media (max-width: 767px) {
   .cms-shell.ant-layout {
-    width: calc(100% - 12px);
-    min-height: calc(100dvh - 12px);
-    margin: 6px auto;
+    --cms-shell-gutter: 6px;
+    --cms-shell-margin: 6px;
     padding: 4px;
     border-radius: 20px;
   }

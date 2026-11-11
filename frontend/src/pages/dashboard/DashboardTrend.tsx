@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { AnalyticsTrend } from '../../api/analytics';
 import { DashboardEmpty } from './DashboardShared';
 import { number } from './dashboardFormat';
@@ -32,21 +32,49 @@ function axisNumber(value: number) {
   }).format(scaled >= 100 ? Math.floor(scaled) : scaled);
   return label + (unit === 1e8 ? '亿' : unit === 1e4 ? '万' : unit === 1000 ? '千' : '');
 }
+function useChartWidth() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(704);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const measure = () => {
+      const measuredWidth = element.clientWidth;
+      if (measuredWidth > 0) setWidth(measuredWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return { ref, width };
+}
+
 export function DashboardTrend({ data }: { data: AnalyticsTrend }) {
   const fillId = useId();
+  const { ref, width } = useChartWidth();
   const rows = useMemo(() => trendRows(data), [data]);
   const hasViews = rows.some((row) => row.site > 0 || row.articles > 0);
   const max = Math.max(4, ...rows.flatMap((row) => [row.site, row.articles]));
   const ceiling = Math.ceil(max / 4) * 4;
-  const axisStart = ceiling >= 1000 ? 128 : 108;
-  const axisEnd = 676;
+  const height = Math.round(Math.min(340, Math.max(170, 145 + width / 7)));
+  const plotTop = 16;
+  const plotBottom = height - 26;
+  const axisStart = ceiling >= 1000 ? 60 : 36;
+  const axisEnd = width - 8;
   const x = (i: number) => axisStart + (i / Math.max(rows.length - 1, 1)) * (axisEnd - axisStart);
-  const y = (value: number) => 190 - (value / ceiling) * 162;
+  const y = (value: number) => plotBottom - (value / ceiling) * (plotBottom - plotTop);
   const points = (key: 'site' | 'articles') =>
     rows.map((row, i) => x(i) + ',' + y(row[key])).join(' ');
-  const labelIndexes = [...new Set([0, Math.floor((rows.length - 1) / 2), rows.length - 1])];
+  const labelCount = Math.min(
+    rows.length,
+    width < 390 ? 3 : width < 720 ? 5 : width < 1120 ? 7 : 9,
+  );
+  const labelIndexes = Array.from({ length: labelCount }, (_, index) =>
+    Math.floor((index * (rows.length - 1)) / Math.max(labelCount - 1, 1)),
+  );
   return (
-    <div className="dashboard-trend">
+    <div className="dashboard-trend" ref={ref}>
       <div className="dashboard-trend-caption">
         <span>近 {data.days} 天 · 每日访问计数</span>
         <div className="dashboard-legend">
@@ -65,7 +93,7 @@ export function DashboardTrend({ data }: { data: AnalyticsTrend }) {
       ) : (
         <svg
           className="dashboard-chart"
-          viewBox="0 0 704 226"
+          viewBox={`0 0 ${width} ${height}`}
           role="img"
           aria-label={'近 ' + data.days + ' 天站点与文章访问趋势，详细数值见下方每日数据表'}
         >
@@ -76,7 +104,11 @@ export function DashboardTrend({ data }: { data: AnalyticsTrend }) {
             </linearGradient>
           </defs>
           <polygon
-            points={points('site') + ' ' + x(rows.length - 1) + ',190 ' + x(0) + ',190'}
+            points={[
+              points('site'),
+              x(rows.length - 1) + ',' + plotBottom,
+              x(0) + ',' + plotBottom,
+            ].join(' ')}
             fill={'url(#' + fillId + ')'}
           />
           {[0, 1, 2, 3, 4].map((i) => (
@@ -88,7 +120,7 @@ export function DashboardTrend({ data }: { data: AnalyticsTrend }) {
                 y2={y((ceiling * i) / 4)}
                 stroke="var(--cms-line)"
               />
-              <text x={axisStart - 12} y={y((ceiling * i) / 4) + 4} textAnchor="end">
+              <text x={axisStart - 8} y={y((ceiling * i) / 4) + 4} textAnchor="end">
                 {axisNumber((ceiling * i) / 4)}
               </text>
             </g>
@@ -97,7 +129,7 @@ export function DashboardTrend({ data }: { data: AnalyticsTrend }) {
             <text
               key={i}
               x={x(i)}
-              y="214"
+              y={height - 6}
               textAnchor={i === 0 ? 'start' : i === rows.length - 1 ? 'end' : 'middle'}
             >
               {rows[i].date.slice(5)}

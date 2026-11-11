@@ -117,7 +117,7 @@ export default function AlbumEditPage() {
   const isPublished = album?.status === 'published';
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="cms-detail-form">
       <Space wrap style={{ marginBottom: 20 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/albums')}>
           返回列表
@@ -178,7 +178,7 @@ export default function AlbumEditPage() {
           requiredMark
         >
           <Row gutter={16}>
-            <Col xs={24} md={8}>
+            <Col xs={24} lg={8}>
               <Form.Item
                 name="slug"
                 label="访问标识"
@@ -193,7 +193,7 @@ export default function AlbumEditPage() {
                 <Input placeholder="city-nights" disabled={isPublished} />
               </Form.Item>
             </Col>
-            <Col xs={24} md={8}>
+            <Col xs={24} lg={8}>
               <Form.Item
                 name="title"
                 label="标题"
@@ -202,14 +202,14 @@ export default function AlbumEditPage() {
                 <Input placeholder="城市夜色" />
               </Form.Item>
             </Col>
-            <Col xs={24} md={8}>
+            <Col xs={24} lg={8}>
               <Form.Item name="titleEn" label="英文标题">
                 <Input placeholder="City Nights" />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col xs={24} md={12}>
+            <Col xs={24} lg={12}>
               <Form.Item
                 name="description"
                 label="导语"
@@ -218,7 +218,7 @@ export default function AlbumEditPage() {
                 <TextArea rows={3} placeholder="一组夜景。" />
               </Form.Item>
             </Col>
-            <Col xs={24} md={12}>
+            <Col xs={24} lg={12}>
               <Form.Item name="descriptionEn" label="英文导语">
                 <TextArea rows={3} placeholder="A set of night shots." />
               </Form.Item>

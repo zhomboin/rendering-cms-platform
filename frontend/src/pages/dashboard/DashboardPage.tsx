@@ -89,7 +89,7 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
-      <div className="dashboard-two-columns">
+      <div className="dashboard-two-columns dashboard-top">
         <DashboardPanel
           title="访问趋势"
           extra={<span className="dashboard-panel-hint">所选区间</span>}
@@ -101,13 +101,13 @@ export default function DashboardPage() {
             {(data) => <DashboardContent data={data} />}
           </DashboardQuery>
         </DashboardPanel>
+        <section className="dashboard-metrics-section" aria-label="关键指标">
+          <DashboardQuery query={overview} loadingLabel="正在加载指标">
+            {(data) => <DashboardMetrics data={data} days={days} />}
+          </DashboardQuery>
+        </section>
       </div>
-      <section className="dashboard-metrics-section" aria-label="关键指标">
-        <DashboardQuery query={overview} loadingLabel="正在加载指标">
-          {(data) => <DashboardMetrics data={data} days={days} />}
-        </DashboardQuery>
-      </section>
-      <div className="dashboard-two-columns dashboard-middle">
+      <div className="dashboard-two-columns dashboard-operations">
         <DashboardPanel
           title="文章排行"
           extra={<span className="dashboard-panel-hint">近 {days} 天</span>}
@@ -124,13 +124,17 @@ export default function DashboardPage() {
             {(data) => <DashboardTodos data={data} />}
           </DashboardQuery>
         </DashboardPanel>
+        <DashboardPanel
+          className="dashboard-gallery-panel"
+          title="相册一览"
+          extra={<Link to="/admin/albums">管理相册 →</Link>}
+        >
+          <div className="dashboard-section-note">近 {days} 天 · 已发布优先 · 区间访问排序</div>
+          <DashboardQuery query={albums}>
+            {(data) => <DashboardAlbumGallery data={data} />}
+          </DashboardQuery>
+        </DashboardPanel>
       </div>
-      <DashboardPanel title="相册一览" extra={<Link to="/admin/albums">管理相册 →</Link>}>
-        <div className="dashboard-section-note">近 {days} 天 · 已发布优先 · 区间访问排序</div>
-        <DashboardQuery query={albums}>
-          {(data) => <DashboardAlbumGallery data={data} />}
-        </DashboardQuery>
-      </DashboardPanel>
       <div className="dashboard-two-columns dashboard-bottom">
         <DashboardPanel title="近期内容" extra={<Link to="/admin/articles">全部文章 →</Link>}>
           <DashboardQuery query={overview}>

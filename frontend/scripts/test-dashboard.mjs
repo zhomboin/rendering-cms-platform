@@ -456,3 +456,69 @@ test('移动端大访问数使用可读轴标签且数据表保留完整计数',
   const row = trend.getByRole('row').filter({ hasText: '2026-10-31' });
   assert.equal(await row.getByRole('cell').nth(1).textContent(), '99,999,999');
 });
+
+test('后台在手机、平板、桌面和 4K 下利用可用宽度并保持图表可读', async (t) => {
+  const { page } = await setup(t);
+  const chart = page.locator('.dashboard-chart');
+  let narrowDateCount = 0;
+
+  for (const [width, height] of [
+    [320, 690],
+    [740, 360],
+    [820, 1180],
+    [1440, 900],
+    [2560, 1440],
+    [3840, 2160],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForFunction(() => {
+      const svg = document.querySelector('.dashboard-chart');
+      return svg && Math.abs(svg.viewBox.baseVal.width - svg.getBoundingClientRect().width) < 2;
+    });
+
+    const dimensions = await chart.evaluate((svg) => {
+      const shell = document.querySelector('.cms-shell').getBoundingClientRect();
+      const dashboard = document.querySelector('.dashboard').getBoundingClientRect();
+      const chartBox = svg.getBoundingClientRect();
+      const fontSize = parseFloat(getComputedStyle(svg.querySelector('text')).fontSize);
+      return {
+        documentWidth: document.documentElement.scrollWidth,
+        shellWidth: shell.width,
+        dashboardWidth: dashboard.width,
+        chartHeight: chartBox.height,
+        fontSize: (fontSize * chartBox.width) / svg.viewBox.baseVal.width,
+      };
+    });
+
+    assert.equal(dimensions.documentWidth, width, width + 'px 页面不能横向溢出');
+    assert.ok(dimensions.shellWidth >= width - 60, width + 'px 后台应利用屏幕宽度');
+    assert.ok(
+      dimensions.fontSize >= 11 && dimensions.fontSize <= 15,
+      width + 'px 坐标字不应缩小或放大',
+    );
+    assert.ok(dimensions.chartHeight < 360, width + 'px 图表不能随宽度无限增高');
+
+    if (width < 768) {
+      await page.getByRole('button', { name: '打开导航' }).waitFor();
+    } else if (width < 1024) {
+      await page.getByRole('button', { name: '展开导航' }).waitFor();
+    } else {
+      await page.getByRole('button', { name: '收起导航' }).waitFor();
+    }
+
+    const dateCount = await chart.locator(':scope > text').count();
+    if (width === 320) narrowDateCount = dateCount;
+    if (width === 3840) {
+      assert.ok(dimensions.dashboardWidth > 3400, '4K 仪表盘不能有固定最大宽度');
+      assert.ok(dateCount > narrowDateCount, '宽屏可显示更多日期');
+      const gallery = await (await region(page, '相册一览')).boundingBox();
+      const ranking = await (await region(page, '文章排行')).boundingBox();
+      assert.ok(
+        gallery.x > ranking.x + ranking.width && gallery.y === ranking.y,
+        '宽屏下相册和文章排行应并排',
+      );
+      await mkdir(root + '.tmp/dashboard', { recursive: true });
+      await page.screenshot({ path: root + '.tmp/dashboard/4k.png' });
+    }
+  }
+});

@@ -34,10 +34,11 @@ const postBridgeItem = { key: '/admin/postbridge', icon: <SendOutlined />, label
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [navPreference, setNavPreference] = useState<boolean>();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const collapsed = navPreference ?? !screens.lg;
   const authToken = getAuthToken();
   const authUser = getAuthUser();
 
@@ -104,7 +105,7 @@ export default function AdminLayout() {
           theme="light"
           collapsible
           collapsed={collapsed}
-          onCollapse={setCollapsed}
+          onCollapse={setNavPreference}
           trigger={null}
         >
           <Link to="/admin" className="cms-brand" aria-label="Rendering CMS 仪表盘">
@@ -119,7 +120,7 @@ export default function AdminLayout() {
             type="text"
             aria-expanded={!collapsed}
             aria-label={collapsed ? '展开导航' : '收起导航'}
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={() => setNavPreference(!collapsed)}
             icon={<MenuOutlined />}
           />
         </Sider>
@@ -161,7 +162,7 @@ export default function AdminLayout() {
           placement="left"
           open={isMobile && mobileMenuOpen}
           onClose={() => setMobileMenuOpen(false)}
-          size={280}
+          size="min(280px, calc(100vw - 24px))"
           styles={{ body: { padding: 8 } }}
         >
           {navMenu(true)}

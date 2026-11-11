@@ -10,7 +10,7 @@
 | 登录           | 密码、失败锁定、风险触发邮箱验证码                                                         | [认证 API](apis/auth.md)                                                    |
 | 相册与文件     | 相册管理、上传进度与预览、图片 50MB／其它文件 20MB、对象存储和下载审计                     | [相册 API](apis/photos.md)、[文件 API](apis/assets.md)                      |
 | 首页与统计     | 7／30／90 天趋势、内容图文展示、待办与资源概况                                             | [首页说明](guides/dashboard.md)、[统计 API](apis/analytics.md)              |
-| 后台界面       | 浅色拟物主题、统一组件状态与窄屏布局，媒体上传按文件反馈                                     | [前端设计](guides/frontend-design.md)                                       |
+| 后台界面       | 浅色拟物主题、手机至 4K 自适应，媒体上传按文件反馈                                     | [前端设计](guides/frontend-design.md)                                       |
 | 评论           | 匿名提交、默认待审核与后台审核                                                             | [评论 API](apis/comments.md)                                                |
 | 公开接口与部署 | PostgreSQL 搜索、缓存、应用限流及自动部署保护                                              | [部署说明](operations/deployment.md)、[自动部署](operations/auto-deploy.md) |
 

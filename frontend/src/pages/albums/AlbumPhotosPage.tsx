@@ -5,14 +5,12 @@ import {
   Alert,
   Button,
   Card,
-  Col,
   DatePicker,
   Divider,
   Form,
   Input,
   Modal,
   Popconfirm,
-  Row,
   Space,
   Tag,
   Typography,
@@ -151,7 +149,7 @@ export default function AlbumPhotosPage() {
   };
   const error = albumQuery.error ?? photosQuery.error;
   return (
-    <div style={{ padding: 24 }}>
+    <div>
       <Space wrap style={{ marginBottom: 20 }}>
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/albums')}>
           返回列表
@@ -200,131 +198,128 @@ export default function AlbumPhotosPage() {
             <Alert type="info" showIcon message="暂无照片" />
           ) : (
             <Image.PreviewGroup>
-              <Row gutter={[16, 16]}>
+              <div className="cms-photo-grid">
                 {photos.map((photo, index) => {
                   const isCover = album?.coverPhotoId
                     ? album.coverPhotoId === photo.photoId
                     : index === 0;
                   return (
-                    <Col key={photo.photoId} xs={24} sm={12} lg={8} xxl={6}>
-                      <Card
-                        className="cms-photo-card"
-                        size="small"
-                        cover={
-                          photo.url ? (
-                            <Image
-                              src={photo.url}
-                              aria-label={'预览' + photo.alt}
-                              width="100%"
-                              height={160}
-                              preview={{ cover: '预览' }}
-                              alt={photo.alt}
-                              style={{ height: 160, objectFit: 'cover' }}
-                              loading="lazy"
-                            />
-                          ) : undefined
-                        }
-                        actions={[
-                          <Button
-                            aria-label="上移照片"
-                            key="up"
-                            type="text"
-                            size="small"
-                            icon={<ArrowUpOutlined />}
-                            disabled={index === 0 || reorderMutation.isPending}
-                            onClick={() => movePhoto(index, -1)}
-                          />,
-                          <Button
-                            aria-label="下移照片"
-                            key="down"
-                            type="text"
-                            size="small"
-                            icon={<ArrowDownOutlined />}
-                            disabled={index === photos.length - 1 || reorderMutation.isPending}
-                            onClick={() => movePhoto(index, 1)}
-                          />,
-                          <Button
-                            aria-label="编辑照片"
-                            key="edit"
-                            type="text"
-                            size="small"
-                            icon={<EditOutlined />}
-                            onClick={() => openPhotoEdit(photo)}
-                          />,
-                          <Button
-                            key="cover"
-                            aria-label="设置照片封面"
-                            type="text"
-                            size="small"
-                            icon={
-                              isCover ? (
-                                <StarFilled style={{ color: 'var(--cms-warning)' }} />
-                              ) : (
-                                <StarOutlined />
-                              )
-                            }
-                            onClick={() => coverMutation.mutate(isCover ? null : photo.photoId)}
-                          />,
-                          <Popconfirm
-                            key="delete"
-                            title="确认删除该照片？"
-                            okText="删除"
-                            okButtonProps={{ danger: true }}
-                            cancelText="取消"
-                            onConfirm={() => deletePhotoMutation.mutate(photo.photoId)}
-                          >
-                            <Button
-                              aria-label="删除照片"
-                              type="text"
-                              size="small"
-                              danger
-                              icon={<DeleteOutlined />}
-                            />
-                          </Popconfirm>,
-                        ]}
-                      >
-                        <Card.Meta
-                          title={
-                            <Space size={6}>
-                              <Text ellipsis style={{ maxWidth: 160 }}>
-                                {photo.alt}
-                              </Text>
-                              {isCover && <Tag color="warning">封面</Tag>}
-                            </Space>
+                    <Card
+                      key={photo.photoId}
+                      className="cms-photo-card"
+                      size="small"
+                      cover={
+                        photo.url ? (
+                          <Image
+                            src={photo.url}
+                            aria-label={'预览' + photo.alt}
+                            width="100%"
+                            height={160}
+                            preview={{ cover: '预览' }}
+                            alt={photo.alt}
+                            style={{ height: 160, objectFit: 'cover' }}
+                            loading="lazy"
+                          />
+                        ) : undefined
+                      }
+                      actions={[
+                        <Button
+                          aria-label="上移照片"
+                          key="up"
+                          type="text"
+                          size="small"
+                          icon={<ArrowUpOutlined />}
+                          disabled={index === 0 || reorderMutation.isPending}
+                          onClick={() => movePhoto(index, -1)}
+                        />,
+                        <Button
+                          aria-label="下移照片"
+                          key="down"
+                          type="text"
+                          size="small"
+                          icon={<ArrowDownOutlined />}
+                          disabled={index === photos.length - 1 || reorderMutation.isPending}
+                          onClick={() => movePhoto(index, 1)}
+                        />,
+                        <Button
+                          aria-label="编辑照片"
+                          key="edit"
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => openPhotoEdit(photo)}
+                        />,
+                        <Button
+                          key="cover"
+                          aria-label="设置照片封面"
+                          type="text"
+                          size="small"
+                          icon={
+                            isCover ? (
+                              <StarFilled style={{ color: 'var(--cms-warning)' }} />
+                            ) : (
+                              <StarOutlined />
+                            )
                           }
-                          description={
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                              {photo.width}×{photo.height}
-                              {photo.takenAt
-                                ? ` · ${dayjs(photo.takenAt).format('YYYY-MM-DD')}`
-                                : ''}
+                          onClick={() => coverMutation.mutate(isCover ? null : photo.photoId)}
+                        />,
+                        <Popconfirm
+                          key="delete"
+                          title="确认删除该照片？"
+                          okText="删除"
+                          okButtonProps={{ danger: true }}
+                          cancelText="取消"
+                          onConfirm={() => deletePhotoMutation.mutate(photo.photoId)}
+                        >
+                          <Button
+                            aria-label="删除照片"
+                            type="text"
+                            size="small"
+                            danger
+                            icon={<DeleteOutlined />}
+                          />
+                        </Popconfirm>,
+                      ]}
+                    >
+                      <Card.Meta
+                        title={
+                          <Space size={6}>
+                            <Text ellipsis style={{ maxWidth: 160 }}>
+                              {photo.alt}
                             </Text>
-                          }
-                        />
-                        {photo.url ? (
-                          <Space.Compact style={{ width: '100%', marginTop: 12 }}>
-                            <Input
-                              aria-label={`${photo.alt}的图片 URL`}
-                              readOnly
-                              value={photo.url}
-                              onFocus={(event) => event.target.select()}
-                            />
-                            <Button
-                              aria-label={`复制${photo.alt}的图片 URL`}
-                              icon={<CopyOutlined />}
-                              onClick={() => void copyPhotoURL(photo.url!)}
-                            >
-                              复制
-                            </Button>
-                          </Space.Compact>
-                        ) : (
-                          <Text type="secondary">暂无图片 URL，请检查公开访问地址配置</Text>
-                        )}
-                      </Card>
-                    </Col>
+                            {isCover && <Tag color="warning">封面</Tag>}
+                          </Space>
+                        }
+                        description={
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {photo.width}×{photo.height}
+                            {photo.takenAt ? ` · ${dayjs(photo.takenAt).format('YYYY-MM-DD')}` : ''}
+                          </Text>
+                        }
+                      />
+                      {photo.url ? (
+                        <Space.Compact style={{ width: '100%', marginTop: 12 }}>
+                          <Input
+                            aria-label={`${photo.alt}的图片 URL`}
+                            readOnly
+                            value={photo.url}
+                            onFocus={(event) => event.target.select()}
+                          />
+                          <Button
+                            aria-label={`复制${photo.alt}的图片 URL`}
+                            icon={<CopyOutlined />}
+                            onClick={() => void copyPhotoURL(photo.url!)}
+                          >
+                            复制
+                          </Button>
+                        </Space.Compact>
+                      ) : (
+                        <Text type="secondary">暂无图片 URL，请检查公开访问地址配置</Text>
+                      )}
+                    </Card>
                   );
                 })}
-              </Row>
+              </div>
             </Image.PreviewGroup>
           )}
         </Card>
