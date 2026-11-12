@@ -30,6 +30,11 @@ const baseMenuItems = [
 ];
 
 const postBridgeItem = { key: '/admin/postbridge', icon: <SendOutlined />, label: 'PostBridge' };
+const brandIcon = (
+  <span className="cms-brand-icon">
+    <img src="/logo/rendering-woodcut-128.png" width={30} height={30} alt="" />
+  </span>
+);
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -109,9 +114,7 @@ export default function AdminLayout() {
           trigger={null}
         >
           <Link to="/admin" className="cms-brand" aria-label="Rendering CMS 仪表盘">
-            <span className="cms-brand-icon">
-              <img src="/logo/icon.png" alt="" />
-            </span>
+            {brandIcon}
             {!collapsed && <strong>Rendering CMS</strong>}
           </Link>
           {navMenu()}
@@ -158,7 +161,12 @@ export default function AdminLayout() {
         </Header>
 
         <Drawer
-          title="Rendering CMS"
+          title={
+            <span className="cms-drawer-brand">
+              {brandIcon}
+              Rendering CMS
+            </span>
+          }
           placement="left"
           open={isMobile && mobileMenuOpen}
           onClose={() => setMobileMenuOpen(false)}
