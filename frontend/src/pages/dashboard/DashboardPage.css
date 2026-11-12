@@ -95,7 +95,7 @@
   min-width: 0;
 }
 .dashboard-metric + .dashboard-metric::before {
-  content: "";
+  content: '';
   position: absolute;
   inset: 20px auto 20px 0;
   width: 1px;
@@ -295,7 +295,7 @@
   inset: 6%;
   border-radius: 50%;
   box-shadow: var(--cms-inset);
-  content: "";
+  content: '';
 }
 .dashboard-content-ring svg {
   position: absolute;
