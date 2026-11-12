@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { App, Button, Checkbox, Form, Input, Typography } from 'antd';
-import { AppstoreOutlined, LockOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons';
+import { LockOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons';
 import {
   isLoginMFAChallenge,
   loginAdmin,
@@ -130,7 +130,7 @@ function LoginForm() {
       <section className="login-shell" aria-label="Rendering CMS 登录">
         <div className="login-heading">
           <div className="login-logo" aria-hidden="true">
-            <AppstoreOutlined />
+            <img src="/logo/rendering-woodcut-128.png" width={48} height={48} alt="" />
           </div>
           <Title level={1}>Rendering CMS</Title>
           <Text>欢迎回来，请使用管理员账号登录。</Text>

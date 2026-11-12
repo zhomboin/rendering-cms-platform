@@ -62,9 +62,13 @@
 }
 
 .cms-brand-icon img {
-  width: 24px;
-  height: 24px;
   object-fit: contain;
+}
+
+.cms-drawer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
 }
 
 .cms-nav.ant-menu {
