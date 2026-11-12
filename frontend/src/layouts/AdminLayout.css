@@ -72,7 +72,9 @@
 }
 
 .cms-nav .ant-menu-item-selected {
-  box-shadow: var(--cms-inset);
+  box-shadow:
+    inset 2px 0 0 var(--cms-primary),
+    var(--cms-inset);
   font-weight: 650;
 }
 

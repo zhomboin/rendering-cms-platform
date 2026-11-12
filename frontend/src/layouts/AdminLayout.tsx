@@ -1,5 +1,14 @@
-import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, Typography } from 'antd';
-import type { MenuProps } from 'antd';
+import {
+  Avatar,
+  Button,
+  Drawer,
+  Dropdown,
+  Grid,
+  Layout,
+  Menu,
+  Typography,
+} from "antd";
+import type { MenuProps } from "antd";
 import {
   DashboardOutlined,
   DownOutlined,
@@ -11,25 +20,35 @@ import {
   PictureOutlined,
   SendOutlined,
   UserOutlined,
-} from '@ant-design/icons';
-import { useState } from 'react';
-import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { clearAuthToken, getAuthToken, getAuthUser } from '../api/auth';
-import './AdminLayout.css';
+} from "@ant-design/icons";
+import { useState } from "react";
+import {
+  Link,
+  Navigate,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import { clearAuthToken, getAuthToken, getAuthUser } from "../api/auth";
+import "./AdminLayout.css";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const baseMenuItems = [
-  { key: '/admin', icon: <DashboardOutlined />, label: '仪表盘' },
-  { key: '/admin/articles', icon: <FileTextOutlined />, label: '文章管理' },
-  { key: '/admin/albums', icon: <PictureOutlined />, label: '相册管理' },
-  { key: '/admin/comments', icon: <MessageOutlined />, label: '评论审核' },
-  { key: '/admin/assets', icon: <FolderOutlined />, label: '资源管理' },
+  { key: "/admin", icon: <DashboardOutlined />, label: "仪表盘" },
+  { key: "/admin/articles", icon: <FileTextOutlined />, label: "文章管理" },
+  { key: "/admin/albums", icon: <PictureOutlined />, label: "相册管理" },
+  { key: "/admin/comments", icon: <MessageOutlined />, label: "评论审核" },
+  { key: "/admin/assets", icon: <FolderOutlined />, label: "资源管理" },
 ];
 
-const postBridgeItem = { key: '/admin/postbridge', icon: <SendOutlined />, label: 'PostBridge' };
+const postBridgeItem = {
+  key: "/admin/postbridge",
+  icon: <SendOutlined />,
+  label: "PostBridge",
+};
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -46,21 +65,28 @@ export default function AdminLayout() {
     return <Navigate to="/admin/login" replace state={{ from: location }} />;
   }
 
-  const menuItems = authUser?.role === 'admin' ? [...baseMenuItems, postBridgeItem] : baseMenuItems;
+  const menuItems =
+    authUser?.role === "admin"
+      ? [...baseMenuItems, postBridgeItem]
+      : baseMenuItems;
   const activeItem =
     menuItems
-      .filter(({ key }) => location.pathname === key || location.pathname.startsWith(key + '/'))
+      .filter(
+        ({ key }) =>
+          location.pathname === key || location.pathname.startsWith(key + "/"),
+      )
       .sort((a, b) => b.key.length - a.key.length)[0] ?? baseMenuItems[0];
 
-  const userName = authUser?.name || '管理员';
-  const userEmail = authUser?.email || '当前账号';
+  const userName = authUser?.name || "管理员";
+  const userEmail = authUser?.email || "当前账号";
   const role = authUser?.role;
-  const userRole = role === 'admin' ? '管理员' : role === 'editor' ? '编辑' : role || '已登录';
-  const userInitial = Array.from(userName.trim())[0]?.toUpperCase() || 'A';
+  const userRole =
+    role === "admin" ? "管理员" : role === "editor" ? "编辑" : role || "已登录";
+  const userInitial = Array.from(userName.trim())[0]?.toUpperCase() || "A";
 
-  const userMenuItems: MenuProps['items'] = [
+  const userMenuItems: MenuProps["items"] = [
     {
-      key: 'profile',
+      key: "profile",
       disabled: true,
       label: (
         <div className="cms-account-details">
@@ -70,23 +96,26 @@ export default function AdminLayout() {
         </div>
       ),
     },
-    { type: 'divider' },
-    { key: 'logout', icon: <LogoutOutlined />, label: '退出登录' },
+    { type: "divider" },
+    { key: "logout", icon: <LogoutOutlined />, label: "退出登录" },
   ];
 
-  const handleUserMenuClick: MenuProps['onClick'] = ({ key }) => {
-    if (key !== 'logout') return;
+  const handleUserMenuClick: MenuProps["onClick"] = ({ key }) => {
+    if (key !== "logout") return;
     clearAuthToken();
-    navigate('/admin/login', { replace: true });
+    navigate("/admin/login", { replace: true });
   };
 
   const navMenu = (drawer = false) => (
-    <nav aria-label={drawer ? '移动端后台导航' : '后台导航'}>
+    <nav aria-label={drawer ? "移动端后台导航" : "后台导航"}>
       <Menu
         className="cms-nav"
         mode="inline"
         selectedKeys={[activeItem.key]}
-        items={menuItems}
+        items={menuItems.map((item) => ({
+          ...item,
+          "aria-current": item.key === activeItem.key ? "page" : undefined,
+        }))}
         onClick={({ key }) => {
           navigate(key);
           setMobileMenuOpen(false);
@@ -108,7 +137,11 @@ export default function AdminLayout() {
           onCollapse={setNavPreference}
           trigger={null}
         >
-          <Link to="/admin" className="cms-brand" aria-label="Rendering CMS 仪表盘">
+          <Link
+            to="/admin"
+            className="cms-brand"
+            aria-label="Rendering CMS 仪表盘"
+          >
             <span className="cms-brand-icon">
               <img src="/logo/icon.png" alt="" />
             </span>
@@ -119,7 +152,7 @@ export default function AdminLayout() {
             className="cms-collapse"
             type="text"
             aria-expanded={!collapsed}
-            aria-label={collapsed ? '展开导航' : '收起导航'}
+            aria-label={collapsed ? "展开导航" : "收起导航"}
             onClick={() => setNavPreference(!collapsed)}
             icon={<MenuOutlined />}
           />
@@ -143,12 +176,19 @@ export default function AdminLayout() {
             </Text>
           </div>
           <Dropdown
-            trigger={['click']}
+            trigger={["click"]}
             placement="bottomRight"
             menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
           >
-            <Button type="text" className="cms-account" aria-label={`账号菜单：${userName}`}>
-              <Avatar size={28} icon={!authUser?.name ? <UserOutlined /> : undefined}>
+            <Button
+              type="text"
+              className="cms-account"
+              aria-label={`账号菜单：${userName}`}
+            >
+              <Avatar
+                size={28}
+                icon={!authUser?.name ? <UserOutlined /> : undefined}
+              >
                 {authUser?.name ? userInitial : null}
               </Avatar>
               <span className="cms-account-name">{userName}</span>
