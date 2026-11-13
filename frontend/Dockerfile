@@ -9,7 +9,8 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 
 COPY frontend ./
-RUN npm run build
+# 静态产物会由非 root 的 Nginx worker 读取。
+RUN npm run build && chmod -R a+rX dist
 
 FROM nginx:1.27-alpine
 
