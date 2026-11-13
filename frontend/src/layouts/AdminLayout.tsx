@@ -91,7 +91,10 @@ export default function AdminLayout() {
         className="cms-nav"
         mode="inline"
         selectedKeys={[activeItem.key]}
-        items={menuItems}
+        items={menuItems.map((item) => ({
+          ...item,
+          'aria-current': item.key === activeItem.key ? 'page' : undefined,
+        }))}
         onClick={({ key }) => {
           navigate(key);
           setMobileMenuOpen(false);

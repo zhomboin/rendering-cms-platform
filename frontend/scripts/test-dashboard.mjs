@@ -221,6 +221,12 @@ async function region(page, name) {
 test('运营概览显示真实数据、封面、后台状态和所有管理入口', async (t) => {
   const { page, requests } = await setup(t);
   await page.getByRole('heading', { name: '运营概览', exact: true }).waitFor();
+  const navigation = page.getByRole('navigation', { name: '后台导航', exact: true });
+  assert.equal(
+    await navigation.getByRole('menuitem', { name: '仪表盘' }).getAttribute('aria-current'),
+    'page',
+  );
+  assert.equal(await navigation.locator('[aria-current="page"]').count(), 1);
   assert.equal((await page.getByText('132', { exact: true }).count()) > 0, true);
   assert.deepEqual(
     requests.map((r) => [r.key, r.days]).sort(),
@@ -365,6 +371,10 @@ test('图片失效后标题入口仍可用，长标题与 375px 页面没有横�
   await page.keyboard.press('Enter');
   const drawer = page.getByRole('dialog', { name: 'Rendering CMS' });
   await drawer.getByRole('menuitem', { name: '文章管理' }).waitFor();
+  assert.equal(
+    await drawer.getByRole('menuitem', { name: '仪表盘' }).getAttribute('aria-current'),
+    'page',
+  );
   assert.equal(await navToggle.getAttribute('aria-expanded'), 'true');
   await page.keyboard.press('Escape');
   await drawer.waitFor({ state: 'hidden' });

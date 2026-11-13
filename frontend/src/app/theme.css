@@ -2,6 +2,8 @@
 :root {
   --cms-raised: -3px -3px 8px #ffffffcc, 5px 7px 16px #35467220;
   --cms-inset: inset 2px 2px 5px #35467226, inset -2px -2px 5px #ffffffcc;
+  --cms-control-raised: inset 0 1px 0 #ffffffde, -1px -1px 3px #ffffffa6, 1px 2px 4px #35467224;
+  --cms-control-pressed: inset 2px 2px 5px #35467238, inset -1px -1px 3px #ffffffb3;
   --cms-floating: 0 12px 32px #35467226;
   --cms-page-background: radial-gradient(ellipse at 75% 0%, #fafaff, transparent 48rem), #e7ebf9;
 }
@@ -56,8 +58,23 @@ body {
   box-shadow: var(--cms-inset);
 }
 
-.ant-btn.ant-btn-default:not(:disabled):active {
-  box-shadow: var(--cms-inset);
+.ant-btn.ant-btn-default:not(
+    :disabled,
+    .ant-btn-disabled,
+    .ant-btn-loading,
+    .ant-btn-background-ghost
+  ) {
+  box-shadow: var(--cms-control-raised);
+}
+
+.ant-btn.ant-btn-default:not(
+    :disabled,
+    .ant-btn-disabled,
+    .ant-btn-loading,
+    .ant-btn-background-ghost
+  ):active {
+  background-color: var(--cms-well);
+  box-shadow: var(--cms-control-pressed);
 }
 
 .ant-input:not(:disabled, .ant-input-borderless, .ant-input-affix-wrapper .ant-input),
@@ -76,8 +93,21 @@ body {
   border-radius: 8px;
 }
 
-.ant-segmented .ant-segmented-item-selected {
-  box-shadow: 0 2px 5px #35467224;
+:is(
+    .ant-input-outlined,
+    .ant-input-number-outlined,
+    .ant-picker-outlined,
+    .ant-select-outlined
+  ):focus-within:is(:focus-visible, :has(:focus-visible)) {
+  outline: 2px solid var(--cms-focus);
+  outline-offset: 2px;
+}
+
+.ant-segmented:not(.ant-segmented-disabled)
+  :is(.ant-segmented-item-selected:not(.ant-segmented-item-disabled), .ant-segmented-thumb) {
+  box-shadow:
+    inset 0 -2px 0 var(--cms-primary),
+    var(--cms-control-raised);
 }
 
 .ant-switch:not(:disabled),
