@@ -25,7 +25,7 @@ bodyMdx 使用与博客一致的受控 Markdown/MDX 规则，包含 GFM 表格�
   "bodyMdx": "## MDX 正文",
   "status": "draft",
   "version": 1,
-  "tags": ["Go", "React"],
+  "tags": ["go", "react"],
   "featured": false,
   "isFeatured": false,
   "featuredRank": 100,
@@ -50,6 +50,8 @@ bodyMdx 使用与博客一致的受控 Markdown/MDX 规则，包含 GFM 表格�
 ```text
 ^[a-z0-9]+(?:-[a-z0-9]+)*$
 ```
+
+`tags` 返回规范化后的标签数组。英文字母转为小写，驼峰、空格和标点用短横线分词，并保留中文等文字。例如 `ReactDOM`、`react_dom` 都会保存为 `react-dom`。空项会被移除，重复项按首次出现的位置保留。
 
 首页分区字段说明：
 
@@ -188,7 +190,7 @@ Content-Type: application/json
   "title": "文章标题",
   "summary": "文章摘要",
   "bodyMdx": "## 正文",
-  "tags": ["Go"],
+  "tags": ["go"],
   "featured": false,
   "featuredRank": 100,
   "featuredAt": null,
@@ -201,6 +203,7 @@ Content-Type: application/json
 - 创建后默认状态为 `draft`。
 - 后端自动生成 6 位短链码并写入 `slug`，请求体中的 `slug` 字段会被忽略。
 - `articleName` 必填，用于保存用户命名的文章英文名。
+- `tags` 可选。创建和更新时自动规范化，未传或没有有效标签时保存为空数组。
 - `featuredRank` 可选，未传时默认为 `100`。
 - `featuredAt` 可选，必须使用 RFC3339 时间字符串；未传或为空时保存为空。
 - 创建草稿时 `version` 默认为 `1`。
@@ -363,7 +366,7 @@ bash scripts/ops/import-mdx.sh \
 - `title` 读取 front matter 的 `title`。
 - `summary` 优先读取 `description`，其次读取 `summary`。
 - `published_at` 读取 `publishedAt`。
-- `tags` 读取 front matter 的 `tags` 列表。
+- `tags` 读取 front matter 的 `tags` 列表，入库时使用与后台编辑相同的规范化规则。
 - `featured` 读取 front matter 的 `featured`。
 - `featuredRank` 读取 front matter 的 `featuredRank`，未配置时默认为 `100`。
 - `featuredAt` 读取 front matter 的 `featuredAt`，未配置时为空。

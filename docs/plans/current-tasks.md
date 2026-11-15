@@ -36,6 +36,7 @@
 | V08  | 中     | 首页与相册管理页面                 | 验收真实数据、7／30／90 天统计、图片访问、逐文件上传进度、重试、预览与窄屏操作；接口见 [首页 API](../apis/dashboard.md) 与 [相册 API](../apis/photos.md)。                                                                                  |
 | V09  | 中     | 文章图库图片选择                   | 通过正常后台登录验收真实相册和资源图片的搜索、预览、多选及正文插入；只复用长期公开图片，不生成签名下载链接或改变资源权限。关闭条件见 [文章插图](../guides/article-images.md)。                                                              |
 | V10  | 中     | PostBridge 单向联调与 CSDN 草稿    | 按 [接入与验收说明](2026-11-05-postbridge-integration.md)分别记录跨系统闭环、真实 CSDN 文字与带图草稿、CSDN 图片副本和 CMS 回显，以及生产 HTTPS、代理、时钟、限流、凭据和投递告警的验收证据。                                               |
+| V12  | 中     | 文章标签规范化                     | 按[部署说明](../operations/deployment.md)确认 PostgreSQL 备份和 migration 000017，抽查现存文章、修订和公开接口的标签一致性，并在后台验证新标签保存。规则见[文章 API](../apis/articles.md)。 |
 
 ## Markdown 环境验收
 

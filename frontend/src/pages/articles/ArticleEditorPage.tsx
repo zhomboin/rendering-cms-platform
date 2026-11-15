@@ -51,6 +51,7 @@ import {
   clearArticleDraft,
 } from './articleEditorDraft';
 import { revisionListColumns, formatRevisionTime } from './articleRevisionColumns';
+import { normalizeArticleTag, normalizeArticleTags } from './articleTags';
 import {
   CodeInlineIcon,
   CodeBlockIcon,
@@ -175,8 +176,10 @@ export default function ArticleEditorPage() {
     queryFn: listAdminArticles,
   });
   const tagOptions = useMemo(() => {
-    const tags = new Set(articlesQuery.data?.flatMap((article) => article.tags ?? []));
-    return [...tags].sort((a, b) => a.localeCompare(b)).map((value) => ({ value }));
+    const tags = normalizeArticleTags(
+      articlesQuery.data?.flatMap((article) => article.tags ?? []) ?? [],
+    );
+    return tags.sort((a, b) => a.localeCompare(b)).map((value) => ({ value }));
   }, [articlesQuery.data]);
 
   const revisionsQuery = useQuery({
@@ -216,7 +219,7 @@ export default function ArticleEditorPage() {
         slug: currentArticle.slug,
         articleName: currentArticle.articleName,
         summary: currentArticle.summary,
-        tags: currentArticle.tags,
+        tags: normalizeArticleTags(currentArticle.tags ?? []),
         bodyMdx: currentArticle.bodyMdx,
         featured: currentArticle.featured ?? false,
         featuredRank: currentArticle.featuredRank ?? 100,
@@ -359,7 +362,7 @@ export default function ArticleEditorPage() {
           slug: currentArticle.slug,
           articleName: revisionDetail.articleName,
           summary: revisionDetail.summary ?? '',
-          tags: revisionDetail.tags ?? [],
+          tags: normalizeArticleTags(revisionDetail.tags ?? []),
           bodyMdx: revisionDetail.bodyMdx ?? '',
           featured: revisionDetail.featured ?? false,
           featuredRank: revisionDetail.featuredRank ?? 100,
@@ -726,13 +729,22 @@ export default function ArticleEditorPage() {
               <TextArea rows={3} placeholder="文章摘要" showCount maxLength={300} />
             </Form.Item>
 
-            <Form.Item name="tags" label="标签">
+            <Form.Item name="tags" label="标签" normalize={normalizeArticleTags}>
               <Select
                 mode="tags"
                 options={tagOptions}
                 loading={articlesQuery.isFetching}
                 placeholder="选择或输入标签"
                 tokenSeparators={[',', '，']}
+                showSearch={{
+                  filterOption: (input, option) => {
+                    const normalized = normalizeArticleTag(input);
+                    return Boolean(
+                      option?.value.includes(input.toLowerCase()) ||
+                        (normalized && option?.value.includes(normalized)),
+                    );
+                  },
+                }}
               />
             </Form.Item>
 

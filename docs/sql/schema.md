@@ -81,6 +81,7 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 - `articles.version` 默认值为 `1`。
 - 每次插入 `articles` 时自动写入一条 `article_logs`。
 - 每次更新文章内容字段、状态字段或发布字段时，`articles.version` 自动加 `1`，并写入对应版本的 `article_logs`。
+- PostgreSQL 在写入文章标签时统一转换大小写、拆分驼峰和分隔符，并按首次出现的顺序去重。现存文章和修订快照通过迁移统一整理。标签发生变化的文章会生成新修订，并由已有 PostBridge 触发器更新来源状态。原始标签拼写可从迁移前备份恢复。
 - `article_logs` 不再使用独立日志主键，必须使用 `article_id + version` 唯一定位一条文章历史记录。
 - 状态变更必须由后台接口驱动：发布接口只允许 `draft -> published`，下架接口只允许 `published -> draft`，设为私有接口只允许 `draft -> private`，转为草稿接口只允许 `private -> draft`，全部 SQL 都在 `where` 中校验前置状态；`archived` 为保留值，没有接口可以写入。
 - `draft` 与 `private` 是可编辑状态，后台更新接口允许直接修改；`published`、`archived` 不可直接编辑。
