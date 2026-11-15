@@ -457,7 +457,7 @@ test('移动端大访问数使用可读轴标签且数据表保留完整计数',
   assert.equal(await row.getByRole('cell').nth(1).textContent(), '99,999,999');
 });
 
-test('后台在手机、平板、桌面和 4K 下利用可用宽度并保持图表可读', async (t) => {
+test('后台在手机、平板、桌面和 4K 下使用透明布局容器并保持图表可读', async (t) => {
   const { page } = await setup(t);
   const chart = page.locator('.dashboard-chart');
   let narrowDateCount = 0;
@@ -477,13 +477,21 @@ test('后台在手机、平板、桌面和 4K 下利用可用宽度并保持图�
     });
 
     const dimensions = await chart.evaluate((svg) => {
-      const shell = document.querySelector('.cms-shell').getBoundingClientRect();
+      const shell = document.querySelector('.cms-shell');
+      const shellStyle = getComputedStyle(shell);
       const dashboard = document.querySelector('.dashboard').getBoundingClientRect();
       const chartBox = svg.getBoundingClientRect();
       const fontSize = parseFloat(getComputedStyle(svg.querySelector('text')).fontSize);
       return {
         documentWidth: document.documentElement.scrollWidth,
-        shellWidth: shell.width,
+        shellWidth: shell.getBoundingClientRect().width,
+        shellFrame: {
+          borderWidth: shellStyle.borderWidth,
+          borderRadius: shellStyle.borderRadius,
+          boxShadow: shellStyle.boxShadow,
+          backgroundColor: shellStyle.backgroundColor,
+          backgroundImage: shellStyle.backgroundImage,
+        },
         dashboardWidth: dashboard.width,
         chartHeight: chartBox.height,
         fontSize: (fontSize * chartBox.width) / svg.viewBox.baseVal.width,
@@ -492,6 +500,17 @@ test('后台在手机、平板、桌面和 4K 下利用可用宽度并保持图�
 
     assert.equal(dimensions.documentWidth, width, width + 'px 页面不能横向溢出');
     assert.ok(dimensions.shellWidth >= width - 60, width + 'px 后台应利用屏幕宽度');
+    assert.deepEqual(
+      dimensions.shellFrame,
+      {
+        borderWidth: '0px',
+        borderRadius: '0px',
+        boxShadow: 'none',
+        backgroundColor: 'rgba(0, 0, 0, 0)',
+        backgroundImage: 'none',
+      },
+      width + 'px 最外层应为透明容器',
+    );
     assert.ok(
       dimensions.fontSize >= 11 && dimensions.fontSize <= 15,
       width + 'px 坐标字不应缩小或放大',
