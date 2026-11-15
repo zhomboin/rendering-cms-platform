@@ -740,27 +740,46 @@ test('MDX 正文图片选为封面时解码 URL 中的 &amp;', async (t) => {
   assert.equal(saved.bodyMdx, body);
 });
 
-test('编辑字段在新建文章时筛选已有标签并允许新建', async (t) => {
+test('编辑字段在新建文章时规范化并筛选已有标签', async (t) => {
   const { page } = await setup(t, {
     route: 'new',
-    tagsByArticle: { one: ['React', 'Go'], two: ['React', '数据库'] },
+    tagsByArticle: { one: ['ReactDOM', 'Go'], two: ['react-dom', '数据库'] },
   });
   const tags = page.getByRole('combobox', { name: '标签', exact: true });
   await tags.click();
   const popup = page.locator('.ant-select-dropdown:visible');
   const option = (label) =>
     popup.locator('.ant-select-item-option').getByText(label, { exact: true });
-  await option('Go').waitFor();
+  await option('go').waitFor();
   await option('数据库').waitFor();
-  assert.equal(await option('React').count(), 1);
+  assert.equal(await option('react-dom').count(), 1);
   await tags.fill('eAc');
-  await option('React').waitFor();
-  assert.equal(await option('Go').count(), 0);
-  await option('React').click();
-  await tags.fill('新标签');
-  await tags.press('Enter');
+  await option('react-dom').waitFor();
+  assert.equal(await option('go').count(), 0);
+  await option('react-dom').click();
   const draft = await page.evaluate(() =>
     JSON.parse(localStorage.getItem('rendering-cms-article-editor-draft:new')),
   );
-  assert.deepEqual(draft.values.tags, ['React', '新标签']);
+  assert.deepEqual(draft.values.tags, ['react-dom']);
+});
+
+test('新建标签时立即转换，保存时合并重复标签并保留中文', async (t) => {
+  const { page, requests } = await setup(t, { allowSave: true });
+  const tags = page.getByRole('combobox', { name: '标签', exact: true });
+  for (const label of ['ReactDOM', 'react_dom', ' Café__Tools ', '数据库 入门', '!!!']) {
+    await tags.fill(label);
+    await tags.press('Enter');
+  }
+  const field = page.locator('.ant-form-item').filter({ has: tags });
+  for (const label of ['react-dom', 'cafe-tools', '数据库-入门']) {
+    await field.getByText(label, { exact: true }).waitFor();
+  }
+  assert.equal(await field.locator('.ant-select-selection-item').count(), 3);
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click();
+  await page.getByText('草稿已保存', { exact: true }).waitFor();
+  assert.deepEqual(requests.find((request) => request.method === 'PATCH').body.tags, [
+    'react-dom',
+    'cafe-tools',
+    '数据库-入门',
+  ]);
 });

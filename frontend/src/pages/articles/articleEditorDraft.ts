@@ -1,4 +1,5 @@
 import type { AdminArticlePayload, ArticleFormData } from '../../api/articles';
+import { normalizeArticleTags } from './articleTags';
 
 export const initialFormData: ArticleFormData = {
   title: '',
@@ -30,7 +31,7 @@ export function toPayload(values: ArticleFormData): AdminArticlePayload {
     title: values.title,
     summary: values.summary ?? '',
     bodyMdx: values.bodyMdx,
-    tags: values.tags ?? [],
+    tags: normalizeArticleTags(values.tags ?? []),
     featured: values.featured ?? false,
     featuredRank: values.featuredRank ?? 100,
     featuredAt: values.featuredAt ?? null,
@@ -53,7 +54,7 @@ function normalizeFormData(values: Partial<ArticleFormData>): ArticleFormData {
     slug: values.slug ?? '',
     articleName: values.articleName ?? '',
     summary: values.summary ?? '',
-    tags: Array.isArray(values.tags) ? values.tags : [],
+    tags: Array.isArray(values.tags) ? normalizeArticleTags(values.tags) : [],
     bodyMdx: values.bodyMdx ?? '',
     featured: values.featured ?? false,
     featuredRank: values.featuredRank ?? 100,
