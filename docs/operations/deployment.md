@@ -17,7 +17,7 @@
 ```text
 用户浏览器
   -> https://cms.zhomboin.com
-  -> 服务器 Nginx/Caddy/负载均衡器
+  -> 宿主机 Nginx
   -> 127.0.0.1:3001
   -> frontend 容器
   -> backend 容器
@@ -53,13 +53,13 @@
 
 ## 服务器准备
 
-创建应用目录并拉取代码：
+将 `CMS_REPO_URL` 设为获准的仓库地址。创建应用目录并拉取代码。
 
 ```bash
 sudo mkdir -p /opt/rendering-cms-platform
 sudo chown "$USER":"$USER" /opt/rendering-cms-platform
 cd /opt/rendering-cms-platform
-git clone <repo-url> .
+git clone "$CMS_REPO_URL" .
 ```
 
 确认 Docker 可用：
@@ -78,12 +78,12 @@ chmod 700 /var/lib/rendering-cms/backups
 
 ## 环境变量
 
-复制生产环境模板到 `/etc/rendering-cms/`（自动部署环境统一从这里读取；旧位置 `deploy/production.env` 由 `deploy/setup.sh` 自动迁移）：
+首次部署时将生产环境模板安装到 `/etc/rendering-cms/`。已有部署先核对该目录内的实际配置。
 
 ```bash
 sudo mkdir -p /etc/rendering-cms
-sudo cp /opt/rendering-cms-platform/deploy/production.env.example /etc/rendering-cms/production.env
-sudo chmod 600 /etc/rendering-cms/production.env
+sudo install -m 0600 /opt/rendering-cms-platform/deploy/production.env.example /etc/rendering-cms/production.env
+sudoedit /etc/rendering-cms/production.env
 ```
 
 ### 必须修改的生产配置
@@ -93,7 +93,6 @@ sudo chmod 600 /etc/rendering-cms/production.env
 基础部署配置：
 
 ```env
-APP_IMAGE_TAG=latest
 PUBLIC_HTTP_BIND=127.0.0.1:3001
 ```
 
@@ -121,7 +120,6 @@ PUBLIC_SEARCH_BURST=10
 PUBLIC_MAX_IN_FLIGHT=128
 PUBLIC_RATE_LIMIT_MAX_CLIENTS=10000
 LOG_RETENTION_DAYS=30
-ARTICLE_LOG_RETENTION_LIMIT=20
 ```
 
 登录邮箱验证码 SMTP 配置：
@@ -159,14 +157,15 @@ S3_ASSET_FILE_PREFIX=assets
 - `FRONTEND_ORIGINS` 使用生产访问域名；多个来源使用英文逗号分隔。
 - `VITE_API_BASE` 保持 `/api/v1`，让浏览器走同域 API 反代。
 - `PUBLIC_*` 是 Go 服务的第二层保护。搜索默认额度低于普通文章读取；调整时应结合 Nginx `429`、应用 `429/503`、数据库 P95 和连接池使用率，不得直接取消硬客户端状态上限。
-- `ARTICLE_LOG_RETENTION_LIMIT` 是每篇文章保留的修订快照数量（不含首版），默认 `20`。后端每天本地时间 `00:15` 自动清理超出保留策略的 `article_logs` 快照，清理量记录在 `pruned stale article logs` 日志行的 `deleted` 字段；设为 `0` 或非法值时使用默认值，清理任务不会删除任何文章的首版快照。
+- 后端每天本地时间 `00:15` 清理文章修订，默认保留最近 20 个快照及第 1 个版本。生产 Compose 未传入 `ARTICLE_LOG_RETENTION_LIMIT`，仅编辑 `production.env` 不会改变保留数量。
 - `LOG_RETENTION_DAYS` 是后端按日日志文件（`backend_logs` 卷内）的保留天数，默认 `30`。后端在切换新一天日志文件时自动删除更早的文件；设为 `0` 或非法值时使用默认值。容器 stdout/stderr 日志由 Compose 统一限制为每容器 `10m × 3` 份，无需配置。
 - `S3_ENDPOINT` 使用 R2 S3 API 端点，不要填写 R2 公开访问自定义域名。
 - `S3_PUBLIC_BASE_URL` 使用图片公开访问域名，和 `S3_ENDPOINT` 分开配置；文章正文图片会使用该 URL。
 - `S3_REGION` 使用 `auto`。
 - `S3_USE_PATH_STYLE` 生产环境固定为 `false`，让 AWS SDK 使用 R2 需要的虚拟主机风格寻址。
 - `S3_BLOG_IMAGE_PREFIX` 和 `S3_ASSET_FILE_PREFIX` 分别控制文章图片和普通资源文件的对象 key 前缀。
-- PostBridge 接入为可选配置。启用前先备份 PostgreSQL 并应用迁移 000015，再将 [接入配置](../apis/postbridge.md#后端配置) 注入后端和挂载后端专用的只读密钥文件。部署后核对来源身份绑定、签名代理和投递告警，验收按当前任务 V10 记录。
+- 后端默认使用 `photos` 作为相册照片对象前缀。生产 Compose 未传入 `S3_PHOTO_PREFIX`，仅编辑 `production.env` 不会改变前缀。
+- PostBridge 接入为可选配置。启用前先完成当前迁移和备份，其中 `000015` 和 `000016` 提供分发及图片撤销机制。按 [接入配置](../apis/postbridge.md#后端配置) 注入后端变量并挂载专用只读密钥文件，按 V10 核对来源绑定、签名代理和投递告警。
 - `S3_ACCESS_KEY_ID` 和 `S3_SECRET_ACCESS_KEY` 使用 Cloudflare R2 专用访问密钥，权限限定到 `S3_BUCKET` 的对象读写。
 - `SMTP_*` 用于登录邮箱验证码发信。未设置 `LOGIN_MFA_ENABLED` 时，只有 `SMTP_HOST`、`SMTP_USERNAME`、`SMTP_PASSWORD` 配置齐全才启用验证码；`SMTP_PASSWORD` 使用个人邮箱的 SMTP 授权码（如 QQ 邮箱、163 邮箱授权码或 Gmail 应用密码）。`SMTP_*` 与 `LOGIN_MFA_*` 变量由 `deploy/docker-compose.prod.yml` 的 backend `environment` 传入容器，新增此类变量时必须同步 compose 透传，否则 `production.env` 中的配置不会生效。
 - `SMTP_PORT` 默认 `465`（隐式 TLS）；使用 587/25 时走 STARTTLS。
@@ -216,21 +215,23 @@ R2 bucket CORS JSON 示例：
 
 ## 首次部署
 
-构建镜像：
+核对部署提交，设置镜像标签并构建：
 
 ```bash
-cd /opt/rendering-cms-platform/deploy
+cd /opt/rendering-cms-platform
+export APP_IMAGE_TAG="commit-$(git rev-parse HEAD)"
+cd deploy
 docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml build
 ```
 
 启动 PostgreSQL：
 
 ```bash
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d postgres
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d --wait postgres
 docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml ps
 ```
 
-执行 migration：
+按 [备份流程](backup.md#手动备份) 备份当前数据库，校验成功后执行 migration。
 
 ```bash
 docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml --profile migrate run --rm migrate
@@ -275,7 +276,7 @@ sudo bash deploy/setup.sh
 
 ## HTTPS 入口
 
-推荐在宿主机 Nginx 或 Caddy 上终止 HTTPS：
+宿主机 Nginx 负责 HTTPS 和反向代理。
 
 - 现有 Rendering 博客域名转发到 `127.0.0.1:3000`。
 - CMS 前端/API 域名转发到 `127.0.0.1:3001`。
@@ -286,6 +287,7 @@ sudo bash deploy/setup.sh
 
 ```bash
 cd /opt/rendering-cms-platform
+sudo install -d -m 0755 /etc/nginx/snippets
 sudo cp deploy/nginx/rendering.me.conf /etc/nginx/conf.d/rendering.me.conf
 sudoedit /etc/nginx/conf.d/rendering.me.conf
 sudo cp deploy/nginx/rendering-cms-proxy-headers.conf /etc/nginx/snippets/rendering-cms-proxy-headers.conf
@@ -318,17 +320,17 @@ sudo systemctl reload nginx
 - Cloudflare 调整 IP 段后需更新仓库内 `deploy/nginx/cloudflare-realip.conf`（来源 `https://www.cloudflare.com/ips-v4` 与 `/ips-v6`），随下次部署复制到服务器。
 - 验证：访问 CMS 后 `sudo tail /var/log/nginx/access.log`，来源应显示访客公网 IP 而非 `172.67.x` / `104.21.x`；换网络登录后台应触发邮箱验证码。
 
-该 snippet 负责博客 HTTPS server 内的 `/blog/`、`/en/blog/` 和唯一默认 `location /`，并分别使用 `rendering_article`、`rendering_general` 限流区。Rendering 仓库不得再安装声明相同 `listen` 或 `server_name` 的完整虚拟主机。安装后使用 `sudo nginx -T | grep -n 'server_name rendering.me'` 确认 HTTPS server 只有一个有效定义。
+Rendering location snippet 负责博客 HTTPS 站点的 `/pagefind/`、`/blog/`、`/en/blog/` 和默认路由，使用共享的 `rendering_article` 与 `rendering_general` 限流区。Rendering 仓库不得再安装声明相同 `listen` 或 `server_name` 的完整虚拟主机。安装后使用 `sudo nginx -T | grep -n 'server_name rendering.me'` 确认 HTTPS server 只有一个有效定义。
 
 公开文章缓存只覆盖无 Authorization/Cookie 的列表和详情 GET。搜索、登录、统计、评论、后台和写入请求不进入公共缓存。发布后可用以下命令检查缓存头与状态：
 
 ```bash
-curl -sSI https://cms.zhomboin.com/api/v1/articles
-curl -sSI https://cms.zhomboin.com/api/v1/articles/aB3dE9
-curl -sSI -H 'Authorization: Bearer invalid-test-token' https://cms.zhomboin.com/api/v1/articles
+curl -fsS -D - -o /dev/null https://cms.zhomboin.com/api/v1/articles
+curl -fsS -D - -o /dev/null "https://cms.zhomboin.com/api/v1/articles/$PUBLISHED_SLUG"
+curl -fsS -D - -o /dev/null -H 'Authorization: Bearer cache-bypass-check' https://cms.zhomboin.com/api/v1/articles
 ```
 
-前两次连续请求应能观察到 `X-Cache-Status` 从 `MISS` 变为 `HIT`；带 Authorization 的请求必须为 `BYPASS` 或不命中缓存。
+将 `PUBLISHED_SLUG` 设为已发布文章的短链码。分别连续请求同一路径，缓存未预热时应出现 `MISS` 后转为 `HIT`。带 Authorization 的请求应为 `BYPASS` 或不命中缓存。
 
 模板中的证书路径示例：
 
@@ -339,46 +341,45 @@ curl -sSI -H 'Authorization: Bearer invalid-test-token' https://cms.zhomboin.com
 
 生产站点配置中的 `ssl_certificate` 和 `ssl_certificate_key` 应指向实际证书。证书须覆盖 `server_name` 声明的域名，调整后执行 `nginx -t`。
 
-如果临时不使用宿主机反向代理，可以把 `PUBLIC_HTTP_BIND` 改为 `0.0.0.0:80` 暴露 CMS HTTP。但当前服务器已有 Rendering 博客使用 `3000`，CMS 默认必须保留在 `3001` 或其他未占用端口。R2 预签名 URL 面向浏览器，正式上传下载必须确保 R2 bucket CORS 允许生产前端来源。
+生产 Compose 的 CMS 入口保持在宿主机回环地址，公网请求经 Nginx。更改监听端口时同步检查代理上游与部署健康检查地址。
 
 ## 发布更新
 
-生产已启用 `cms-rendering-deploy.timer`。[自动部署](auto-deploy.md)每小时整点检查 `main`，发现新提交即按以下流程发布，包括仅修改文档的提交。进入手动发布窗口时先暂停定时器。
+生产定时器每小时核对 `main`，包括只改文档的合并。正常发布通过 [自动部署](auto-deploy.md)处理。经批准可手动触发同一服务，并核对提交、容器状态与日志。
+
+```bash
+sudo systemctl start cms-rendering-deploy.service
+sudo journalctl -u cms-rendering-deploy.service -n 100 --no-pager
+sudo cat /var/lib/rendering-cms/deploy-state.env
+curl -fsS http://127.0.0.1:3001/api/v1/health
+```
+
+需手动运行 Compose 的发布按 [生产访问规范](production-access.md)确认目标提交、影响、回退和窗口。先暂停定时器并确认当前没有部署或回滚在运行，核对工作区干净。将 `APPROVED_COMMIT` 设为获准的完整提交号，拉取并快进到该提交后，用相同的镜像标签构建和启动。
 
 ```bash
 sudo systemctl stop cms-rendering-deploy.timer
+systemctl is-active cms-rendering-deploy.service
+cd /opt/rendering-cms-platform
+git status --short --branch
+git fetch origin main
+git merge --ff-only "$APPROVED_COMMIT"
+git rev-parse HEAD
+export APP_IMAGE_TAG="commit-$APPROVED_COMMIT"
+cd deploy
+test "$(git rev-parse HEAD)" = "$APPROVED_COMMIT" && \
+  docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml build
 ```
 
-每次发布按固定顺序执行：
-
-1. 拉取目标提交。
-2. 构建镜像。
-3. 备份 PostgreSQL。
-4. 执行 migration。
-5. 重启应用容器。
-6. 执行 smoke test。
-
-命令：
+实际 `HEAD` 必须与 `APPROVED_COMMIT` 一致，确认后开始构建。需要构建代理时使用已配置的 [构建入口](deploy-readiness.md#可选构建代理)。构建成功后按 [手动备份](backup.md#手动备份)校验当前数据库备份，成功后再执行 migration 与应用启动。任何步骤失败即停止后续步骤，按下文回滚原则处理。
 
 ```bash
-cd /opt/rendering-cms-platform
-git pull --ff-only
-
-cd deploy
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml build
-
-set -a
-. /etc/rendering-cms/production.env
-set +a
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
-  | gzip > "/var/lib/rendering-cms/backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
-
 docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml --profile migrate run --rm migrate
 docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d backend frontend
 docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml ps
 curl -fsS http://127.0.0.1:3001/api/v1/health
 ```
+
+检查实际运行镜像、提交、备份校验和及验收结果。手动 Compose 不写入自动部署状态文件，核对时使用本次发布记录。完成验收后按已批准状态恢复并核对定时器。
 
 ## 发布后验收
 
@@ -399,7 +400,7 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 
 ## 回滚原则
 
-- 如果只涉及应用镜像问题，优先回退 Git 提交或 `APP_IMAGE_TAG`，重新 `build` 与 `up -d`。
+- 仅应用镜像异常时，优先使用保留的可用镜像，按 [回退准备](deploy-readiness.md#标签与回退)核对标签与数据库兼容性。需要回退源码并重建时使用 [回滚脚本](auto-deploy.md#手动回滚)。
 - 如果 migration 已经执行，不能直接删除数据库 volume；先按 `docs/operations/restore.md` 评估恢复或补丁 migration。
 - 如果对象存储写入异常，先停止后台上传入口，再检查 R2 bucket、CORS、S3 endpoint 和 R2 凭据。
 - 回滚前必须保留当前容器日志和数据库备份。
@@ -430,4 +431,4 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 
 按照 [完整收尾清单](deploy-readiness.md)统一关闭代码、代理、备份、发布、回退与定时器状态项目；具体机器命令在本地审批单固定，生产写入先确认。完整构建不能代替完整发布，禁止把隔离构建镜像直接当作已发布应用。
 
-经自动发布脚本构建的应用标签为 commit-完整提交号。手动 Compose 构建或启动需要显式传入当前批准的 APP_IMAGE_TAG，发布后核对容器镜像与状态文件的 LAST_IMAGE_TAG 一致。代理构建覆盖文件只用于构建，不参与运行配置。
+经自动发布脚本构建的应用标签为 commit-完整提交号。手动 Compose 构建和启动使用同一个获准的 `APP_IMAGE_TAG`。自动发布后核对容器镜像与状态文件中的 `LAST_IMAGE_TAG` 一致。代理构建覆盖文件只用于构建，不参与运行配置。

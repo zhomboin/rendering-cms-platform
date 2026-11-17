@@ -16,10 +16,10 @@ cms-rendering-deploy.timer（每小时整点，OnCalendar=hourly）
       4. 有新提交 -> 按固定 SOP 发布：
          git pull --ff-only -> docker compose build -> PostgreSQL 备份
          -> migration -> up -d backend frontend -> 健康检查
-      5. 任一阶段失败 -> 自动回滚代码到上一成功提交并重建旧版本
+      5. 失败 -> 按失败阶段决定是否回退代码和重建镜像
 ```
 
-发布顺序见[部署说明](deployment.md#发布更新)。定时器按提交判断是否发布，纯文档合并也会进入发布流程。
+发布顺序见 [部署说明](deployment.md#发布更新)。定时器按提交判断是否发布，纯文档合并也会进入发布流程。
 
 ## 目录布局
 
@@ -46,11 +46,11 @@ cms-rendering-deploy.timer（每小时整点，OnCalendar=hourly）
 
 ```bash
 cd /opt/rendering-cms-platform
-git pull
+git pull --ff-only
 sudo bash deploy/setup.sh
 ```
 
-`setup.sh` 会创建目录、迁移 `deploy/production.env` 到 `/etc/rendering-cms/production.env`、生成 systemd 单元（直接写入服务器 `/etc/systemd/system/`，仓库内不保存单元文件）与 logrotate，并在 `production.env` 不含占位值时自动启用 timer。
+`setup.sh` 创建部署目录并使用 `/etc/rendering-cms/production.env` 作为生产配置，生成 systemd 单元（直接写入服务器 `/etc/systemd/system/`，仓库内不保存单元文件）与 logrotate，并在 `production.env` 不含占位值时自动启用 timer。
 
 `production.env` 仍是占位值时，setup 不会启用 timer；填好真实配置后手动启用：
 
@@ -108,9 +108,9 @@ cat /var/lib/rendering-cms/deploy-state.env
 
 PostgreSQL 运行时，导出和压缩命令必须成功，备份须通过 gzip 校验、解压内容非空且文件权限设置成功，才会继续目标提交的 migration 和容器更新。导出失败、部分导出后失败、压缩失败或空输出均会阻断目标发布，不写入成功部署状态。
 
-备份失败仍遵循原有 `AUTO_ROLLBACK` 配置：关闭时直接结束；开启时回退代码、重建并启动旧提交，再检查健康状态。备份时机、目录、文件命名和保留数量不变。
+备份失败仍遵循原有 `AUTO_ROLLBACK` 配置：关闭时直接结束；开启时回退代码、重建并启动旧提交，再检查健康状态。备份目录与默认保留数量见上面的配置说明。
 
-本地验证入口为 `scripts/env/test-auto-deploy-backup.py`，使用 Python 3 运行。测试在 `temp/` 内创建隔离 Git 仓库，用外部工具替身执行真实部署主流程，覆盖导出、压缩、空内容、损坏文件、权限失败、正常备份与代码回滚，检查目标发布阻断、成功状态保护和子进程回收；不连接数据库或网络。生产已应用修复，普通自动检查通过，日志文件与 journal 均保留完整结束信息。导出失败保护由隔离测试覆盖，未在生产注入导出故障或执行恢复演练。
+本地验证入口为 `scripts/env/test-auto-deploy-backup.py`，使用 Python 3 运行。测试在 `temp/` 内创建隔离 Git 仓库，用外部工具替身执行真实部署主流程，覆盖导出、压缩、空内容、损坏文件、权限失败、正常备份与代码回滚，检查目标发布阻断、成功状态保护和子进程回收；不连接数据库或网络。数据库备份与回退演练的生产验收按 [部署收尾清单](deploy-readiness.md)记录。
 
 ## 失败处理
 
@@ -126,7 +126,7 @@ PostgreSQL 运行时，导出和压缩命令必须成功，备份须通过 gzip 
 注意：
 
 - 自动回滚只回退应用代码与镜像，绝不自动回滚数据库；migration 后的数据库问题必须人工评估。
-- 本地工作区有未提交改动时部署会中止，这是保护机制；生产服务器不要直接改仓库内文件。
+- 服务器工作区有未提交的已跟踪文件改动时部署会中止，这是保护机制；生产服务器不要直接改仓库内文件。
 - 若回滚后健康检查仍失败，服务可能处于不可用状态，配置了 `NOTIFY_WEBHOOK` 会收到告警，需立即人工介入。
 
 ## 手动回滚
@@ -136,18 +136,16 @@ PostgreSQL 运行时，导出和压缩命令必须成功，备份须通过 gzip 
 sudo /opt/rendering-cms-platform/deploy/rollback.sh
 
 # 回滚到指定提交
-sudo /opt/rendering-cms-platform/deploy/rollback.sh --commit <sha>
+sudo /opt/rendering-cms-platform/deploy/rollback.sh --commit "$ROLLBACK_COMMIT"
 
 # 同时恢复最近一个数据库备份（DROP + CREATE + 导入，会覆盖当前数据）
 sudo /opt/rendering-cms-platform/deploy/rollback.sh --backup latest
 
-# 跳过确认（脚本化场景）
-sudo /opt/rendering-cms-platform/deploy/rollback.sh --yes
 ```
 
-回滚脚本与自动部署共用锁文件，回滚期间定时触发会自动跳过。数据库恢复遵循 `docs/operations/restore.md`：先停 backend、终止残留连接、重建空库再导入。
+回滚脚本与自动部署共用锁文件。使用 `--backup` 时，先停后端、终止数据库连接、重建空库，再按单事务导入。SQL 失败时停止后续部署。详见 [数据库恢复](restore.md)。
 
-回滚完成后建议暂停 timer，确认服务稳定、远端问题修复后再恢复，避免新提交立刻再次部署。
+回滚前按批准范围暂停 timer 并确认没有正在执行的部署。确认服务稳定且目标提交可再次发布后，按批准状态恢复定时器。
 
 ## 服务运行用户
 

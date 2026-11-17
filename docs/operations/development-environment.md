@@ -8,11 +8,11 @@
 /home/ubuntu/workspace/rendering-cms-platform
 ```
 
-本项目后续开发、依赖服务启动、前端启动、后端测试和数据库操作都默认在 WSL2 Ubuntu 24.04 终端中执行。项目不再维护 PowerShell 启动脚本。
+开发、前端启动、依赖服务、测试与数据库操作均在 WSL2 Ubuntu 24.04 终端执行。
 
 ## 环境检查口径
 
-本文档不再维护某个时间点的工具安装快照。当前环境是否可用以实时检查脚本为准：
+在仓库根目录检查当前工具。
 
 ```bash
 cd /home/ubuntu/workspace/rendering-cms-platform
@@ -24,12 +24,12 @@ bash scripts/env/check-env.sh
 | 工具 | 项目要求 | 说明 |
 | --- | --- | --- |
 | Go | Go 1.26.11，与 backend/go.mod 一致 | 用于本机后端开发和 CLI 工具安装；也可以使用 Docker Go 容器执行测试。 |
-| Node.js | 使用符合锁文件要求的 Linux 版本，CI 使用 24 | 用于本机前端开发；也可以使用 Docker Node 容器执行构建。 |
+| Node.js | 推荐 24，与 CI 一致；镜像构建和开发容器使用 22 | 用于本机前端开发；也可以使用 Docker Node 容器执行构建。 |
 | npm | npm 10+ | 与 Node.js 配套使用。 |
 | Docker | Docker Engine 或 Docker Desktop WSL integration | 用于依赖服务、后端容器、前端容器和生产镜像验证。 |
 | Docker Compose | Docker Compose v2 | 使用 `docker compose`，不使用旧版 `docker-compose`。 |
 | PostgreSQL client `psql` | PostgreSQL client 16+ | 用于本机连接和 SQL 验证。 |
-| `sqlc` | sqlc 1.25+ | 用于生成 Go 数据访问代码。 |
+| `sqlc` | sqlc v1.31.1，与 CI 一致 | 用于生成 Go 数据访问代码。 |
 | `migrate` | golang-migrate CLI | 用于执行 PostgreSQL migration。 |
 
 ## 必需工具
@@ -39,7 +39,7 @@ bash scripts/env/check-env.sh
 用途：
 
 - 编译 `backend/`。
-- 运行 `go test ./...`。
+- 运行受改动影响的 Go 包测试。
 - 安装 `sqlc` 和 `migrate` 等 Go CLI。
 
 安装示例：
@@ -111,7 +111,7 @@ psql --version
 安装示例：
 
 ```bash
-go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 export PATH="$HOME/go/bin:$PATH"
 sqlc version
 ```
@@ -125,72 +125,24 @@ sqlc version
 安装示例：
 
 ```bash
-go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.3
 export PATH="$HOME/go/bin:$PATH"
 migrate -version
 ```
 
 ## 环境变量
 
-复制示例配置：
+已有 `.env` 时保留并检查其中的本地配置。首次开发可从 [环境模板](../../scripts/env/dev.env.example)创建。
 
 ```bash
-cp scripts/env/dev.env.example .env
+test -f .env || cp scripts/env/dev.env.example .env
 ```
 
-MVP 本地开发变量：
+`.env` 属于本地文件。填写本地数据库、MinIO、JWT 和开发管理员变量，确保 `DATABASE_URL` 与本地 PostgreSQL 一致。CLI 需要读取该文件时，先确认它是合法的 Bash 赋值文件，带空格的值须加引号。测试用的私有参数留在文件中。
 
-```env
-HTTP_ADDR=0.0.0.0:8080
-APP_ENV=development
-DATABASE_URL=postgres://rendering:rendering_dev_password@127.0.0.1:5432/rendering_cms?sslmode=disable
-JWT_SECRET=replace-with-32-plus-character-secret
-DEV_BOOTSTRAP_ADMIN=true
-DEV_ADMIN_EMAIL=admin@rendering.me
-DEV_ADMIN_NAME=Dev Admin
-DEV_ADMIN_PASSWORD=rendering_dev_password
-FRONTEND_ORIGIN=http://127.0.0.1:5173
-FRONTEND_ORIGINS=http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173
-VITE_API_BASE=http://127.0.0.1:8080/api/v1
-LOG_DIR=/var/log/rendering-cms-platform
+本地后端在 `APP_ENV=development` 时创建或更新由 `DEV_ADMIN_EMAIL`、`DEV_ADMIN_NAME`、`DEV_ADMIN_PASSWORD` 指定的管理员。后端直接在 WSL 运行时，模板启用 `LOGIN_MFA_ENABLED` 与 `LOGIN_MFA_DEV_LOG`，可从后端日志取得验证码。默认开发 Compose 未向后端传入 `LOGIN_MFA_*` 或 `SMTP_*`，需要在 WSL 直启后端或使用本地 Compose 覆盖文件配置两步验证。生产启动规则见 [认证 API](../apis/auth.md)。
 
-# 登录邮箱验证码：默认不配置 SMTP，功能自动关闭；LOGIN_MFA_DEV_LOG 打开后验证码写入后端日志，便于联调两步登录。
-LOGIN_MFA_DEV_LOG=true
-
-S3_ENDPOINT=http://127.0.0.1:9000
-S3_REGION=us-east-1
-S3_BUCKET=rendering-assets
-S3_ACCESS_KEY_ID=rendering
-S3_SECRET_ACCESS_KEY=rendering_dev_password
-S3_USE_PATH_STYLE=true
-S3_PUBLIC_BASE_URL=http://127.0.0.1:9000/rendering-assets
-S3_BLOG_IMAGE_PREFIX=blog
-S3_ASSET_FILE_PREFIX=assets
-
-POSTGRES_DB=rendering_cms
-POSTGRES_USER=rendering
-POSTGRES_PASSWORD=rendering_dev_password
-
-MINIO_ROOT_USER=rendering
-MINIO_ROOT_PASSWORD=rendering_dev_password
-MINIO_BUCKET=rendering-assets
-MINIO_API_CORS_ALLOW_ORIGIN=http://127.0.0.1:3000,http://127.0.0.1:5173,http://localhost:3000,http://localhost:5173
-```
-
-不要提交 `.env`。
-
-PostBridge 测试环境的可选连接变量与密钥文件要求见 [PostBridge 接入 API](../apis/postbridge.md#后端配置)。
-
-本地 dev 后端启动时会自动 upsert 默认后台管理员：
-
-```text
-账号：admin@rendering.me
-密码：rendering_dev_password
-```
-
-该逻辑仅用于本地开发。生产环境不要设置 `APP_ENV=development` 或 `DEV_BOOTSTRAP_ADMIN=true`。
-
-登录邮箱验证码的本地行为：`SMTP_*` 变量不配置齐全时验证码功能默认自动关闭，登录流程与未上线该功能时一致；dev 模板中通过 `LOGIN_MFA_ENABLED=true` 显式开启，配合 `LOGIN_MFA_DEV_LOG=true` 时验证码明文输出在后端日志（按 `LOG_DIR` 查看当天日志文件）而不实际发信，可本地完整联调两步登录。本地如需真实发信，配置 `SMTP_HOST`、`SMTP_USERNAME`、`SMTP_PASSWORD`（个人邮箱授权码）并关闭 `LOGIN_MFA_DEV_LOG` 即可，详见 `docs/operations/deployment.md` 的 SMTP 配置说明。
+PostBridge 的可选连接变量和密钥文件见 [PostBridge 接入 API](../apis/postbridge.md#后端配置)。开发 Compose 使用默认相册前缀 `photos`，自定义 `S3_PHOTO_PREFIX` 需要传入运行环境。默认 MinIO bucket 为私有，公开图链接联调需在本地单独配置对应前缀的读权限。
 
 后端容器内的 `LOG_DIR` 通过 Docker bind mount 写入宿主机目录。本地默认目录为 `logs/backend`，位于项目目录下，已被 `.gitignore` 排除，不会提交到 Git。如需挂载到其他系统盘路径，可在启动脚本前导出 `BACKEND_LOG_HOST_DIR`：
 
@@ -201,7 +153,7 @@ bash scripts/env/start-backend-docker.sh
 
 ### 同步浏览器访问地址
 
-当前后端、前端、PostgreSQL 和 MinIO 都通过 Docker 端口映射暴露到宿主机，Windows 浏览器和 WSL 内部默认都可以使用 `127.0.0.1` 访问。因此 `.env` 中面向浏览器的地址默认写成本机地址。
+当前后端、前端、PostgreSQL 和 MinIO 都通过 Docker 端口映射访问，Windows 浏览器和 WSL 内部通常可使用 `127.0.0.1`。表中的回环地址用于本机访问，映射配置以 Compose 文件为准。因此 `.env` 中面向浏览器的地址默认写成本机地址。
 
 脚本：
 
@@ -247,7 +199,7 @@ scripts/env/docker-compose.dev.yml
 | 服务 | 说明 | 端口 |
 | --- | --- | --- |
 | `postgres` | 本地 PostgreSQL 数据库 | `127.0.0.1:5432` |
-| `minio` | 本地 S3 兼容对象存储 | `127.0.0.1:9000` |
+| `minio` | 本地 S3 兼容对象存储及控制台 | `127.0.0.1:9000`、`127.0.0.1:9001` |
 | `minio-init` | 初始化 MinIO bucket | 无对外端口 |
 | `backend` | Go API 开发服务，使用 `golang:1.26.11-alpine` | `127.0.0.1:8080` |
 | `frontend` | Vite 前端开发服务，使用 `node:22-alpine` | `127.0.0.1:5173` |
@@ -295,11 +247,7 @@ bash scripts/env/start-prerequisites.sh
 bash scripts/env/start-backend-docker.sh
 ```
 
-前提：
-
-- 已创建 `backend/go.mod`。
-- 已复制 `.env`。
-- Docker 可用。
+前提是已配置 `.env`、Docker 可用，且已完成本地数据库迁移。
 
 该脚本会先同步 WSL 浏览器访问地址，再确保 PostgreSQL、MinIO 和 `minio-init` 已启动，最后启动后端 Docker 服务，监听：
 
@@ -315,11 +263,7 @@ http://127.0.0.1:8080
 bash scripts/env/start-frontend-docker.sh
 ```
 
-前提：
-
-- 已创建 `frontend/package.json`。
-- 已复制 `.env`。
-- Docker 可用。
+前提是已配置 `.env` 且 Docker 可用。
 
 该脚本通过 Docker 运行 Vite 前端服务，监听：
 
@@ -350,14 +294,25 @@ bash scripts/env/stop-dev-services.sh
 
 ## 推荐开发启动顺序
 
-1. 确认 Go、Node.js、npm、Docker、psql、sqlc、migrate 已安装或准备使用 Docker 容器执行对应验证。
-2. 运行 `bash scripts/env/check-env.sh`。
-3. 复制 `scripts/env/dev.env.example` 为 `.env`。
-4. 运行 `bash scripts/env/start-backend-docker.sh` 启动依赖服务和后端。
-5. 在 `backend/` 下执行 migration。
-6. 在 `backend/` 下运行 `go test ./...`。
-7. 运行 `bash scripts/env/start-frontend-docker.sh` 启动前端，或在 `frontend/` 下直接运行 `npm run dev -- --host 0.0.0.0`。
-8. 运行 `bash scripts/env/start-dev-stack.sh` 验证依赖服务、后端和前端可一起启动。
+1. 在 WSL 中进入仓库根目录，运行环境检查并准备 `.env`。
+2. 启动 PostgreSQL 和 MinIO。确认 PostgreSQL 可连接后，在仓库根目录加载本地环境变量并执行 migration。
+
+   ```bash
+   bash scripts/env/start-prerequisites.sh
+   docker compose --env-file .env -f scripts/env/docker-compose.dev.yml up -d --wait postgres
+   (
+     set -e
+     set -a
+     source ./.env
+     set +a
+     migrate -path backend/migrations -database "$DATABASE_URL" up
+   )
+   ```
+
+3. 运行 `bash scripts/env/start-dev-stack.sh` 启动后端和前端。脚本只启动服务，数据库迁移使用上一步的命令。
+4. 用 `curl -fsS http://127.0.0.1:8080/api/v1/health` 检查后端，打开 `http://127.0.0.1:5173` 并用本地管理员登录。
+5. 按改动范围运行测试。前端改动执行 `npm run build`。Go、SQL 和浏览器回归入口见 [后端](../../backend/README.md)与 [前端](../../frontend/README.md)。
+6. 结束时执行 `bash scripts/env/stop-dev-services.sh` 清理本次启动的 Compose 服务，并结束其它临时进程。
 
 ## 注意事项
 
@@ -366,7 +321,7 @@ bash scripts/env/stop-dev-services.sh
 - 不维护 PowerShell 环境脚本。
 - 不要把 `.env` 提交到 Git。
 - 不要把上传文件写入 Git 或 `frontend/public/`。
-- 开发环境 MinIO 只用于本地联调，不等同于生产 MinIO 的 HTTPS 域名、凭据和备份模型。
+- 本地使用 MinIO，生产使用 Cloudflare R2。生产域名、凭据和备份按 [部署手册](deployment.md)维护。
 - 生产 migration 前必须先备份 PostgreSQL。
 
 ## 部署脚本隔离验证

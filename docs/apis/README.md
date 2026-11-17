@@ -1,6 +1,6 @@
 # API 文档索引
 
-本目录记录 Rendering CMS Platform MVP 的接口约定。所有业务接口默认使用 `/api/v1` 前缀。
+本目录记录 Rendering CMS Platform 的接口契约。所有业务接口默认使用 `/api/v1` 前缀。
 
 - [认证 API](./auth.md)
 - [文章 API](./articles.md)

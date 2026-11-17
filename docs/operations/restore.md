@@ -4,60 +4,48 @@
 
 ## 恢复前准备
 
-恢复操作会覆盖或改变目标数据库状态。执行前必须完成以下检查：
-
-1. 确认目标环境是生产服务器，且 `/etc/rendering-cms/production.env` 指向正确数据库。
-2. 备份当前数据库现场。
-3. 停止会写入数据库的后端服务或切到维护模式。
-4. 确认备份文件来源、时间和完整性。
-5. 确认 R2 bucket、R2 访问密钥和对象清单可用。
+1. 按 [生产访问规范](production-access.md)确认目标、授权与回退方案。暂停自动部署，确认没有发布或回滚任务正在运行。
+2. 按 [备份流程](backup.md#手动备份)备份当前数据库，并核对待恢复文件的来源、时间、校验值和权限。
+3. 确认 R2 对象清单和读取权限可用。完整 SQL 备份应导入一个经批准的空库，避免与现有表及数据冲突。准备足够空间用于解压和导入。
 
 ## 恢复命令
 
-生产环境的 `DATABASE_URL` 默认使用 Docker 网络内的 `postgres:5432`，不要在宿主机直接用该地址执行 `psql`。恢复前先停止后端，避免恢复过程中继续写入：
+进入部署目录，停止后端和其它写入目标库的进程。
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
 docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml stop backend
 ```
 
-普通 SQL 备份恢复：
+设置 `RESTORE_BACKUP` 为已核对的 SQL 或 gzip 文件绝对路径，`RESTORE_DB` 为 PostgreSQL 容器中的目标空库。压缩备份完整解压后再导入，普通 SQL 直接导入。
 
 ```bash
-set -a
-. /etc/rendering-cms/production.env
-set +a
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-  psql -X -v ON_ERROR_STOP=1 --single-transaction --file=- -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  < /var/lib/rendering-cms/backups/rendering-cms-latest.sql
+(
+  set -euo pipefail
+  umask 077
+  test -s "$RESTORE_BACKUP"
+  restore_sql="$RESTORE_BACKUP"
+  if [[ "$RESTORE_BACKUP" == *.gz ]]; then
+    gzip -t "$RESTORE_BACKUP"
+    restore_sql=$(mktemp /var/lib/rendering-cms/backups/.restore.XXXXXX)
+    trap 'rm -f -- "$restore_sql"' EXIT
+    gzip -dc -- "$RESTORE_BACKUP" > "$restore_sql"
+    test -s "$restore_sql"
+  fi
+  docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
+    sh -c 'psql -X -v ON_ERROR_STOP=1 --single-transaction --file=- -U "$POSTGRES_USER" -d "$1"' \
+    sh "$RESTORE_DB" < "$restore_sql"
+)
 ```
 
-gzip 压缩备份恢复：
+任一 SQL 出错会回滚本次导入。命令非零退出时保持后端停机，保留错误日志并排查。导入成功后核对目标库内容，确认生产 `DATABASE_URL` 指向已批准的库。将核对过的应用镜像标签设置为 `APP_IMAGE_TAG`，再恢复应用。
 
 ```bash
-set -a
-. /etc/rendering-cms/production.env
-set +a
-set -o pipefail
-gzip -dc /var/lib/rendering-cms/backups/rendering-cms-latest.sql.gz \
-  | docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-      psql -X -v ON_ERROR_STOP=1 --single-transaction --file=- -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+APP_IMAGE_TAG="${APP_IMAGE_TAG:?请设置已核对的应用镜像标签}" \
+  docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d --no-build --pull never backend frontend
 ```
 
-导入在任一 SQL 出错时回滚。确认命令退出码为 0 后再启动应用。
-
-```bash
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d backend frontend
-```
-
-本地开发环境如果 `DATABASE_URL` 指向宿主机可访问的 `127.0.0.1:5432`，可以直接执行：
-
-```bash
-set -o pipefail
-gzip -dc backups/rendering-cms-latest.sql.gz | psql -X -v ON_ERROR_STOP=1 --single-transaction --file=- "$DATABASE_URL"
-```
-
-如果需要恢复到空库，先创建新的空数据库，再导入备份。不要在未备份当前现场的情况下直接清空生产库。
+需要覆盖原库并同步回退代码时，使用 [回滚脚本](auto-deploy.md#手动回滚)中经批准的 `--commit` 与具体 `--backup` 文件。脚本会停止后端并删除、重建目标数据库。SQL 导入失败时脚本退出并保持后端停机。
 
 ## 恢复后检查
 
@@ -74,7 +62,7 @@ gzip -dc backups/rendering-cms-latest.sql.gz | psql -X -v ON_ERROR_STOP=1 --sing
 4. 打开最近发布文章，确认 MDX 正文、标签、摘要和发布时间正常。
 5. 检查评论列表，确认待审核、已通过、已拒绝状态正常。
 6. 检查文件列表，确认文件元数据、状态和下载链接生成正常。
-7. 检查统计页面，确认今日、近 7 天和热门文章数据可读取。
+7. 检查首页访问趋势、文章与相册排行，并抽查相册照片、封面及 R2 访问。
 
 ## 对象存储一致性检查
 
@@ -94,7 +82,7 @@ set +a
 aws s3api head-object \
   --endpoint-url "$S3_ENDPOINT" \
   --bucket "$S3_BUCKET" \
-  --key "assets/<uuid>/<filename>"
+  --key "$RESTORE_OBJECT_KEY"
 ```
 
 如果需要从离线备份恢复 R2 bucket，先保留当前 bucket 清单，再使用 `rclone sync` 或 AWS CLI 将备份目录写回 R2。恢复完成后再次抽样检查 `assets.storage_key`。

@@ -36,6 +36,7 @@ frontend/
       assets.ts
       uploadLimits.ts
       albums.ts
+      postbridge.ts
     app/
       ErrorBoundary.tsx
       providers.tsx
@@ -62,6 +63,7 @@ frontend/
       auth/LoginPage.tsx
       comments/CommentsPage.tsx
       dashboard/DashboardPage.tsx
+    markdown/                 # 受控解析核心与契约摘要
     routes/
       index.tsx
     main.tsx
@@ -76,6 +78,7 @@ frontend/
 - `src/layouts/`：跨路由布局，例如后台侧边栏和顶部栏。
 - `src/pages/`：路由级页面组件。页面按 URL 和用户任务分组，不直接放在 `features/`。
 - `src/api/`：所有后端 API、axios 实例、拦截器、token 存取和接口类型。
+- `src/markdown/`：CMS 和 Rendering 共用的解析规则与契约验证。
 - `src/components/`：跨业务复用 UI 组件。只有两个及以上页面复用时才放入该目录。
 
 ## 模块边界
@@ -139,7 +142,7 @@ npm run build
 
 ```bash
 cd /home/ubuntu/workspace/rendering-cms-platform/frontend
-npm audit --omit=dev
+npm audit --audit-level=low
 ```
 
 结构规则检查：

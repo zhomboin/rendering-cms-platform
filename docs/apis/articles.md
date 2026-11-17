@@ -1,6 +1,6 @@
 # 文章 API
 
-本文档记录 MVP 阶段文章管理接口，以及供 Rendering 博客读取已发布文章的内容接口。所有接口前缀为 `/api/v1`。
+本文档记录后台文章管理与公开文章读取接口。所有接口前缀为 `/api/v1`。
 
 ## 后台插图约定
 
@@ -80,7 +80,7 @@ GET /api/v1/articles
 | 字段                        | 类型        | 说明                  |
 | --------------------------- | ----------- | --------------------- |
 | `slug` / `canonicalSlug`    | string      | 6 位 canonical 短链码 |
-| `articleName`               | string      | 兼容期文章英文名      |
+| `articleName`               | string      | 文章英文名，可用于详情查找      |
 | `title` / `summary`         | string      | 标题与摘要            |
 | `tags`                      | string[]    | 标签                  |
 | `publishedAt` / `updatedAt` | string/null | 发布时间与更新时间    |
@@ -123,7 +123,7 @@ GET /api/v1/articles/search?q=keyword
 - 去除首尾空白后，搜索关键词长度必须为 1–100 个 Unicode 字符；超出范围返回 `400` 且不查询数据库。
 - 返回字段包含 `articleId`、`slug`、`articleName`、`title`、`summary` 和 `publishedAt`，不返回完整 `bodyMdx`。
 - 搜索排序优先使用 `ts_rank` 相关度，其次按发布时间倒序排列。
-- 搜索最多返回 20 条结果。Rendering 当前继续使用构建期 Pagefind，不直接调用该接口。
+- 搜索最多返回 20 条结果。Rendering 的公开搜索使用构建期 Pagefind，见 [博客发布对接](../operations/rendering-blog-publishing-integration.md)。
 
 ## 公开读取缓存与限流
 
@@ -157,7 +157,7 @@ draft --设为私有 private--> private
 private --转为草稿 restore-draft--> draft
 ```
 
-- `private` 是私有状态：仅后台接口（登录态）返回，公开列表、详情、搜索一律按未发布处理（详情 `404`），`published_at` 保持为空。
+- `private` 是私有状态：仅后台接口（登录态）返回，公开列表、详情、搜索一律按未发布处理（详情 `404`）。设为私有不会修改原有发布时间。
 - 私有文章与草稿一样可直接编辑保存；如需公开，先「转为草稿」再「发布」。
 - `archived` 是保留值，当前没有任何接口可以进入或离开该状态。
 - 已发布文章在后台编辑器中为只读；修改内容必须先下架恢复为草稿。
@@ -273,7 +273,7 @@ Authorization: Bearer <jwt-token>
 - 将 `draft` 状态文章转为 `private`，用于日常记录、运维文档等仅自己可见的内容。
 - 只允许草稿设为私有；文章已发布、已是私有或已归档时返回 `409`，文章不存在时返回 `404`。
 - 私有文章仅出现在后台接口中，公开列表、详情和搜索永远不返回；公开详情访问其短链或英文名返回 `404`。
-- `published_at` 保持为空；后续如需公开，先调用「转为草稿」，再调用发布接口。
+- 保留当前 `published_at`。需要公开时先调用「转为草稿」，再调用发布接口，发布会重新记录时间。
 - 成功后 `articles.version` 自动加 `1`，并由数据库触发器自动写入 `article_logs`。
 
 ## 转为草稿

@@ -186,7 +186,7 @@ Content-Type: application/json
 
 ## 邮箱验证码规则
 
-- 邮箱验证码功能依赖 SMTP 配置；`SMTP_HOST`、`SMTP_USERNAME`、`SMTP_PASSWORD` 配置齐全即启用，未配置齐全时自动关闭，登录不触发验证码。`LOGIN_MFA_ENABLED` 可显式覆盖该默认行为。
+- 未设置 `LOGIN_MFA_ENABLED` 时，`SMTP_HOST`、`SMTP_USERNAME` 和 `SMTP_PASSWORD` 齐全才自动启用邮箱验证码。显式启用时必须配置可用发送渠道。
 - 触发条件在密码验证成功后判定：本次登录 IP 哈希与上次成功登录的 IP 基线（`users.last_login_ip_hash`）不同，或该邮箱自上次成功登录以来连续失败达到 3 次。首次登录无 IP 基线时视为未变更。
 - 验证码为 6 位随机数字，有效期 10 分钟，仅可使用一次。
 - 验证码不以明文存储，数据库保存 `sha256(JWT_SECRET + ":" + code)` 哈希。
@@ -219,12 +219,4 @@ token 规则：
 
 ## 登出
 
-当前使用 Bearer token。前端登出时删除本地保存的 token 即可。
-
-后续如改为安全 Cookie Session，应新增：
-
-```http
-POST /api/v1/auth/logout
-```
-
-并由后端清理登录态 Cookie。
+前端登出时清理本地的访问令牌和刷新令牌，并返回登录页。

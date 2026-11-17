@@ -21,48 +21,28 @@ chmod 700 /var/lib/rendering-cms/backups
 
 ## 手动备份
 
-生产环境的 `DATABASE_URL` 默认使用 Docker 网络内的 `postgres:5432`，不要在宿主机直接用该地址执行 `pg_dump`。应通过 Compose 进入 `postgres` 服务导出：
+确认目标 PostgreSQL 正在运行，以有权限写入备份目录的运维身份执行。通过 Compose 在数据库容器内运行 `pg_dump`，将原子生成的 gzip 备份保存在宿主机。
 
 ```bash
 cd /opt/rendering-cms-platform/deploy
-set -a
-. /etc/rendering-cms/production.env
-set +a
-mkdir -p /var/lib/rendering-cms/backups
-chmod 700 /var/lib/rendering-cms/backups
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
-  > "/var/lib/rendering-cms/backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql"
+(
+  set -euo pipefail
+  umask 077
+  backup_file="/var/lib/rendering-cms/backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
+  partial=$(mktemp "${backup_file}.partial.XXXXXX")
+  trap 'rm -f -- "$partial"' EXIT
+  docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
+    sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$partial"
+  gzip -t "$partial"
+  bytes=$(gzip -dc "$partial" | wc -c)
+  test "$bytes" -gt 0
+  chmod 600 "$partial"
+  mv -- "$partial" "$backup_file"
+  sha256sum -- "$backup_file"
+)
 ```
 
-如果希望压缩备份文件：
-
-```bash
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
-  | gzip > "/var/lib/rendering-cms/backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
-```
-
-本地开发环境如果 `DATABASE_URL` 指向宿主机可访问的 `127.0.0.1:5432`，可以直接执行：
-
-```bash
-pg_dump "$DATABASE_URL" | gzip > "backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
-```
-
-## 备份校验
-
-备份完成后至少检查文件是否存在且非空：
-
-```bash
-ls -lh /var/lib/rendering-cms/backups/rendering-cms-*.sql*
-test -s "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql* | head -n 1)"
-```
-
-如果使用压缩备份，应检查 gzip 文件完整性：
-
-```bash
-gzip -t "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql.gz | head -n 1)"
-```
+命令成功后记录实际文件、权限和输出中的 SHA-256。仅在导出、压缩、gzip 完整性与解压后字节数检查全部成功时，才将临时文件移到正式备份路径。失败后先排查异常，再继续需要备份的操作。
 
 ## 保留策略
 

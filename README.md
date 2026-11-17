@@ -1,17 +1,17 @@
 # Rendering CMS Platform
 
-`rendering-cms-platform` 是面向个人技术博客 CMS 化能力的新项目，用于承载文章管理、访问统计、评论审核、文件上传下载和后台发布等动态功能。
+`rendering-cms-platform` 提供文章发布、访问统计、评论审核、相册与文件管理，并接入 PostBridge 草稿分发。
 
-本项目与原静态博客仓库保持边界清晰：原 `Rendering` 项目只作为内容迁移来源、视觉参考和回退基线，不继续承载后台、评论、统计或上传下载等运行时能力。
+CMS 负责管理数据及提供公开接口。Rendering 博客负责公开页面、访问上报和搜索索引。
 
 ## 项目目标
 
-- 提供后台文章编辑、草稿、发布、归档和修订历史能力，并支持[从相册和资源选择插图](docs/guides/article-images.md)。
+- 提供后台文章编辑、草稿、发布、下架、私有阅读和修订能力，并支持[从相册和资源选择插图](docs/guides/article-images.md)。
 - 将原静态博客的 `content/posts/*.mdx` 作为导入来源，进入 PostgreSQL 管理。
 - 首页数据驾驶舱展示 7／30／90 天访问趋势、文章图文排行、相册表现、评论与草稿待办、内容和资源概况，详见 [首页说明](docs/guides/dashboard.md)。
 - 支持匿名评论提交、默认待审核和后台审核。
 - 支持文件上传、下载、元数据管理和下载审计。
-- 支持相册管理：后台维护相册与照片（服务端提取尺寸、剥离 EXIF GPS），对 Rendering 博客提供已发布相册的公开查询接口。
+- 支持相册管理与公开查询，照片由后端提取尺寸并剥离隐私元数据。
 - 提供 Rendering 博客读取已发布文章、已审核评论和上报访问统计的接口。
 
 ## 技术架构
@@ -37,61 +37,21 @@
 - 本地开发使用 MinIO
 - 生产环境使用 Cloudflare R2（公开访问域名 `assets.rendering.me`）
 
-## 本地开发环境
+## 本地开发
 
-本项目本地开发环境固定为 WSL2 Ubuntu 24.04。所有开发、构建、测试、数据库迁移和依赖服务启动命令默认在 WSL Ubuntu 24.04 终端中执行。
-
-基础约束：
-
-- 使用 Linux/Bash 命令。
-- 使用 WSL/Linux 路径，例如 `/home/ubuntu/workspace/rendering-cms-platform`。
-- 使用 `docker compose`，不以旧版 `docker-compose` 作为默认命令。
-- 环境脚本放在 `scripts/env/`，默认使用 `.sh` Bash 脚本。
-
-环境检查：
-
-```bash
-bash scripts/env/check-env.sh
-```
-
-复制本地环境变量：
-
-```bash
-cp scripts/env/dev.env.example .env
-```
-
-启动 PostgreSQL 和 MinIO：
-
-```bash
-bash scripts/env/start-prerequisites.sh
-```
-
-启动后端 Docker 服务：
-
-```bash
-bash scripts/env/start-backend-docker.sh
-```
-
-启动完整开发栈：
+在 WSL2 Ubuntu 24.04 中按 [本地开发指南](docs/operations/development-environment.md#推荐开发启动顺序)检查工具、配置本地环境、启动依赖并执行数据库迁移。随后在仓库根目录启动和检查应用。
 
 ```bash
 bash scripts/env/start-dev-stack.sh
+curl -fsS http://127.0.0.1:8080/api/v1/health
 ```
 
-完整开发栈会启动 PostgreSQL、MinIO、Go 后端和 Vite 前端。
-
-停止开发服务：
-
-```bash
-bash scripts/env/stop-dev-services.sh
-```
-
-更完整的环境说明见 `docs/operations/development-environment.md`。
+打开 `http://127.0.0.1:5173`。结束本次开发时运行 `bash scripts/env/stop-dev-services.sh` 清理启动的 Compose 服务。生产操作见 [部署手册](docs/operations/deployment.md)。
 
 ## 文档入口
 
 - `docs/README.md`：当前文档索引，说明权威文档、任务与进度入口。
-- `docs/progress.md`：项目主进度记录，由 Agent 定期维护。
+- [项目主进度](docs/progress.md)：当前功能、CI 结果和环境验收。
 - `AGENTS.md`：Agent 协作规则、技术约束和本地环境约束。
 - `docs/cms-platform-technical-recommendation.zh-CN.md`：CMS 平台技术架构建议。
 - `docs/apis/`：当前 API 契约。
@@ -99,7 +59,7 @@ bash scripts/env/stop-dev-services.sh
 - `docs/operations/development-environment.md`：WSL2 Ubuntu 24.04 开发环境配置指南。
 - `docs/operations/deployment.md`：生产 Docker 部署方案。
 - `docs/operations/runbook.md`：生产运维 SOP。
-- [当前任务](docs/plans/current-tasks.md)：待修复问题与环境验收条件。
+- [当前任务](docs/plans/current-tasks.md)：环境验收、部署收尾与维护事项。
 
 ## 推荐目录结构
 
@@ -132,7 +92,7 @@ rendering-cms-platform/
 
 ## 当前状态
 
-CMS 提供认证、文章管理、修订与私有阅读、统计、评论、文件、相册及后台首页；管理端根路径进入仪表盘，公开阅读由 Rendering 博客负责。完整能力见 [技术基线](docs/cms-platform-technical-recommendation.zh-CN.md)。
+CMS 根路径进入后台仪表盘，公开阅读由 Rendering 博客负责。完整能力见 [技术基线](docs/cms-platform-technical-recommendation.zh-CN.md)。
 
 代码实现、本地验证和生产验收分别记录。当前待办统一见 [任务清单](docs/plans/current-tasks.md)，整体状态见 [项目进度](docs/progress.md)。
 

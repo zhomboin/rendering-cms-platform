@@ -41,70 +41,7 @@ df -h
 
 ## 发布 SOP
 
-发布前确认当前提交：
-
-```bash
-cd /opt/rendering-cms-platform
-git status --short --branch
-git log -1 --oneline
-```
-
-拉取目标提交：
-
-```bash
-git pull --ff-only
-```
-
-构建镜像：
-
-```bash
-cd /opt/rendering-cms-platform/deploy
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml build
-```
-
-备份 PostgreSQL：
-
-```bash
-set -a
-. /etc/rendering-cms/production.env
-set +a
-mkdir -p /var/lib/rendering-cms/backups
-chmod 700 /var/lib/rendering-cms/backups
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
-  | gzip > "/var/lib/rendering-cms/backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
-gzip -t "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql.gz | head -n 1)"
-```
-
-执行 migration：
-
-```bash
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml --profile migrate run --rm migrate
-```
-
-重启应用：
-
-```bash
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d backend frontend
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml ps
-```
-
-发布后 smoke test：
-
-```bash
-curl -fsS http://127.0.0.1:3001/api/v1/health
-```
-
-人工验收：
-
-- 登录后台。
-- 创建并保存文章草稿。
-- 发布文章并检查公开读取。
-- 提交评论并完成审核。
-- 上传小文件并生成下载链接。
-- 确认预签名 URL 指向 R2 S3 API 端点。
-- 打开统计页面并确认数据可读取。
-- 查看后端日志，确认有新的 `http_request` 记录。
+按 [发布更新](deployment.md#发布更新)确认授权、目标提交和回退，使用标准服务发布。按 [发布后验收](deployment.md#发布后验收)核对健康、登录、业务流程和日志，完整结果记录在 [收尾清单](deploy-readiness.md)。
 
 ## MDX 文章导入 SOP
 
@@ -183,84 +120,17 @@ docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.pr
 导出最近日志：
 
 ```bash
-mkdir -p ../tmp
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml logs --since=1h backend frontend > ../tmp/rendering-cms-logs-$(date +%Y%m%d-%H%M%S).log
+mkdir -p ../temp
+docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml logs --since=1h backend frontend > ../temp/rendering-cms-logs-$(date +%Y%m%d-%H%M%S).log
 ```
 
 ## 备份 SOP
 
-手动备份：
-
-```bash
-cd /opt/rendering-cms-platform/deploy
-set -a
-. /etc/rendering-cms/production.env
-set +a
-mkdir -p /var/lib/rendering-cms/backups
-chmod 700 /var/lib/rendering-cms/backups
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
-  | gzip > "/var/lib/rendering-cms/backups/rendering-cms-$(date +%Y%m%d-%H%M%S).sql.gz"
-gzip -t "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql.gz | head -n 1)"
-```
-
-保留策略：
-
-- 至少保留最近 7 天备份。
-- 大版本发布前的备份单独保留。
-- 删除旧备份前必须确认最新备份可用。
-- 对象存储文件本体不在 PostgreSQL 备份中，R2 bucket 需要单独导出对象清单或同步到备份位置。
-
-导出 R2 bucket 对象清单：
-
-```bash
-cd /opt/rendering-cms-platform/deploy
-set -a
-. /etc/rendering-cms/production.env
-set +a
-aws s3api list-objects-v2 \
-  --endpoint-url "$S3_ENDPOINT" \
-  --bucket "$S3_BUCKET" \
-  --output json \
-  > "/var/lib/rendering-cms/backups/r2-objects-$(date +%Y%m%d-%H%M%S).json"
-```
+按 [手动备份与校验](backup.md#手动备份)生成并验证当前 PostgreSQL 备份。对象清单和文件另按 [对象存储备份](backup.md#对象存储备份)处理。
 
 ## 恢复 SOP
 
-恢复前必须：
-
-1. 确认 `DATABASE_URL` 指向生产数据库。
-2. 先备份当前现场。
-3. 停止 `backend`，避免恢复过程中继续写入。
-4. 校验待恢复备份文件完整性。
-5. 确认 R2 bucket、R2 凭据和对象清单可用。
-
-停止后端：
-
-```bash
-cd /opt/rendering-cms-platform/deploy
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml stop backend
-```
-
-恢复 gzip 备份：
-
-```bash
-set -a
-. /etc/rendering-cms/production.env
-set +a
-gzip -dc /var/lib/rendering-cms/backups/rendering-cms-latest.sql.gz \
-  | docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-      psql -U "$POSTGRES_USER" "$POSTGRES_DB"
-```
-
-恢复后启动并验收：
-
-```bash
-docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d backend frontend
-curl -fsS http://127.0.0.1:3001/api/v1/health
-```
-
-更多恢复细节见 `docs/operations/restore.md`。
+按 [PostgreSQL 恢复流程](restore.md)备份当前现场、停止写入、校验备份并导入到已确认的目标库。导入不成功时保持应用停机，排查后重新恢复。恢复成功后检查健康、文章、评论、资源、相册和统计。
 
 ## 常见故障处理
 

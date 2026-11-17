@@ -1,4 +1,4 @@
-# Backend Agent Guide
+# 后端协作指南
 
 本文件约束 `backend/` 目录下的后端开发工作。根目录 `AGENTS.md` 的文档、环境、安全和项目边界约束仍然有效。
 
@@ -15,7 +15,7 @@
 - 数据库访问使用 `pgx`、`pgxpool` 和 `sqlc`。
 - PostgreSQL 是唯一运行时业务数据源，不要用 JSON 文件保存文章、评论、统计或文件元数据。
 - 文件上传下载只保存元数据和对象存储 key，不把上传文件写入 Git，也不写入前端 `public/`。
-- 图片文件最大 50MB，其它允许类型最大 20MB；相册上传为表单预留请求体余量，普通接口保持原请求体限制。multipart 产生的临时文件在所有响应路径回收。
+- 图片文件最大 50MB，其它允许类型最大 20MB；相册上传表单上限 51MiB，普通请求体默认上限 25MiB。multipart 产生的临时文件在所有响应路径回收。
 - 后台 API 必须使用 `/api/v1` 前缀。
 - 评论、下载审计、访问统计不得保存原始 IP；如需识别访问端，只保存哈希值。
 
@@ -28,6 +28,7 @@
 - `internal/database/dbgen/`：由 `sqlc generate` 生成，不手工编辑。
 - `migrations/`：PostgreSQL migration，必须提供 up/down。
 - `sql/`：sqlc 查询文件，按业务域拆分。
+- `internal/integrations/postbridge/`：PostBridge 来源身份、分发和待发事件。
 
 ## 编码规则
 

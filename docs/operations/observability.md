@@ -54,7 +54,7 @@ export BACKEND_LOG_HOST_DIR=/var/log/rendering-cms-platform
 - Nginx `$upstream_cache_status` 中 `MISS`、`BYPASS`、`EXPIRED` 的比例；热点文章持续 MISS 时检查 cache key 和权限。
 - Go goroutine、RSS、请求耗时和 PostgreSQL 连接池使用率。
 - 搜索接口 P95、数据库慢查询和超时数量。
-- CMS 发布成功但 Rendering Pagefind 构建触发失败的告警。
+- Rendering 内容重建失败和 Pagefind 切换失败，按 [博客发布对接](rendering-blog-publishing-integration.md)核对应用与索引。
 
 不得在日志或指标标签中记录原始 IP、Authorization、Cookie 或完整搜索词。
 
@@ -70,7 +70,7 @@ export BACKEND_LOG_HOST_DIR=/var/log/rendering-cms-platform
 
 ```bash
 cd backend
-go test ./...
+go test ./internal/logging ./internal/http
 ```
 
 启动后端后请求健康检查：
