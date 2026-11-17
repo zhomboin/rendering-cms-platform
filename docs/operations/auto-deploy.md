@@ -4,6 +4,8 @@
 
 ## 触发机制
 
+生产的 `cms-rendering-deploy.timer` 已启用，状态为 `active (waiting)`。2026-11-17 15:00（北京时间）的定时触发已核对，部署服务退出结果为 `success`。
+
 ```text
 cms-rendering-deploy.timer（每小时整点，OnCalendar=hourly）
   -> cms-rendering-deploy.service（systemd oneshot）
@@ -17,7 +19,7 @@ cms-rendering-deploy.timer（每小时整点，OnCalendar=hourly）
       5. 任一阶段失败 -> 自动回滚代码到上一成功提交并重建旧版本
 ```
 
-发布顺序与 `docs/operations/deployment.md` 的「发布更新」完全一致，自动化只是替代了手工执行。
+发布顺序见[部署说明](deployment.md#发布更新)。定时器按提交判断是否发布，纯文档合并也会进入发布流程。
 
 ## 目录布局
 
@@ -83,8 +85,10 @@ journalctl -u cms-rendering-deploy.service -f
 # 查看部署日志文件
 tail -f /var/log/rendering-cms/deploy.log
 
-# 查看 timer 计划
-systemctl list-timers | grep cms-rendering-deploy
+# 核对定时器状态和下次触发时间
+systemctl is-enabled cms-rendering-deploy.timer
+systemctl is-active cms-rendering-deploy.timer
+systemctl list-timers --all cms-rendering-deploy.timer
 
 # 发布窗口暂停/恢复自动部署
 sudo systemctl stop cms-rendering-deploy.timer
@@ -172,4 +176,4 @@ sudo bash deploy/setup.sh --user rendering-deploy
 
 正常发布与源码回退共用 deploy/build-images.sh，代理配置见 deploy/auto-deploy.env.example。BUILD_PROXY_COMPOSE_FILE 应放在仓库外，回退时仍然可读。构建按提交生成 commit-完整提交号标签，成功状态保存 LAST_IMAGE_TAG，PRUNE_IMAGES 默认 false。
 
-隔离测试及 CI 通过不等于完成生产发布验收。定时器关闭是可明确保留的运行状态，不能由安装脚本或构建成功自动变为启用。
+每次受控发布按[部署收尾清单](deploy-readiness.md)记录生产验收结果。

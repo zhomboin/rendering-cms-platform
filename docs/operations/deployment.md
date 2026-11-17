@@ -282,7 +282,7 @@ sudo bash deploy/setup.sh
 - 现有 Rendering 博客域名转发到 `127.0.0.1:3000`。
 - CMS 前端/API 域名转发到 `127.0.0.1:3001`。
 
-`deploy/nginx/rendering.me.conf` 提供完整反向代理模板。启用前将 CMS 的 HTTP 跳转和 HTTPS 站点的 `server_name` 设置为 `cms.zhomboin.com`，并核对证书路径和转发地址。生产入口为 `https://cms.zhomboin.com`。
+`deploy/nginx/rendering.me.conf` 提供完整反向代理模板，CMS 入口为 `https://cms.zhomboin.com`。安装时核对各站点的证书和转发地址，确保证书覆盖对应域名。
 
 部署到服务器：
 
@@ -332,7 +332,7 @@ curl -sSI -H 'Authorization: Bearer invalid-test-token' https://cms.zhomboin.com
 
 前两次连续请求应能观察到 `X-Cache-Status` 从 `MISS` 变为 `HIT`；带 Authorization 的请求必须为 `BYPASS` 或不命中缓存。
 
-配置中的证书路径默认写成：
+模板中的证书路径示例：
 
 ```text
 /etc/nginx/ssl/rendering.me/fullchain.pem
@@ -345,7 +345,7 @@ curl -sSI -H 'Authorization: Bearer invalid-test-token' https://cms.zhomboin.com
 
 ## 发布更新
 
-生产服务器已配置 `cms-rendering-deploy.timer` 时，以下流程由 `deploy/auto-deploy.sh` 每小时整点自动检查并执行，详见 `docs/operations/auto-deploy.md`。手动流程仍作为基线 SOP 保留；手动操作前建议先停止 timer：
+生产已启用 `cms-rendering-deploy.timer`。[自动部署](auto-deploy.md)每小时整点检查 `main`，发现新提交即按以下流程发布，包括仅修改文档的提交。进入手动发布窗口时先暂停定时器。
 
 ```bash
 sudo systemctl stop cms-rendering-deploy.timer
