@@ -28,7 +28,7 @@ set -a
 . /etc/rendering-cms/production.env
 set +a
 docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-  psql -U "$POSTGRES_USER" "$POSTGRES_DB" \
+  psql -X -v ON_ERROR_STOP=1 --single-transaction --file=- -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   < /var/lib/rendering-cms/backups/rendering-cms-latest.sql
 ```
 
@@ -38,12 +38,13 @@ gzip 压缩备份恢复：
 set -a
 . /etc/rendering-cms/production.env
 set +a
+set -o pipefail
 gzip -dc /var/lib/rendering-cms/backups/rendering-cms-latest.sql.gz \
   | docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml exec -T postgres \
-      psql -U "$POSTGRES_USER" "$POSTGRES_DB"
+      psql -X -v ON_ERROR_STOP=1 --single-transaction --file=- -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 ```
 
-恢复完成后重新启动应用：
+导入在任一 SQL 出错时回滚。确认命令退出码为 0 后再启动应用。
 
 ```bash
 docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.prod.yml up -d backend frontend
@@ -52,7 +53,8 @@ docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.pr
 本地开发环境如果 `DATABASE_URL` 指向宿主机可访问的 `127.0.0.1:5432`，可以直接执行：
 
 ```bash
-gzip -dc backups/rendering-cms-latest.sql.gz | psql "$DATABASE_URL"
+set -o pipefail
+gzip -dc backups/rendering-cms-latest.sql.gz | psql -X -v ON_ERROR_STOP=1 --single-transaction --file=- "$DATABASE_URL"
 ```
 
 如果需要恢复到空库，先创建新的空数据库，再导入备份。不要在未备份当前现场的情况下直接清空生产库。
