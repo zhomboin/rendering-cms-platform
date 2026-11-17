@@ -9,7 +9,7 @@
 | 代码交付 | 各仓库独立 PR 完成检视与 CI；不夹带未批准功能或 migration |
 | 部署互斥 | 抢锁失败和持有者退出都不删除锁路径；并发回归通过 |
 | 构建出口 | daemon、Compose 客户端和 RUN 分别验证；正常构建和回退共用出口 |
-| 数据保护 | 数据库停止、缺失、检查失败或备份失败均阻断发布；生产 migration 前有最新校验备份 |
+| 数据保护 | 数据库不可用或备份失败时阻断发布。生产 migration 前有最新校验备份，并核对恢复失败后应用保持停机 |
 | 镜像标识 | 按提交使用独立标签，成功状态记录标签；上一可用镜像和初始迁移镜像保留 |
 | 完整发布 | 两套正式入口依次完成依赖、构建、启动、健康与发布状态检查 |
 | 回退准备 | 保存代码、配置、数据库快照及可用产物；核对回退命令和数据兼容性 |
@@ -41,6 +41,7 @@ bash -n deploy/auto-deploy.sh deploy/rollback.sh deploy/build-images.sh
 python3 scripts/env/test-auto-deploy-backup.py
 python3 scripts/env/test-auto-deploy-logging.py
 python3 scripts/env/test-build-proxy.py
+python3 scripts/env/test-rollback-safety.py
 ```
 
 全量测试由 GitHub CI 执行。生产验收必须使用真实部署提交，记录健康、备份哈希、镜像 ID、状态文件、定时器和临时资源清理结果。被用户明确排除的对象备份、图片读写等不纳入本批执行，也不得虚报通过。

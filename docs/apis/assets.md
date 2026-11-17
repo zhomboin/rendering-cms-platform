@@ -1,6 +1,6 @@
 # 文件 API
 
-本文档记录 MVP 阶段后台资源上传、资源列表、下载链接和下载审计接口。所有接口前缀为 `/api/v1`。
+后台资源接口提供上传、列表、下载链接及审计。所有接口前缀为 `/api/v1`。
 
 ## 约束
 
@@ -134,8 +134,6 @@ Authorization: Bearer <jwt-token>
 
 - 生产环境 `downloadUrl` 会指向 Cloudflare R2 S3 API 端点。
 - R2 bucket 必须配置 CORS，允许后台前端来源使用 `GET`。
-
-说明：
 
 - 每次生成下载 URL 都写入 `download_events`。
 - 下载审计只记录 `asset_id`、`ip_hash`、`user_agent` 和时间。

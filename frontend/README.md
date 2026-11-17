@@ -1,4 +1,4 @@
-# Rendering CMS Platform Frontend
+# Rendering CMS Platform 前端
 
 `frontend/` 是 Rendering CMS Platform 的 React + TypeScript 前端应用，承担 CMS 后台管理界面。
 
@@ -28,8 +28,9 @@ frontend/
       auth/
       comments/
       dashboard/
+      postbridge/
     routes/                   # 路由集中声明
-    types/                    # 全局类型声明
+    markdown/                 # 受控 Markdown 解析与共同契约
     main.tsx                  # 应用入口
   index.html
   package.json
@@ -46,7 +47,9 @@ frontend/
 - `/admin/articles`：后台文章管理。
 - `/admin/articles/new`：新增文章。
 - `/admin/articles/:id/edit`：编辑文章。
+- `/admin/articles/:id/read`：登录后阅读文章。
 - `/admin/comments`：评论审核。
+- `/admin/postbridge`：管理员连接 PostBridge 并查看分发。
 - `/admin/assets`：资源管理。
 - `/admin/albums`：相册管理。
 - `/admin/albums/new`：新建相册。
@@ -61,7 +64,9 @@ API client 位于 `src/api/client.ts`，使用 axios 实例统一封装请求。
 
 - `auth.ts`：后台登录。
 - `articles.ts`：后台文章管理。
-- `analytics.ts`：后台统计看板。
+- `analytics.ts`：后台统计。
+- `dashboard.ts`：首页只读汇总。
+- `postbridge.ts`：PostBridge 连接与分发。
 - `comments.ts`：后台评论审核。
 - `assets.ts`：后台资源列表、预签名上传和下载。
 - `albums.ts`：相册管理与照片后端代理上传。
@@ -83,7 +88,7 @@ http://127.0.0.1:8080/api/v1
 HTTP 请求规则：
 
 - axios 请求拦截器会从本地登录 token 自动设置 `Authorization: Bearer <token>`。
-- axios 响应拦截器遇到后台接口 `401` 时会清理本地 token，并跳转到 `/admin/login`。
+- axios 响应拦截器遇到 `401` 时尝试刷新会话，同一轮并发请求共用刷新结果。刷新成功重试原请求，失败则清理本地令牌并在后台导航至登录页。
 - 资源预签名上传使用独立的 axios PUT 请求，不携带后台登录凭据。
 - 相册图片使用带后台鉴权的 FormData 代理上传，清除 JSON 默认 Content-Type，由浏览器生成 multipart boundary。
 
@@ -95,7 +100,7 @@ HTTP 请求规则：
 
 ```bash
 cd /home/ubuntu/workspace/rendering-cms-platform/frontend
-npm install
+npm ci
 ```
 
 启动开发服务：
@@ -137,14 +142,7 @@ npm run preview
 
 ## 设计规范
 
-后台管理界面设计规范见 `docs/guides/frontend-design.md`，前端目录结构与代码规则见 `docs/guides/frontend-architecture.md`。
-
-实现时应优先保持：
-
-- 左侧可折叠侧边栏 + 顶部 `80px` 导航 + 主内容区。
-- 主色 `#4F46E5`。
-- 页面背景 `#F8FAFC`、卡片背景 `#FFFFFF`、边框 `#E2E8F0`。
-- 管理页面使用清晰、稳定、适合重复操作的信息布局。
+后台采用浅色拟物主题，最外层为透明布局容器。侧栏、顶栏、控件色板与响应式规则见 [后台界面设计](../docs/guides/frontend-design.md)，目录与代码规范见 [前端架构](../docs/guides/frontend-architecture.md)。
 
 ## 验证要求
 

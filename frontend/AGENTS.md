@@ -1,4 +1,4 @@
-# Frontend Agent Guide
+# 前端协作指南
 
 本文件约束 `frontend/` 目录下的前端开发工作。根目录 `AGENTS.md` 的文档、环境、安全和项目边界约束仍然有效。
 
@@ -25,6 +25,7 @@
 - `src/layouts/`：跨路由布局，例如后台管理壳层。
 - `src/pages/`：按路由和业务域组织页面组件。
 - `src/components/`：跨页面复用 UI 组件。
+- `src/markdown/`：CMS 与 Rendering 同步的受控 Markdown 核心，详见 [正文规则](../docs/guides/markdown.md)。
 - `src/routes/`：全局路由声明。
 - `docs/guides/frontend-design.md`：后台界面设计规范。
 - `docs/guides/frontend-architecture.md`：前端目录结构与代码开发规范。
@@ -35,7 +36,7 @@
 - 优先构建可操作的管理界面，而不是说明型展示页。
 - 页面布局遵循 `docs/guides/frontend-design.md` 中的侧边栏、顶部导航、内容区和共享间距尺度。
 - 主色使用 #2456C7；组件样式、状态和窄屏规则见 [浅色拟物后台 skill](../.agents/skills/soft-skeuo-dashboard/SKILL.md)。
-- 管理工作区随浏览器窗口伸缩，不设统一最大宽度；按可用空间重排图表、表格和图库，单列正文与表单可限制行长。验证手机、平板、桌面和 4K。
+- 管理工作区使用无外框、圆角和阴影的透明容器，随浏览器窗口伸缩，无统一最大宽度；按可用空间重排图表、表格和图库，单列正文与表单可限制行长。验证手机、平板、桌面和 4K。
 - 管理页面应优先支持扫描、筛选、编辑、审核和重复操作。
 - 文案默认中文，按钮、表单、空状态和错误提示都应使用清晰中文。
 - 标题与字段名称保持简短，不拼接重复名称或加入封面规则、服务端处理等说明；保留操作限制、必要确认与错误原因。
@@ -57,7 +58,7 @@
 ## 编码规则
 
 - TypeScript 保持严格类型，不使用无意义的 `any`。
-- 页面级组件放在对应 `src/pages/<scope>/<domain>/` 下。
+- 页面级组件放在对应 `src/pages/<domain>/` 下。
 - 通用布局放在 `src/layouts/`，跨业务组件放在 `src/components/`。
 - 新增路由必须同步更新 `src/routes/index.tsx`。
 - 新增环境变量必须以 `VITE_` 开头，并同步更新 README 或相关文档。

@@ -177,7 +177,7 @@ Authorization: Bearer <jwt-token>
 - 每日归档任务只处理 `view_date < current_date` 的 daily 数据，不处理当天实时计数。
 - 归档 SQL 必须使用 `DELETE ... RETURNING` 把 daily 数据原子搬迁到 history 表，并在冲突时累加到已有 history 记录。
 - 如果归档过程中仍有延迟访问写入旧日期 daily 表，该记录不会被本次删除；下一次归档会继续累加到 history 表，避免计数丢失。
-- MVP 不保存原始 IP 地址。
+- 数据库保存去重所需的 IP 哈希。
 - 增强阶段新增 `analytics_events` 作为访问事件明细表，并用于公开统计接口去重；当前趋势接口仍优先读取 daily/history 聚合表。
 - `analytics_events` 通过唯一索引限制同一 `event_type + ip_hash + article_id + event_date` 重复计数；站点访问使用空文章 ID 参与同一规则。
 

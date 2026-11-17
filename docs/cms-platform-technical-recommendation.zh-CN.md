@@ -40,7 +40,7 @@ Go 工具链以模块和构建镜像中的固定版本为准。部署配置具�
 - 相册只有草稿与已发布状态，发布至少需要一张照片；首次发布时间保持稳定。
 - 照片经后端代理上传，仅接受 PNG、JPEG、WebP；服务端检查魔数、提取尺寸、剥离 EXIF/XMP 等元数据后存储。照片使用不可变对象 key 和公开长缓存 URL。
 - 通用文件使用预签名上传与下载，下载记录审计；图片上限 50MB，其它允许文件上限 20MB，具体规则见 [文件 API](apis/assets.md)。
-- 相册公开接口支持分页、ETag 和未发布 404；浏览上报接入统计。相册链接稳定性、失败清理、删除事务和并发排序等待修复项见 [任务清单](plans/current-tasks.md)。
+- 相册公开接口支持分页、ETag 和未发布 404；浏览上报接入统计。首次发布即固定相册 slug。相册内写入按事务串行，数据库约束照片位置唯一，文件补偿由持久队列处理。
 
 相册契约见 [相册 API](apis/photos.md)，R2 前缀、公开域名和权限见 [部署说明](operations/deployment.md)。
 
@@ -60,9 +60,13 @@ Go 工具链以模块和构建镜像中的固定版本为准。部署配置具�
 - CMS 搜索使用 PostgreSQL 的 tsvector、GIN 索引与全文查询，限定已发布文章、最多 100 个 Unicode 查询字符与 20 条结果。
 - 公开列表只返回摘要，详情包含正文；成功响应支持缓存、ETag 与 304，404 短缓存，服务错误不缓存。
 - 应用层提供速率、并发和客户端状态容量限制，Nginx 提供公网入口保护。
-- CMS 不依赖构建期 Pagefind。Rendering 的页面与搜索更新需要在其仓库验证；构建期索引的发布联动未关闭前保留人工重建入口。
+- CMS 提供 PostgreSQL 动态搜索。Rendering 使用构建期 Pagefind，页面和索引按 [博客发布对接](operations/rendering-blog-publishing-integration.md) 分别验收。
 
 容量、真实代理与跨仓库验收见 [当前任务清单](plans/current-tasks.md)。
+
+## PostBridge 分发
+
+CMS 后端单向调用 PostBridge，负责来源授权、内容快照、待发事件和分发记录。PostBridge 确认平台稿并把内容保存到获授权的 CSDN 账号草稿箱。契约见 [PostBridge API](apis/postbridge.md)。
 
 ## 部署与安全
 

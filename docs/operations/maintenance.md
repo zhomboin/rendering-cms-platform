@@ -4,7 +4,7 @@
 
 连接服务器前先读 [生产访问与安全规范](production-access.md)，从主工作区的本地配置记录获取实际连接参数。以下写操作仅在用户明确授权的任务范围内执行；未定义的高级操作须先补齐操作说明并获批，高权限账号或文档示例不代表授权。
 
-系统一句话：`cms-rendering-deploy.timer` 每小时整点触发 `deploy/auto-deploy.sh`，自动拉取代码、比较提交、按固定 SOP 发布（pull → build → 备份 → migration → 重启 → 健康检查），失败自动回滚代码。
+`cms-rendering-deploy.timer` 每小时检查远端提交。检测到更新后依次拉取、构建、备份、执行迁移、启动应用并核对健康。失败时按阶段执行 [回退策略](auto-deploy.md#失败处理)。
 
 ## 每日检查（约 1 分钟）
 
@@ -27,12 +27,13 @@ df -h /var/lib/rendering-cms                      # 磁盘
 
 ```bash
 ls -lht /var/lib/rendering-cms/backups/ | head -5                       # 备份在按次增长
-gzip -t "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql.gz | head -1)" && echo 备份完好
+gzip -t "$(ls -t /var/lib/rendering-cms/backups/rendering-cms-*.sql.gz | head -1)" && echo 压缩文件格式正常
 docker system df                                                        # 镜像/卷占用
 journalctl -u cms-rendering-deploy.service --since "7 days ago" | grep -c "==== 部署失败 ===="  # 一周内的失败次数
 ```
 
 - **把最新数据库备份复制到服务器之外**（scp/rsync 到本地电脑或对象存储）。自动备份只存在服务器本地，会随服务器一起丢失，异地保存是唯一需要人工坚持的备份环节。
+- 备份确认按 [备份校验](backup.md#手动备份)核对解压内容与校验值。
 - 若配置了 `NOTIFY_WEBHOOK`，确认通知渠道仍可达（改地址后发一条测试）。
 
 ## 每月 / 低频检查
@@ -52,25 +53,7 @@ journalctl -u cms-rendering-deploy.service --since "7 days ago" | grep -c "==== 
 
 ## 手动执行部署
 
-按场景选一种：
-
-```bash
-# 方式一：立即触发一次标准部署（远端无新提交则秒退，最常用）
-sudo systemctl start cms-rendering-deploy.service
-journalctl -u cms-rendering-deploy.service -f            # 实时看部署进度
-
-# 方式二：免提交强制重发当前提交（改完 /etc/rendering-cms/production.env 后让它生效）
-sudo /opt/rendering-cms-platform/deploy/auto-deploy.sh --force
-
-# 方式三：完全手动发布（绕过脚本的特殊操作：换对象存储、恢复数据库、临时改 compose）
-sudo systemctl stop cms-rendering-deploy.timer           # 先停自动部署
-# ……按 docs/operations/deployment.md「发布更新」或 runbook.md 手动执行……
-sudo systemctl start cms-rendering-deploy.timer          # 完成后恢复
-```
-
-- 方式一、二走脚本自带锁，与定时触发并发时后到的一方自动跳过，不会重复发布。
-- 方式三是绕过脚本的裸操作，没有锁保护，**必须先停 timer**，否则定时部署可能在操作中途启动容器。
-- 手动发布同样遵守 SOP 红线：migration 前先备份数据库，失败时按回滚原则处理（见 `auto-deploy.md`）。
+手动触发、强制部署及其锁规则见 [自动部署](auto-deploy.md#日常运维)。需要直接使用 Compose 时按 [发布操作](deployment.md#发布更新)确认没有后台部署、核对备份并执行验收。
 
 ## 目录与文件地图
 

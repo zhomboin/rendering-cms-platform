@@ -5,7 +5,7 @@
 ## 接口与架构
 
 - [技术基线](cms-platform-technical-recommendation.zh-CN.md)：项目边界、技术栈与能力。
-- [API 索引](apis/README.md)：认证、文章、首页、统计、评论、文件与相册契约。
+- [API 索引](apis/README.md)：认证、文章、首页、统计、评论、文件、相册与 PostBridge 契约。
 - [PostBridge 接入](apis/postbridge.md)与[环境验收](plans/2026-11-05-postbridge-integration.md)。
 - [数据库说明](sql/schema.md)：数据表、索引、隐私字段与迁移规则。
 - [Go 后端导读](guides/go-backend-guide.md)、[前端架构](guides/frontend-architecture.md)、[前端设计与组件 skill](guides/frontend-design.md)。
@@ -21,13 +21,12 @@
 - [生产部署](operations/deployment.md)、[自动部署](operations/auto-deploy.md)、[运维速查](operations/maintenance.md)、[固定运维流程](operations/runbook.md)。
 - [生产访问与安全](operations/production-access.md)：操作授权与配置隔离；本机专用配置仅保存在主工作区本地，不随仓库分发。
 - [备份](operations/backup.md)、[恢复](operations/restore.md)、[日志与监控](operations/observability.md)。
+- [部署收尾与启用条件](operations/deploy-readiness.md)：代理、备份、发布、回退与定时器验收。
 - [博客发布对接](operations/rendering-blog-publishing-integration.md)、[博客统计对接](operations/rendering-blog-analytics-integration.md)。
 
 ## 任务与维护
 
-- [当前任务](plans/current-tasks.md)：待修复问题、优先级、代码依据和环境验收条件。
+- [当前任务](plans/current-tasks.md)：环境验收、部署收尾与代码维护评估。
 - 进行中的实施计划放在 docs/plans，完成后删除执行详情；未关闭事项先迁入当前任务。
 - 过程报告仅在本地 reports 保存，临时材料放在 temp；任务结束后清理本次产生的临时材料和进程。
 - 文档使用中文 Markdown 和 UTF-8 无 BOM，链接使用项目相对路径。
-
-- [部署收尾与启用条件](operations/deploy-readiness.md)：统一核对代理、备份、发布、回退和定时器，源码验证与真实环境分开记录。

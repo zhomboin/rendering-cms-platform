@@ -168,7 +168,7 @@ S3_ASSET_FILE_PREFIX=assets
 ```
 
 不要把 `S3_SECRET_ACCESS_KEY` 打印到共享终端截图或日志里。需要在服务器上检查 bucket 时，优先使用只读或临时凭据。
-生产环境必须保持 `APP_ENV=production` 和 `DEV_BOOTSTRAP_ADMIN=false`，不要启用 dev 默认管理员账号填充。
+生产 Compose 固定 `APP_ENV=production`。`DEV_BOOTSTRAP_ADMIN` 和 `LOGIN_MFA_DEV_LOG` 须关闭，启用任一开关会导致后端拒绝启动。
 
 使用 AWS CLI 检查 R2 bucket 示例：
 
@@ -260,7 +260,7 @@ CMS 登录失败：
 
 登录要求邮箱验证码但收不到邮件：
 
-1. 确认 `SMTP_HOST`、`SMTP_USERNAME`、`SMTP_PASSWORD` 配置齐全；缺任一项时验证码功能整体关闭（登录不会要求验证码，也不会报错）。
+1. 确认 `SMTP_HOST`、`SMTP_USERNAME`、`SMTP_PASSWORD` 配置齐全。生产显式启用 `LOGIN_MFA_ENABLED=true` 时缺少任一项会导致后端启动失败。未设置 `LOGIN_MFA_ENABLED` 时，SMTP 配置齐全才自动启用。
 2. 检查收件箱垃圾邮件文件夹；验证码邮件发件人为 `SMTP_FROM`（留空时为 `SMTP_USERNAME`）。
 3. 确认 `SMTP_PASSWORD` 使用的是邮箱服务商的 SMTP 授权码，不是邮箱登录密码。
 4. 确认 `SMTP_PORT` 与服务商匹配：465 为隐式 TLS，587 走 STARTTLS。

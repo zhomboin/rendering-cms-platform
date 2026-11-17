@@ -1,4 +1,4 @@
-# Rendering CMS Platform Backend
+# Rendering CMS Platform 后端
 
 `backend/` 是 Rendering CMS Platform 的 Go API 服务，负责后台管理、公开内容读取、认证授权、文章管理、评论审核、访问统计、文件元数据和数据库访问。
 
@@ -33,6 +33,7 @@ backend/
   internal/albums/            # 相册与照片管理（公开查询 + 后台管理）
   internal/imaging/           # 照片处理：魔数嗅探、尺寸提取、EXIF/XMP 等元数据剥离
   internal/storage/           # S3 / MinIO 客户端
+  internal/integrations/postbridge/ # 来源授权、分发与事件投递
   migrations/                 # PostgreSQL migration
   sql/                        # sqlc 查询文件
   go.mod
@@ -54,7 +55,7 @@ backend/
 
 ```bash
 cd /home/ubuntu/workspace/rendering-cms-platform
-cp scripts/env/dev.env.example .env
+test -f .env || cp scripts/env/dev.env.example .env
 ```
 
 当前基础配置项：
@@ -73,7 +74,7 @@ cp scripts/env/dev.env.example .env
 - `S3_PUBLIC_BASE_URL`：公开访问对象的基础 URL，例如 `https://assets.rendering.me`，用于文章图片回填。
 - `S3_BLOG_IMAGE_PREFIX`：文章图片对象 key 前缀，默认 `blog`。
 - `S3_ASSET_FILE_PREFIX`：后台资源文件对象 key 前缀，默认 `assets`。
-- `S3_PHOTO_PREFIX`：相册照片对象 key 前缀，默认 `photos`；照片为公开内容，依赖 `S3_PUBLIC_BASE_URL` 拼接公开地址，未配置公共基地址时照片上传接口返回 `503`。
+- `S3_PHOTO_PREFIX`：直接传入后端进程时可配置相册前缀，默认 `photos`。照片依赖 `S3_PUBLIC_BASE_URL` 生成公开地址，缺少该值时上传返回 `503`。Compose 的透传规则见 [开发](../docs/operations/development-environment.md#环境变量)与 [部署](../docs/operations/deployment.md#环境变量)。
 
 ## 本地开发
 
@@ -86,7 +87,7 @@ cd /home/ubuntu/workspace/rendering-cms-platform
 bash scripts/env/start-prerequisites.sh
 ```
 
-使用 Docker 启动后端：
+按 [本地开发指南](../docs/operations/development-environment.md#推荐开发启动顺序)执行迁移后，使用 Docker 启动后端。
 
 ```bash
 cd /home/ubuntu/workspace/rendering-cms-platform
@@ -95,7 +96,7 @@ bash scripts/env/start-backend-docker.sh
 
 本地仅运行受改动影响的包测试，完整验证由 GitHub CI 执行，具体要求见下方验证章节。
 
-也可以在 WSL 中直接启动后端：
+也可以在 WSL 中直接启动后端。请先在本地 `.env` 中为包含空格的值加引号，确保 Bash 能读取。
 
 ```bash
 cd /home/ubuntu/workspace/rendering-cms-platform/backend
@@ -130,7 +131,7 @@ cd /home/ubuntu/workspace/rendering-cms-platform/backend
 sqlc generate
 ```
 
-执行 migration 的具体命令应在数据库服务启动并确认 `DATABASE_URL` 后运行。生产环境执行 migration 前必须先备份 PostgreSQL。
+执行方法见 [本地迁移步骤](../docs/operations/development-environment.md#推荐开发启动顺序)。生产环境按 [部署手册](../docs/operations/deployment.md)先备份 PostgreSQL 再执行 migration。
 
 ## 当前 API
 
