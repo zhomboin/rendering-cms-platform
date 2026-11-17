@@ -12,11 +12,11 @@
 - `migrate`：一次性 migration 容器，仅在发布时手动执行。
 - Cloudflare R2：托管上传文件本体，后端只保存文件元数据和 `storage_key`。
 
-推荐公网入口：
+生产公网入口：
 
 ```text
 用户浏览器
-  -> https://cms.rendering.me
+  -> https://cms.zhomboin.com
   -> 服务器 Nginx/Caddy/负载均衡器
   -> 127.0.0.1:3001
   -> frontend 容器
@@ -39,7 +39,7 @@
 - `deploy/rollback.sh`：手动回滚脚本（代码回滚 + 可选数据库恢复）。
 - systemd 单元 `cms-rendering-deploy.service` / `.timer`：不在仓库内，由 `deploy/setup.sh` 在服务器上生成到 `/etc/systemd/system/`。
 - `deploy/nginx/frontend.conf`：前端 Nginx 容器配置。
-- `deploy/nginx/rendering.me.conf`：服务器宿主机 Nginx 完整反向代理配置。
+- `deploy/nginx/rendering.me.conf`：服务器宿主机 Nginx 完整反向代理配置模板。
 - `deploy/nginx/rendering-cms-proxy-headers.conf`：CMS 各 location 共用的可信代理头、超时和缓冲配置。
 - `deploy/nginx/cloudflare-realip.conf`：Cloudflare 橙云代理下的真实 IP 还原配置（宿主机 Nginx http 级 include）。
 - `backend/Dockerfile`：后端生产镜像。
@@ -112,8 +112,8 @@ DATABASE_URL=postgres://rendering:replace-with-strong-database-password@postgres
 APP_ENV=production
 DEV_BOOTSTRAP_ADMIN=false
 JWT_SECRET=replace-with-32-plus-character-secret
-FRONTEND_ORIGIN=https://cms.rendering.me
-FRONTEND_ORIGINS=https://cms.rendering.me,https://rendering.me,https://www.rendering.me
+FRONTEND_ORIGIN=https://cms.zhomboin.com
+FRONTEND_ORIGINS=https://cms.zhomboin.com,https://rendering.me,https://www.rendering.me
 VITE_API_BASE=/api/v1
 PUBLIC_READ_RATE_PER_SECOND=20
 PUBLIC_READ_BURST=40
@@ -184,7 +184,7 @@ R2 bucket CORS JSON 示例：
 [
   {
     "AllowedOrigins": [
-      "https://cms.rendering.me"
+      "https://cms.zhomboin.com"
     ],
     "AllowedMethods": [
       "PUT",
@@ -282,13 +282,14 @@ sudo bash deploy/setup.sh
 - 现有 Rendering 博客域名转发到 `127.0.0.1:3000`。
 - CMS 前端/API 域名转发到 `127.0.0.1:3001`。
 
-完整 Nginx 配置以 `deploy/nginx/rendering.me.conf` 为准。不要从本文档复制局部 Nginx 片段到生产环境，避免片段与完整配置发生漂移。
+`deploy/nginx/rendering.me.conf` 提供完整反向代理模板。启用前将 CMS 的 HTTP 跳转和 HTTPS 站点的 `server_name` 设置为 `cms.zhomboin.com`，并核对证书路径和转发地址。生产入口为 `https://cms.zhomboin.com`。
 
 部署到服务器：
 
 ```bash
 cd /opt/rendering-cms-platform
 sudo cp deploy/nginx/rendering.me.conf /etc/nginx/conf.d/rendering.me.conf
+sudoedit /etc/nginx/conf.d/rendering.me.conf
 sudo cp deploy/nginx/rendering-cms-proxy-headers.conf /etc/nginx/snippets/rendering-cms-proxy-headers.conf
 sudo install -d -m 0755 /var/cache/nginx/rendering-cms
 sudo chown www-data:www-data /var/cache/nginx/rendering-cms
@@ -324,9 +325,9 @@ sudo systemctl reload nginx
 公开文章缓存只覆盖无 Authorization/Cookie 的列表和详情 GET。搜索、登录、统计、评论、后台和写入请求不进入公共缓存。发布后可用以下命令检查缓存头与状态：
 
 ```bash
-curl -sSI https://cms.rendering.me/api/v1/articles
-curl -sSI https://cms.rendering.me/api/v1/articles/aB3dE9
-curl -sSI -H 'Authorization: Bearer invalid-test-token' https://cms.rendering.me/api/v1/articles
+curl -sSI https://cms.zhomboin.com/api/v1/articles
+curl -sSI https://cms.zhomboin.com/api/v1/articles/aB3dE9
+curl -sSI -H 'Authorization: Bearer invalid-test-token' https://cms.zhomboin.com/api/v1/articles
 ```
 
 前两次连续请求应能观察到 `X-Cache-Status` 从 `MISS` 变为 `HIT`；带 Authorization 的请求必须为 `BYPASS` 或不命中缓存。
@@ -338,9 +339,7 @@ curl -sSI -H 'Authorization: Bearer invalid-test-token' https://cms.rendering.me
 /etc/nginx/ssl/rendering.me/privkey.pem
 ```
 
-如果服务器上的 Cloudflare SSL 证书路径不同，先修改 `deploy/nginx/rendering.me.conf` 中的 `ssl_certificate` 和 `ssl_certificate_key`，再执行 `nginx -t`。
-
-`deploy/nginx/rendering.me.conf` 当前覆盖 `rendering.me`、`www.rendering.me` 和 `cms.rendering.me`。如需调整域名、证书路径、上传大小限制或代理端口，统一修改该完整配置文件。
+生产站点配置中的 `ssl_certificate` 和 `ssl_certificate_key` 应指向实际证书。证书须覆盖 `server_name` 声明的域名，调整后执行 `nginx -t`。
 
 如果临时不使用宿主机反向代理，可以把 `PUBLIC_HTTP_BIND` 改为 `0.0.0.0:80` 暴露 CMS HTTP。但当前服务器已有 Rendering 博客使用 `3000`，CMS 默认必须保留在 `3001` 或其他未占用端口。R2 预签名 URL 面向浏览器，正式上传下载必须确保 R2 bucket CORS 允许生产前端来源。
 

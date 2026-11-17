@@ -41,7 +41,7 @@
 | 系统 | 访问方式 | 用途 |
 | --- | --- | --- |
 | 生产主机 | 从主工作区本地配置记录获取连接参数 | 连接验证及获准的生产运维 |
-| CMS 后台 | `https://cms.rendering.me` | 文章、评论、统计、文件等后台操作 |
+| CMS 后台 | `https://cms.zhomboin.com` | 文章、评论、统计、文件等后台操作 |
 | PostgreSQL | Docker Compose `postgres` 服务内 `psql` | 数据查询、用户初始化、紧急数据核查 |
 | Cloudflare R2 | Cloudflare Dashboard 或 S3 API 工具 | 对象存储 bucket、对象、CORS 和访问密钥检查 |
 | 宿主机 Nginx | SSH 登录服务器后使用 `sudo nginx` | 反向代理、证书和域名入口配置 |
@@ -68,7 +68,7 @@ docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.pr
 访问地址：
 
 ```text
-https://cms.rendering.me
+https://cms.zhomboin.com
 ```
 
 登录用户来自 PostgreSQL 的 `users` 表。允许登录后台的角色只有：
@@ -184,7 +184,7 @@ aws s3api list-objects-v2 \
   --max-items 10
 ```
 
-R2 bucket 必须配置 CORS，允许 `https://cms.rendering.me` 对预签名 URL 发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
+R2 bucket 必须配置 CORS，允许 `https://cms.zhomboin.com` 对预签名 URL 发起 `PUT` 和 `GET`，并允许 `Content-Type` 请求头。
 `S3_PUBLIC_BASE_URL` 应配置为 R2 公开访问域名或自定义域名，用于文章正文图片 URL；不要把它和 `S3_ENDPOINT` 混用。
 文章正文图片对象 key 使用 `S3_BLOG_IMAGE_PREFIX/YYYY/MM/<uuid>.<ext>`，普通资源文件对象 key 使用 `S3_ASSET_FILE_PREFIX/YYYY/MM/<uuid>.<ext>`。
 
@@ -194,7 +194,7 @@ R2 bucket 必须配置 CORS，允许 `https://cms.rendering.me` 对预签名 URL
 [
   {
     "AllowedOrigins": [
-      "https://cms.rendering.me"
+      "https://cms.zhomboin.com"
     ],
     "AllowedMethods": [
       "PUT",
@@ -242,7 +242,7 @@ sudo systemctl status nginx --no-pager
 ```text
 rendering.me             -> 127.0.0.1:3000
 www.rendering.me         -> 127.0.0.1:3000
-cms.rendering.me         -> 127.0.0.1:3001
+https://cms.zhomboin.com -> 127.0.0.1:3001
 ```
 
 ## 登录故障排查

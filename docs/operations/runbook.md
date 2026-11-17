@@ -139,7 +139,7 @@ bash scripts/ops/import-mdx.sh \
 导入完成后验证文章接口：
 
 ```bash
-curl -fsS https://cms.rendering.me/api/v1/articles
+curl -fsS https://cms.zhomboin.com/api/v1/articles
 ```
 
 ## 停止和启动
