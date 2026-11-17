@@ -378,11 +378,14 @@ func TestStripJPEGMetadataStripsXMPAndVendorSegments(t *testing.T) {
 
 func TestStripJPEGMetadataKeepsDecodeSegments(t *testing.T) {
 	base := encodeJPEG(t, 4, 4)
-	icc := jpegSegment(0xE2, append([]byte("ICC_PROFILE\x00\x01"), []byte("fake-icc-payload")...))
-	adobe := jpegSegment(0xEE, append([]byte("Adobe\x00"), []byte{100, 0, 0, 0, 0}...))
+	jfif := jpegSegment(0xE0, []byte("JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"))
+	icc := jpegSegment(0xE2, []byte("ICC_PROFILE\x00\x01\x01profile"))
+	adobe := jpegSegment(0xEE, []byte("Adobe\x00\x64\x00\x00\x00\x00\x01"))
+	jfxx := jpegSegment(0xE0, []byte("JFXX\x00thumbnail"))
+	otherApp2 := jpegSegment(0xE2, []byte("MPF\x00preview"))
 	xmp := jpegSegment(0xE1, jpegXmppPayload(t))
-	withSegments := jpegWithSegments(base, icc, adobe, xmp)
-	expected := jpegWithSegments(base, icc, adobe)
+	withSegments := jpegWithSegments(base, jfif, jfxx, icc, otherApp2, adobe, xmp)
+	expected := jpegWithSegments(base, jfif, icc, adobe)
 
 	stripped, changed, err := StripMetadata(withSegments, TypeJPEG)
 	if err != nil {

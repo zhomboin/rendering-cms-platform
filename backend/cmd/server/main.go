@@ -54,7 +54,7 @@ func main() {
 	}
 	userFinder := auth.NewDatabaseUserFinder(queries)
 
-	// SMTP 未配置齐全时邮件验证码功能在 config 层已自动关闭；dev log 仅在 LOGIN_MFA_DEV_LOG 开启时注入。
+	// 配置层已检查验证码发送渠道与开发日志开关。
 	var emailSender auth.EmailSender
 	if cfg.SMTP.Configured() {
 		emailSender = mail.NewSMTPSender(mail.SMTPConfig{
