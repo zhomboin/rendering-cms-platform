@@ -9,7 +9,7 @@
 | 文章           | 草稿、发布、下架、私有阅读、修订恢复、英文名和标签自动整理、正文和图库选封面 | [文章 API](apis/articles.md)、[文章编辑与插图](guides/article-images.md)    |
 | 登录           | 密码、失败锁定、风险触发邮箱验证码，输满自动验证                                                         | [认证 API](apis/auth.md)                                                    |
 | 相册与文件     | 相册直达排序、完整链接复制、上传进度与预览、资源搜索及类型筛选                     | [相册 API](apis/photos.md)、[文件 API](apis/assets.md)                      |
-| 首页与统计     | 关键指标置顶、7／30／90 天趋势、待办与资源概况                                             | [首页说明](guides/dashboard.md)、[统计 API](apis/analytics.md)              |
+| 首页与统计     | 关键指标置顶、7／30／90 天趋势、待办与资源概况，去重事件与计数原子写入                                             | [首页说明](guides/dashboard.md)、[统计 API](apis/analytics.md)              |
 | 后台界面       | 浅色拟物主题、无外框工作区、手机至 4K 自适应、套色木刻站点标志，媒体上传按文件反馈        | [前端设计](guides/frontend-design.md)                                       |
 | 评论           | 匿名提交、默认待审核、后台分页与批量审核                                                             | [评论 API](apis/comments.md)                                                |
 | 公开接口与部署 | PostgreSQL 搜索、缓存、应用限流及自动部署保护                                              | [部署说明](operations/deployment.md)、[自动部署](operations/auto-deploy.md) |
