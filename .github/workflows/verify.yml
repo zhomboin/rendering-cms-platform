@@ -56,7 +56,10 @@ jobs:
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
           govulncheck ./...
-          govulncheck -scan=module ./cmd/server
+          (
+            cd cmd/server
+            govulncheck -scan=module
+          )
 
   frontend:
     name: 前端与浏览器
