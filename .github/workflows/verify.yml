@@ -105,3 +105,4 @@ jobs:
           python3 scripts/env/test-auto-deploy-backup.py
           python3 scripts/env/test-auto-deploy-logging.py
           python3 scripts/env/test-build-proxy.py
+          python3 scripts/env/test-rollback-safety.py

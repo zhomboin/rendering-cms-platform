@@ -212,17 +212,18 @@ if [ -n "$BACKUP_FILE" ]; then
   log "重建空数据库（DROP + CREATE）……"
   # 变量统一在 postgres 容器内展开（容器已注入 POSTGRES_USER/POSTGRES_DB），宿主机不加载明文密码。
   compose exec -T postgres sh -c \
-    'psql -U "$POSTGRES_USER" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '\''$POSTGRES_DB'\'' AND pid <> pg_backend_pid()" >/dev/null'
+    'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '\''$POSTGRES_DB'\'' AND pid <> pg_backend_pid()" >/dev/null'
   compose exec -T postgres sh -c \
-    'psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\""'
+    'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\""'
   compose exec -T postgres sh -c \
-    'psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE \"$POSTGRES_DB\" OWNER \"$POSTGRES_USER\""'
+    'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE \"$POSTGRES_DB\" OWNER \"$POSTGRES_USER\""'
 
   log "导入备份：$BACKUP_FILE ……"
+  restore_command='psql -X -v ON_ERROR_STOP=1 --single-transaction --file=- -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
   if [[ "$BACKUP_FILE" == *.gz ]]; then
-    gzip -dc "$BACKUP_FILE" | compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+    gzip -dc "$BACKUP_FILE" | compose exec -T postgres sh -c "$restore_command"
   else
-    compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <"$BACKUP_FILE"
+    compose exec -T postgres sh -c "$restore_command" <"$BACKUP_FILE"
   fi
   log "数据库恢复完成。"
 fi
