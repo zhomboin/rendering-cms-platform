@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom';
 import type { DashboardOverview } from '../../api/dashboard';
 import { DashboardContentRing } from './DashboardContentRing';
 import { DashboardEmpty, DashboardImage } from './DashboardShared';
-import { bytes, date, number, statusLabel } from './dashboardFormat';
+import { date, number, statusLabel } from './dashboardFormat';
+import { formatFileSize } from '../../utils/formatFileSize';
 
 export function DashboardMetrics({ data, days }: { data: DashboardOverview; days: number }) {
   const metrics = [
@@ -173,7 +174,7 @@ export function DashboardResources({ data }: { data: DashboardOverview }) {
         </div>
         <div>
           <dt>资源登记大小</dt>
-          <dd>{bytes(data.resources.totalBytes)}</dd>
+          <dd>{formatFileSize(data.resources.totalBytes)}</dd>
         </div>
       </dl>
       {!data.recentImages.length ? (

@@ -203,12 +203,22 @@ test('基本信息与图片管理独立，图片 URL 可见并可复制，支持
   await page.waitForURL(`**/admin/albums/${albumId}/photos`);
   await page.getByRole('heading', { name: '图片管理', exact: true }).waitFor();
   assert.equal(await page.getByLabel('标题', { exact: true }).count(), 0);
-  const url = page.getByRole('textbox', { name: '城市夜色的图片 URL', exact: true });
-  assert.equal(await url.inputValue(), photos[0].url);
+  const openLink = async () => {
+    await page.getByRole('button', { name: '更多操作：城市夜色' }).click();
+    await page.getByRole('menuitem', { name: '查看图片链接' }).click();
+    const dialog = page.getByRole('dialog', { name: '图片链接' });
+    await dialog.getByText(photos[0].url, { exact: true }).waitFor();
+    await page.waitForFunction(() =>
+      document.activeElement?.closest('[role="dialog"]')?.textContent?.includes('图片链接'),
+    );
+    await page.keyboard.press('Escape');
+    await dialog.waitFor({ state: 'hidden' });
+  };
+  await openLink();
   await page.getByRole('button', { name: '复制城市夜色的图片 URL', exact: true }).click();
   assert.equal(await page.evaluate(() => navigator.clipboard.readText()), photos[0].url);
   await page.reload({ waitUntil: 'networkidle' });
-  assert.equal(await url.inputValue(), photos[0].url);
+  await openLink();
   await page.getByRole('button', { name: '编辑基本信息', exact: true }).click();
   await page.getByRole('heading', { name: '相册信息', exact: true }).waitFor();
   assert.ok(requests.some(r => r.path.endsWith('/photos')));
@@ -235,7 +245,7 @@ test('拖拽上传失败显示后端原因，再次拖入可成功，非法类�
   await drop('drop.png', 'image/png', png);
   await page.getByRole('list', { name: '上传进度', exact: true }).getByText('已上传', { exact: true }).waitFor();
   assert.equal(uploads.length, 2);
-  await page.getByRole('textbox', { name: 'drop的图片 URL', exact: true }).waitFor();
+  await page.getByRole('button', { name: '复制drop的图片 URL', exact: true }).waitFor();
 });
 
 test('无 URL 说明原因，复制被拒绝时提示手动复制', async (t) => {
@@ -250,30 +260,42 @@ test('无 URL 说明原因，复制被拒绝时提示手动复制', async (t) =>
   assert.equal(await page.getByRole('button', { name: '复制无链接图片的图片 URL', exact: true }).count(), 0);
   await page.getByRole('button', { name: '复制有链接图片的图片 URL', exact: true }).click();
   await page.getByText('复制失败，请选中图片 URL 手动复制', { exact: true }).waitFor();
+  await page.getByRole('dialog', { name: '图片链接' }).getByText(photos[1].url, { exact: true }).waitFor();
 });
 
 test('图片管理保留编辑、排序、封面与删除操作', async (t) => {
   const { page, photos, requests } = await setup(t, { existing: true });
-  photos.push(...['第一张', '第二张'].map((alt, index) => ({ photoId: `photo-${index + 1}`,
+  photos.push(...['第一张', '第二张', '第三张'].map((alt, index) => ({ photoId: `photo-${index + 1}`,
     alt, width: 1, height: 1, position: index + 1, url: null })));
   await page.goto(`${origin}/admin/albums/${albumId}/photos`, { waitUntil: 'networkidle' });
-  await page.getByRole('button', { name: '编辑照片', exact: true }).first().click();
+  await page.getByRole('button', { name: '编辑第一张', exact: true }).click();
   await page.getByLabel('图片描述').fill('更新后的照片');
   await page.getByRole('button', { name: '保存照片', exact: true }).click();
   await page.getByText('照片信息已更新', { exact: true }).waitFor();
   assert.equal(photos[0].alt, '更新后的照片');
   const reordered = page.waitForResponse(r => r.request().method() === 'PUT' && r.url().endsWith('/order'));
-  await page.getByRole('button', { name: '下移照片', exact: true }).first().click();
+  await page.getByRole('button', { name: '更多操作：更新后的照片' }).click();
+  await page.getByRole('menuitem', { name: '调整顺序' }).click();
+  const move = page.getByRole('dialog', { name: '调整照片顺序' });
+  const position = move.getByRole('spinbutton', { name: '目标位置（1–3）' });
+  const saveOrder = move.getByRole('button', { name: '保存顺序' });
+  assert.equal(await saveOrder.isDisabled(), true);
+  await position.fill('4');
+  assert.equal(await saveOrder.isDisabled(), true);
+  await position.fill('3');
+  await saveOrder.click();
   await reordered;
-  assert.equal(photos[0].photoId, 'photo-2');
+  assert.deepEqual(photos.map(({ photoId }) => photoId), ['photo-2', 'photo-3', 'photo-1']);
   await page.locator('.ant-card-meta-title').first().getByText('第二张', { exact: true }).waitFor();
-  await page.getByRole('button', { name: '设置照片封面', exact: true }).nth(1).click();
+  await page.getByRole('button', { name: '更多操作：更新后的照片' }).click();
+  await page.getByRole('menuitem', { name: '设为封面' }).click();
   await page.getByText('封面已更新', { exact: true }).waitFor();
   assert.equal(requests.find(r => r.path.endsWith('/cover')).body.photoId, 'photo-1');
-  await page.getByRole('button', { name: '删除照片', exact: true }).first().click();
-  await page.getByRole('button', { name: /^删\s*除$/ }).click();
+  await page.getByRole('button', { name: '更多操作：第二张' }).click();
+  await page.getByRole('menu', { name: '第二张的照片操作' }).getByRole('menuitem', { name: '删除照片' }).click();
+  await page.getByRole('dialog', { name: '删除照片？' }).getByRole('button', { name: '删除照片' }).click();
   await page.getByText('照片已删除', { exact: true }).waitFor();
-  assert.equal(photos.length, 1);
+  assert.equal(photos.length, 2);
 });
 
 test('超出 50MB 的图片在本地拒绝，不发上传请求', async (t) => {

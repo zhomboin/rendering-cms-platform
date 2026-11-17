@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Alert, Button, Checkbox, Empty, Input, Modal, Select, Spin } from 'antd';
+import { useId, useState } from 'react';
+import { Alert, Button, Checkbox, Empty, Input, Modal, Radio, Select, Spin } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { listAdminAssets } from '../../api/assets';
 import { listAdminAlbums, listAdminAlbumPhotos } from '../../api/albums';
@@ -11,9 +11,11 @@ interface Props {
   source: 'albums' | 'assets';
   selected: ArticleImage[];
   onToggle: (image: ArticleImage, checked: boolean) => void;
+  single?: boolean;
 }
 
-export function ArticleImageLibrary({ source, selected, onToggle }: Props) {
+export function ArticleImageLibrary({ source, selected, onToggle, single = false }: Props) {
+  const radioName = useId();
   const [albumId, setAlbumId] = useState<string>();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -91,7 +93,11 @@ export function ArticleImageLibrary({ source, selected, onToggle }: Props) {
         <Empty description={search.trim() ? '没有匹配的图片' : '暂无可用图片'} image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
         <>
-          <div className="article-image-library__grid">
+          <div
+            className="article-image-library__grid"
+            role={single ? 'radiogroup' : undefined}
+            aria-label={single ? '封面候选' : undefined}
+          >
             {visible.map(image => (
               <div className="article-image-library__item" key={imageUrlKey(image.url)}>
                 <Button className="article-image-library__preview" aria-label={'预览 ' + image.alt} onClick={() => setPreview(image)}>
@@ -99,11 +105,20 @@ export function ArticleImageLibrary({ source, selected, onToggle }: Props) {
                   <span>预览</span>
                 </Button>
                 <div className="article-image-library__caption">
-                  <Checkbox
-                    aria-label={'选择 ' + image.alt}
-                    checked={selectedUrls.has(imageUrlKey(image.url))}
-                    onChange={event => onToggle(image, event.target.checked)}
-                  />
+                  {single ? (
+                    <Radio
+                      name={radioName}
+                      aria-label={'选择 ' + image.alt}
+                      checked={selectedUrls.has(imageUrlKey(image.url))}
+                      onChange={() => onToggle(image, true)}
+                    />
+                  ) : (
+                    <Checkbox
+                      aria-label={'选择 ' + image.alt}
+                      checked={selectedUrls.has(imageUrlKey(image.url))}
+                      onChange={event => onToggle(image, event.target.checked)}
+                    />
+                  )}
                   <span title={image.alt}>{image.alt || '图片'}</span>
                 </div>
               </div>

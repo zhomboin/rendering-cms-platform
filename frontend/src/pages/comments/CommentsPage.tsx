@@ -1,255 +1,298 @@
-import { useMemo, useState } from 'react';
-import { App, Tabs, Card, Button, Tag, Typography, Space, Badge, Empty } from 'antd';
+import { useState } from 'react';
+import {
+  Alert,
+  App,
+  Badge,
+  Button,
+  Card,
+  Checkbox,
+  Empty,
+  Pagination,
+  Space,
+  Tabs,
+  Tag,
+  Typography,
+} from 'antd';
 import { CheckOutlined, CloseOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { listAdminComments, reviewAdminComment } from '../../api/comments';
 import type { AdminComment, CommentStatus } from '../../api/comments';
+import './CommentsPage.css';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
+const commentsKey = ['admin-comments'] as const;
+const pageSize = 10;
+type ReviewStatus = Exclude<CommentStatus, 'pending'>;
 
-const statusBadgeColor: Record<CommentStatus, 'warning' | 'success' | 'error'> = {
-  pending: 'warning',
-  approved: 'success',
-  rejected: 'error',
-};
+const statuses = {
+  pending: { label: '待审核', color: 'warning' },
+  approved: { label: '已通过', color: 'success' },
+  rejected: { label: '已拒绝', color: 'error' },
+} as const;
 
-const statusLabel: Record<CommentStatus, string> = {
-  pending: '待审核',
-  approved: '已通过',
-  rejected: '已拒绝',
-};
+const commentDate = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
-function formatDate(value: string | null) {
-  if (!value) return '';
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
-
-function CommentCard({
+function CommentRow({
   comment,
+  selected,
   reviewing,
-  onApprove,
-  onReject,
+  onSelect,
+  onReview,
 }: {
   comment: AdminComment;
+  selected: boolean;
   reviewing: boolean;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onSelect: (checked: boolean) => void;
+  onReview: (status: ReviewStatus) => void;
 }) {
+  const pending = comment.status === 'pending';
+
   return (
-    <Card
-      style={{
-        marginBottom: 16,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 4,
-              flexWrap: 'wrap',
-            }}
-          >
-            <Text strong style={{ fontSize: 14, color: 'var(--cms-ink)' }}>
-              {comment.authorName}
-            </Text>
-            {comment.authorEmail && (
-              <Text style={{ fontSize: 12, color: 'var(--cms-muted)' }}>{comment.authorEmail}</Text>
-            )}
-            <Tag
-              color={statusBadgeColor[comment.status]}
-              style={{ borderRadius: 6, fontSize: 12, lineHeight: '22px' }}
-            >
-              {statusLabel[comment.status]}
-            </Tag>
-          </div>
-
-          <Paragraph
-            style={{
-              fontSize: 14,
-              color: 'var(--cms-ink)',
-              marginBottom: 8,
-              lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {comment.body}
-          </Paragraph>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <Text style={{ fontSize: 12, color: 'var(--cms-primary)' }}>
-              文章：{comment.articleTitle}
-            </Text>
-            <Text style={{ fontSize: 12, color: 'var(--cms-muted)' }}>
-              {formatDate(comment.createdAt)}
-            </Text>
-            {comment.reviewedAt && (
-              <Text style={{ fontSize: 12, color: 'var(--cms-muted)' }}>
-                审核于 {formatDate(comment.reviewedAt)}
-              </Text>
-            )}
-          </div>
+    <li className="comment-review-row">
+      {pending && (
+        <Checkbox
+          aria-label={`选择 ${comment.authorName} 的评论`}
+          checked={selected}
+          disabled={reviewing}
+          onChange={(event) => onSelect(event.target.checked)}
+        />
+      )}
+      <div className="comment-review-content">
+        <div className="comment-review-meta">
+          <Text strong>{comment.authorName}</Text>
+          {comment.authorEmail && <Text type="secondary">{comment.authorEmail}</Text>}
+          <Tag color={statuses[comment.status].color}>{statuses[comment.status].label}</Tag>
         </div>
-
-        {comment.status === 'pending' && (
-          <Space style={{ flexShrink: 0 }}>
-            <Button
-              type="primary"
-              size="small"
-              icon={<CheckOutlined />}
-              loading={reviewing}
-              style={{
-                borderRadius: 8,
-                background: 'var(--cms-success)',
-                borderColor: 'var(--cms-success)',
-              }}
-              onClick={() => onApprove(comment.commentId)}
-            >
-              通过
-            </Button>
-            <Button
-              size="small"
-              danger
-              icon={<CloseOutlined />}
-              loading={reviewing}
-              style={{ borderRadius: 8 }}
-              onClick={() => onReject(comment.commentId)}
-            >
-              拒绝
-            </Button>
-          </Space>
-        )}
+        <p className="comment-review-body">{comment.body}</p>
+        <div className="comment-review-meta">
+          <Text type="secondary">文章：{comment.articleTitle}</Text>
+          <Text type="secondary">{commentDate.format(new Date(comment.createdAt))}</Text>
+          {comment.reviewedAt && (
+            <Text type="secondary">审核于 {commentDate.format(new Date(comment.reviewedAt))}</Text>
+          )}
+        </div>
       </div>
-    </Card>
+      {pending && (
+        <Space className="comment-review-actions">
+          <Button
+            type="text"
+            icon={<CheckOutlined />}
+            disabled={reviewing}
+            onClick={() => onReview('approved')}
+          >
+            通过
+          </Button>
+          <Button
+            type="text"
+            danger
+            icon={<CloseOutlined />}
+            disabled={reviewing}
+            onClick={() => onReview('rejected')}
+          >
+            拒绝
+          </Button>
+        </Space>
+      )}
+    </li>
   );
 }
 
-function CommentsPage() {
-  const { message } = App.useApp();
-  const [activeTab, setActiveTab] = useState<CommentStatus>('pending');
-  const [reviewingId, setReviewingId] = useState<string | null>(null);
+export default function CommentsPage() {
+  const { message, modal } = App.useApp();
   const queryClient = useQueryClient();
-  const {
-    data = [],
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ['admin-comments'],
-    queryFn: listAdminComments,
+  const [activeTab, setActiveTab] = useState<CommentStatus>('pending');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [reviewError, setReviewError] = useState('');
+  const comments = useQuery({ queryKey: commentsKey, queryFn: listAdminComments });
+  const data = comments.data ?? [];
+  const filtered = data.filter((comment) => comment.status === activeTab);
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
+  const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const selectedOnPage =
+    activeTab === 'pending'
+      ? visible
+          .filter(({ commentId }) => selected.includes(commentId))
+          .map(({ commentId }) => commentId)
+      : [];
+  const pendingCount = data.filter(({ status }) => status === 'pending').length;
+
+  const review = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: ReviewStatus }) => {
+      const updated = new Map<string, Awaited<ReturnType<typeof reviewAdminComment>>>();
+      const errors: string[] = [];
+      // 每页最多处理十条，逐条提交以限制并发并记录每条结果。
+      for (const id of ids) {
+        try {
+          updated.set(id, await reviewAdminComment(id, status));
+        } catch (error) {
+          errors.push(error instanceof Error ? error.message : '评论审核失败');
+        }
+      }
+      return { updated, errors };
+    },
+    onMutate: () => setReviewError(''),
+    onSuccess: async ({ updated, errors }, { status }) => {
+      await queryClient.cancelQueries({ queryKey: commentsKey });
+      queryClient.setQueryData<AdminComment[]>(commentsKey, (current) =>
+        current?.map((item) => {
+          const result = updated.get(item.commentId);
+          return result ? { ...item, status: result.status, reviewedAt: result.reviewedAt } : item;
+        }),
+      );
+      setSelected((current) => current.filter((id) => !updated.has(id)));
+      const result = `${updated.size} 条评论${statuses[status].label}`;
+      if (errors.length) {
+        setReviewError(`${result}，${errors.length} 条失败。${errors[0]}`);
+      } else {
+        void message.success(result);
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: commentsKey }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] }),
+      ]);
+    },
   });
 
-  const reviewMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: CommentStatus }) =>
-      reviewAdminComment(id, status),
-    onSuccess: async (_, variables) => {
-      message.success(variables.status === 'approved' ? '评论已通过' : '评论已拒绝');
-      await queryClient.invalidateQueries({ queryKey: ['admin-comments'] });
-    },
-    onSettled: () => {
-      setReviewingId(null);
-    },
-  });
-
-  const commentsByStatus = useMemo(
-    () => ({
-      pending: data.filter((comment) => comment.status === 'pending'),
-      approved: data.filter((comment) => comment.status === 'approved'),
-      rejected: data.filter((comment) => comment.status === 'rejected'),
-    }),
-    [data],
-  );
-  const filteredComments = commentsByStatus[activeTab];
-
-  const renderComments = (emptyText: string) => (
-    <div style={{ marginTop: 4 }}>
-      {filteredComments.length === 0 && !isLoading ? (
-        <Empty description={emptyText} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-      ) : (
-        filteredComments.map((comment) => (
-          <CommentCard
-            key={comment.commentId}
-            comment={comment}
-            reviewing={reviewingId === comment.commentId}
-            onApprove={(id) => {
-              setReviewingId(id);
-              reviewMutation.mutate({ id, status: 'approved' });
-            }}
-            onReject={(id) => {
-              setReviewingId(id);
-              reviewMutation.mutate({ id, status: 'rejected' });
-            }}
-          />
-        ))
-      )}
-    </div>
-  );
+  const reviewSelected = (status: ReviewStatus) => {
+    if (selectedOnPage.length === 0 || review.isPending) return;
+    const action = status === 'approved' ? '通过' : '拒绝';
+    modal.confirm({
+      title: `${action}选中的 ${selectedOnPage.length} 条评论？`,
+      okText: `批量${action}`,
+      okButtonProps: { danger: status === 'rejected' },
+      cancelText: '取消',
+      onOk: () => review.mutateAsync({ ids: selectedOnPage, status }),
+    });
+  };
 
   return (
     <div>
       <div className="cms-page-heading">
         <Title level={1}>评论审核</Title>
-        <Button icon={<ReloadOutlined />} loading={isLoading} onClick={() => refetch()}>
+        <Button
+          icon={<ReloadOutlined />}
+          loading={comments.isFetching}
+          disabled={review.isPending}
+          onClick={() => comments.refetch()}
+        >
           刷新
         </Button>
       </div>
 
       <Tabs
         activeKey={activeTab}
-        onChange={(key) => setActiveTab(key as CommentStatus)}
-        style={{ marginBottom: 0 }}
+        onChange={(key) => {
+          setActiveTab(key as CommentStatus);
+          setSelected([]);
+          setPage(1);
+          setReviewError('');
+        }}
         items={[
           {
             key: 'pending',
             label: (
-              <span>
-                待审核
-                <Badge
-                  count={commentsByStatus.pending.length}
-                  size="small"
-                  style={{
-                    backgroundColor: 'var(--cms-warning)',
-                    marginLeft: 6,
-                    fontSize: 11,
-                    minWidth: 18,
-                    height: 18,
-                    lineHeight: '18px',
+              <Space size={6}>
+                待审核 <Badge count={pendingCount} color="var(--cms-warning)" />
+              </Space>
+            ),
+            disabled: review.isPending,
+          },
+          { key: 'approved', label: '已通过', disabled: review.isPending },
+          { key: 'rejected', label: '已拒绝', disabled: review.isPending },
+        ].map((tab) => ({
+          ...tab,
+          children: tab.key === activeTab && (
+            <Card loading={comments.isPending} className="comment-review-panel">
+              {comments.error && <Alert type="error" showIcon title={comments.error.message} />}
+              {reviewError && <Alert type="error" showIcon title={reviewError} />}
+              {activeTab === 'pending' && visible.length > 0 && (
+                <div className="comment-review-toolbar">
+                  <Checkbox
+                    checked={selectedOnPage.length === visible.length}
+                    indeterminate={
+                      selectedOnPage.length > 0 && selectedOnPage.length < visible.length
+                    }
+                    disabled={review.isPending}
+                    onChange={(event) =>
+                      setSelected(
+                        event.target.checked ? visible.map(({ commentId }) => commentId) : [],
+                      )
+                    }
+                  >
+                    全选本页
+                  </Checkbox>
+                  <Text type="secondary" role="status">
+                    已选 {selectedOnPage.length} 条
+                  </Text>
+                  <Space wrap className="comment-review-actions">
+                    <Button
+                      disabled={review.isPending || selectedOnPage.length === 0}
+                      onClick={() => reviewSelected('approved')}
+                    >
+                      批量通过
+                    </Button>
+                    <Button
+                      danger
+                      disabled={review.isPending || selectedOnPage.length === 0}
+                      onClick={() => reviewSelected('rejected')}
+                    >
+                      批量拒绝
+                    </Button>
+                  </Space>
+                </div>
+              )}
+              {visible.length > 0 ? (
+                <ul className="comment-review-list">
+                  {visible.map((comment) => (
+                    <CommentRow
+                      key={comment.commentId}
+                      comment={comment}
+                      selected={selectedOnPage.includes(comment.commentId)}
+                      reviewing={review.isPending}
+                      onSelect={(checked) =>
+                        setSelected((current) =>
+                          checked
+                            ? [...current, comment.commentId]
+                            : current.filter((id) => id !== comment.commentId),
+                        )
+                      }
+                      onReview={(status) => review.mutate({ ids: [comment.commentId], status })}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                !comments.error && (
+                  <Empty
+                    description={'暂无' + statuses[activeTab].label + '评论'}
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  />
+                )
+              )}
+              {filtered.length > pageSize && (
+                <Pagination
+                  align="end"
+                  current={currentPage}
+                  pageSize={pageSize}
+                  total={filtered.length}
+                  showSizeChanger={false}
+                  disabled={review.isPending}
+                  onChange={(value) => {
+                    setPage(value);
+                    setSelected([]);
                   }}
                 />
-              </span>
-            ),
-            children: renderComments('暂无待审核评论'),
-          },
-          {
-            key: 'approved',
-            label: '已通过',
-            children: renderComments('暂无已通过评论'),
-          },
-          {
-            key: 'rejected',
-            label: '已拒绝',
-            children: renderComments('暂无已拒绝评论'),
-          },
-        ]}
+              )}
+            </Card>
+          ),
+        }))}
       />
     </div>
   );
 }
-
-export default CommentsPage;

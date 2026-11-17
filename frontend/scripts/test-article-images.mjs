@@ -724,6 +724,39 @@ test('编辑字段从当前正文选择封面，也接受手动 URL', async (t) 
   );
 });
 
+test('从图库单选封面，取消保留原值，确认后随草稿保存', async (t) => {
+  const { page, editor, requests } = await setup(t, {
+    allowSave: true,
+    assets: [asset('first-cover'), asset('second-cover'), asset('private-cover', { publicUrl: null })],
+  });
+  const cover = page.getByRole('combobox', { name: '封面图片 URL', exact: true });
+  const picker = page.getByRole('button', { name: '从图库选择', exact: true });
+  const dialog = page.getByRole('dialog', { name: '选择封面', exact: true });
+  const initial = await cover.inputValue();
+  const originalBody = await editor.inputValue();
+  await picker.click();
+  await dialog.getByRole('tab', { name: '资源' }).click();
+  const first = dialog.getByRole('radio', { name: '选择 first-cover.png' });
+  const second = dialog.getByRole('radio', { name: '选择 second-cover.png' });
+  await first.check();
+  await second.check();
+  assert.equal(await first.isChecked(), false);
+  assert.equal(await dialog.getByRole('radio', { name: '选择 private-cover.png' }).count(), 0);
+  await page.keyboard.press('Escape');
+  await dialog.waitFor({ state: 'hidden' });
+  assert.equal(await cover.inputValue(), initial);
+  await picker.click();
+  await dialog.getByRole('tab', { name: '资源' }).click();
+  await second.check();
+  await dialog.getByRole('button', { name: '使用这张图片' }).click();
+  await dialog.waitFor({ state: 'hidden' });
+  assert.equal(await cover.inputValue(), imageUrl + 'second-cover.png');
+  assert.equal(await editor.inputValue(), originalBody);
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click();
+  await page.getByText('草稿已保存', { exact: true }).waitFor();
+  assert.equal(requests.find(({ method }) => method === 'PATCH').body.coverImageUrl, imageUrl + 'second-cover.png');
+});
+
 test('MDX 正文图片选为封面时解码 URL 中的 &amp;', async (t) => {
   const { page, editor, requests } = await setup(t, { allowSave: true });
   const cover = page.getByRole('combobox', { name: '封面图片 URL', exact: true });

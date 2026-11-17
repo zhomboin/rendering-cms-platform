@@ -21,7 +21,7 @@
   border-radius: 10px;
   background: var(--cms-canvas);
 }
-.article-image-library__item:has(.ant-checkbox-checked) {
+.article-image-library__item:has(input:checked) {
   outline: 2px solid var(--cms-primary);
   outline-offset: -2px;
   background: var(--cms-selected);
@@ -69,7 +69,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.article-image-library__caption .ant-checkbox-wrapper {
+.article-image-library__caption :is(.ant-checkbox-wrapper, .ant-radio-wrapper) {
   flex: 0 0 auto;
 }
 .article-image-library__pagination {

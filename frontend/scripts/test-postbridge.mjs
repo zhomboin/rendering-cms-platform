@@ -118,6 +118,10 @@ async function setup(t, { role = 'admin', failFirstPrepare = false, withCover = 
 test('已发布文章须确认省略封面，重试保留幂等请求 ID', async (t) => {
   const { page, calls } = await setup(t, { failFirstPrepare: true });
   await page.goto(origin + '/admin/articles');
+  const articleRow = page.getByRole('row', { name: /已发布测试文章/ });
+  await articleRow.getByText('已发布', { exact: true }).click();
+  assert.match(page.url(), /\/admin\/articles$/);
+  await articleRow.getByRole('button', { name: /更多操作/ }).click();
   await page.getByRole('link', { name: '保存到 CSDN 草稿箱' }).click();
   const form = page.getByRole('dialog', { name: '创建准备稿' });
   await form.getByRole('combobox', { name: '目标账号' }).click();
@@ -152,6 +156,8 @@ test('编辑者看不到分发入口，直接访问也不发 PostBridge 请求',
   const { page, calls } = await setup(t, { role: 'editor' });
   await page.goto(origin + '/admin/articles');
   await page.getByText('已发布测试文章', { exact: true }).waitFor();
+  await page.getByRole('button', { name: /更多操作：已发布测试文章/ }).click();
+  await page.getByRole('menuitem', { name: '下架', exact: true }).waitFor();
   assert.equal(await page.getByRole('link', { name: '保存到 CSDN 草稿箱' }).count(), 0);
   assert.equal(await page.getByRole('menuitem', { name: 'PostBridge' }).count(), 0);
   await page.goto(origin + '/admin/postbridge');

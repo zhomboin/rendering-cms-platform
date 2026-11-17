@@ -13,12 +13,6 @@ export function timestamp(value: string) {
   }).format(new Date(value));
 }
 
-export function bytes(value: number) {
-  if (value < 1024) return number(value) + ' B';
-  if (value < 1024 * 1024) return (value / 1024).toFixed(1) + ' KB';
-  if (value < 1024 * 1024 * 1024) return (value / (1024 * 1024)).toFixed(1) + ' MB';
-  return (value / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
-}
 
 export const statusLabel: Record<ArticleStatus, string> = {
   published: '已发布', draft: '草稿', private: '私有 · 仅后台', archived: '已归档',

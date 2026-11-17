@@ -374,6 +374,24 @@
   color: var(--cms-error);
 }
 
+.article-editor__cover-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.article-editor__cover-field > .ant-select {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+@media (pointer: coarse) {
+  .article-editor__cover-field > .ant-btn {
+    min-height: 44px;
+  }
+}
+
 .article-editor__cover-option {
   display: flex;
   align-items: center;

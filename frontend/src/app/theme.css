@@ -141,8 +141,7 @@ body {
     line-height: 44px;
   }
 
-  .cms-content .ant-btn-primary:not(.ant-btn-sm),
-  .cms-photo-card .ant-card-actions .ant-btn {
+  .cms-content .ant-btn-primary:not(.ant-btn-sm) {
     min-height: 44px;
   }
 }

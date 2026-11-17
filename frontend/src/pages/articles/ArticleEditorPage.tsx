@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -6,7 +6,6 @@ import {
   Card,
   Form,
   Input,
-  AutoComplete,
   Select,
   Button,
   Typography,
@@ -37,7 +36,7 @@ import {
 import type { ArticleFormData, ArticleRevisionSummary } from '../../api/articles';
 import { diffLines } from './revisionDiff';
 import { ArticleImageDialog } from './ArticleImageDialog';
-import { collectArticleImages } from './articleCoverImages';
+import { ArticleCoverPicker } from './ArticleCoverPicker';
 import { insertArticleImages } from './articleImageUtils';
 import type { ArticleImage } from './articleImageUtils';
 import { MdxPreview } from './MdxPreview';
@@ -146,15 +145,6 @@ export default function ArticleEditorPage() {
   const queryClient = useQueryClient();
   const [form] = Form.useForm<ArticleFormData>();
   const bodyMdx = Form.useWatch('bodyMdx', form) ?? '';
-  const coverSource = useDeferredValue(bodyMdx);
-  const coverOptions = useMemo(
-    () =>
-      collectArticleImages(coverSource).map(({ url, alt }) => ({
-        value: url,
-        label: alt ? `${alt} ${url}` : url,
-      })),
-    [coverSource],
-  );
   const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const imageSelection = useRef({
@@ -796,20 +786,14 @@ export default function ArticleEditorPage() {
               预览会实时更新；复杂 MDX 组件会按源码展示，最终渲染以 Rendering 博客为准。
             </Text>
 
-            <Form.Item name="coverImageUrl" label="封面图片 URL">
-              <AutoComplete
-                options={coverOptions}
-                showSearch={{ filterOption: false }}
-                virtual={false}
-                placeholder="https://example.com/image.jpg"
-                optionRender={({ data }) => (
-                  <span className="article-editor__cover-option" title={data.label}>
-                    {!data.value.startsWith('/') && <img src={data.value} alt="" loading="lazy" />}
-                    <span>{data.label}</span>
-                  </span>
-                )}
-              />
-            </Form.Item>
+            <ArticleCoverPicker
+              key={draftKey}
+              bodyMdx={bodyMdx}
+              onSelect={(url) => {
+                form.setFieldValue('coverImageUrl', url);
+                saveArticleDraft(draftKey, form.getFieldsValue());
+              }}
+            />
           </Form>
 
           {!writerFullscreen && (

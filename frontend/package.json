@@ -12,7 +12,8 @@
     "test:dashboard": "node --test scripts/test-dashboard.mjs",
     "test:article-images": "node --test scripts/test-article-images.mjs",
     "test:upload-limits": "node --test scripts/test-upload-limits.mjs",
-    "test:postbridge": "node --test scripts/test-postbridge.mjs"
+    "test:postbridge": "node --test scripts/test-postbridge.mjs",
+    "test:frontend-design": "node --test scripts/test-frontend-design.mjs"
   },
   "dependencies": {
     "@mdx-js/mdx": "3.1.1",

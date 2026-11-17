@@ -1,0 +1,42 @@
+.cms-photo-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cms-photo-title .ant-typography {
+  min-width: 0;
+}
+
+.cms-photo-title .ant-tag {
+  margin-inline-end: 0;
+}
+
+.cms-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.cms-photo-actions .ant-btn {
+  padding-inline: 8px;
+}
+
+.cms-photo-dialog-text {
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.cms-photo-position {
+  display: block;
+  margin-top: 6px;
+}
+
+@media (pointer: coarse) {
+  .cms-photo-actions .ant-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
