@@ -66,18 +66,10 @@
   min-height: 44px;
 }
 
-.login-options {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  margin-bottom: 20px;
-}
-
 .login-help {
-  color: var(--cms-primary);
-  text-underline-offset: 2px;
+  display: block;
+  margin-top: 12px;
+  text-align: center;
 }
 
 .login-action {

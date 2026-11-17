@@ -89,7 +89,12 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
-      <div className="dashboard-two-columns dashboard-top">
+      <section className="dashboard-metrics-section" aria-label="关键指标">
+        <DashboardQuery query={overview} loadingLabel="正在加载指标">
+          {(data) => <DashboardMetrics data={data} days={days} />}
+        </DashboardQuery>
+      </section>
+      <div className="dashboard-two-columns">
         <DashboardPanel
           title="访问趋势"
           extra={<span className="dashboard-panel-hint">所选区间</span>}
@@ -101,13 +106,8 @@ export default function DashboardPage() {
             {(data) => <DashboardContent data={data} />}
           </DashboardQuery>
         </DashboardPanel>
-        <section className="dashboard-metrics-section" aria-label="关键指标">
-          <DashboardQuery query={overview} loadingLabel="正在加载指标">
-            {(data) => <DashboardMetrics data={data} days={days} />}
-          </DashboardQuery>
-        </section>
       </div>
-      <div className="dashboard-two-columns dashboard-operations">
+      <div className="dashboard-two-columns">
         <DashboardPanel
           title="文章排行"
           extra={<span className="dashboard-panel-hint">近 {days} 天</span>}
@@ -124,6 +124,8 @@ export default function DashboardPage() {
             {(data) => <DashboardTodos data={data} />}
           </DashboardQuery>
         </DashboardPanel>
+      </div>
+      <div className="dashboard-two-columns dashboard-bottom">
         <DashboardPanel
           className="dashboard-gallery-panel"
           title="相册一览"
@@ -134,8 +136,6 @@ export default function DashboardPage() {
             {(data) => <DashboardAlbumGallery data={data} />}
           </DashboardQuery>
         </DashboardPanel>
-      </div>
-      <div className="dashboard-two-columns dashboard-bottom">
         <DashboardPanel title="近期内容" extra={<Link to="/admin/articles">全部文章 →</Link>}>
           <DashboardQuery query={overview}>
             {(data) => <DashboardRecentContent data={data} />}

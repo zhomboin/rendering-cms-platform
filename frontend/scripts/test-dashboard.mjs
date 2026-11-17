@@ -237,6 +237,9 @@ test('运营概览显示真实数据、封面、后台状态和所有管理入�
     '资源概况',
   ])
     await region(page, name);
+  const metrics = await region(page, '关键指标');
+  const chartPanel = await region(page, '访问趋势');
+  assert.ok((await metrics.boundingBox()).y < (await chartPanel.boundingBox()).y);
   const content = await region(page, '内容状态');
   assert.equal(await content.getByText('15', { exact: true }).count(), 1);
   assert.deepEqual(await content.locator('dt').allTextContents(), [
@@ -531,10 +534,14 @@ test('后台在手机、平板、桌面和 4K 下使用透明布局容器并保�
       assert.ok(dimensions.dashboardWidth > 3400, '4K 仪表盘不能有固定最大宽度');
       assert.ok(dateCount > narrowDateCount, '宽屏可显示更多日期');
       const gallery = await (await region(page, '相册一览')).boundingBox();
-      const ranking = await (await region(page, '文章排行')).boundingBox();
+      const recent = await (await region(page, '近期内容')).boundingBox();
+      const resources = await (await region(page, '资源概况')).boundingBox();
       assert.ok(
-        gallery.x > ranking.x + ranking.width && gallery.y === ranking.y,
-        '宽屏下相册和文章排行应并排',
+        recent.x > gallery.x + gallery.width &&
+          resources.x > recent.x + recent.width &&
+          gallery.y === recent.y &&
+          recent.y === resources.y,
+        '宽屏下相册、近期内容和资源应并排',
       );
       await mkdir(root + '.tmp/dashboard', { recursive: true });
       await page.screenshot({ path: root + '.tmp/dashboard/4k.png' });

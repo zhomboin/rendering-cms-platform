@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { App, Button, Checkbox, Form, Input, Typography } from 'antd';
+import { App, Button, Form, Input, Typography } from 'antd';
 import { LockOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons';
 import {
   isLoginMFAChallenge,
@@ -40,6 +40,7 @@ function LoginForm() {
   const [challenge, setChallenge] = useState<MFAChallenge | null>(null);
   const [code, setCode] = useState('');
   const [codeLoading, setCodeLoading] = useState(false);
+  const verifying = useRef(false);
   const [resending, setResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const from = (location.state as LoginLocationState | null)?.from;
@@ -83,11 +84,15 @@ function LoginForm() {
     }
   };
 
-  const handleVerify = async () => {
-    if (!challenge || code.length !== 6) return;
+  const handleVerify = async (value: string) => {
+    if (!challenge || !/^\d{6}$/.test(value) || verifying.current || resending) return;
+    verifying.current = true;
     setCodeLoading(true);
     try {
-      const response = await verifyLoginCode({ challengeToken: challenge.challengeToken, code });
+      const response = await verifyLoginCode({
+        challengeToken: challenge.challengeToken,
+        code: value,
+      });
       applyLogin(response);
     } catch (err) {
       const error = err as { message?: string };
@@ -96,12 +101,13 @@ function LoginForm() {
         backToCredentials();
       }
     } finally {
+      verifying.current = false;
       setCodeLoading(false);
     }
   };
 
   const handleResend = async () => {
-    if (!challenge || resendCooldown > 0 || resending) return;
+    if (!challenge || resendCooldown > 0 || resending || verifying.current) return;
     setResending(true);
     try {
       await resendLoginCode({ challengeToken: challenge.challengeToken });
@@ -168,13 +174,6 @@ function LoginForm() {
                 />
               </Form.Item>
 
-              <div className="login-options">
-                <Checkbox className="login-remember">保持登录状态</Checkbox>
-                <a className="login-help" href="mailto:admin@rendering.local">
-                  忘记密码?
-                </a>
-              </div>
-
               <Form.Item className="login-action">
                 <Button
                   type="primary"
@@ -186,6 +185,9 @@ function LoginForm() {
                   登录
                 </Button>
               </Form.Item>
+              <Text type="secondary" className="login-help">
+                忘记密码？请联系系统管理员。
+              </Text>
             </Form>
           ) : (
             <div className="login-mfa">
@@ -193,21 +195,25 @@ function LoginForm() {
                 <SafetyOutlined />
               </div>
               <Text className="login-mfa-hint">
-                检测到登录环境变化，验证码已发送至 <Text strong>{challenge?.email}</Text>
-                ，请输入 6 位数字验证码完成登录。
+                验证码已发送至 <Text strong>{challenge?.email}</Text>，请输入 6 位数字验证码。
               </Text>
               <Input.OTP
+                role="group"
+                aria-label="邮箱验证码"
                 length={6}
                 autoFocus
-                value={code}
-                onChange={(value) => setCode(value.replace(/\D/g, ''))}
+                autoComplete="one-time-code"
+                disabled={codeLoading || resending}
+                formatter={(value) => value.replace(/\D/g, '')}
+                onInput={(cells) => setCode(cells.join(''))}
+                onChange={(value) => void handleVerify(value)}
               />
               <Button
                 type="primary"
                 className="login-button login-mfa-submit"
                 loading={codeLoading}
-                disabled={code.length !== 6}
-                onClick={handleVerify}
+                disabled={code.length !== 6 || resending}
+                onClick={() => void handleVerify(code)}
                 block
               >
                 验证并登录
@@ -217,7 +223,7 @@ function LoginForm() {
                   type="link"
                   size="small"
                   className="login-mfa-link"
-                  disabled={resendCooldown > 0 || resending}
+                  disabled={resendCooldown > 0 || resending || codeLoading}
                   onClick={handleResend}
                 >
                   {resendCooldown > 0 ? `重新发送验证码（${resendCooldown}s）` : '重新发送验证码'}
@@ -226,6 +232,7 @@ function LoginForm() {
                   type="link"
                   size="small"
                   className="login-mfa-link"
+                  disabled={codeLoading || resending}
                   onClick={backToCredentials}
                 >
                   返回重新登录

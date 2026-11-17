@@ -9,23 +9,13 @@ import {
   Divider,
   Form,
   Input,
+  InputNumber,
   Modal,
-  Popconfirm,
   Space,
-  Tag,
   Typography,
   Image,
 } from 'antd';
-import {
-  ArrowLeftOutlined,
-  ArrowDownOutlined,
-  ArrowUpOutlined,
-  CopyOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  StarFilled,
-  StarOutlined,
-} from '@ant-design/icons';
+import { ArrowLeftOutlined, EditOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -38,6 +28,8 @@ import {
 } from '../../api/albums';
 import type { AlbumPhoto } from '../../api/albums';
 import AlbumPhotoUpload from './AlbumPhotoUpload';
+import { AlbumPhotoCard } from './AlbumPhotoCard';
+import './AlbumPhotosPage.css';
 
 const { Title, Text } = Typography;
 
@@ -48,12 +40,19 @@ interface PhotoEditValues {
 }
 
 export default function AlbumPhotosPage() {
-  const { message } = App.useApp();
   const { id = '' } = useParams();
+  return <AlbumPhotos key={id} id={id} />;
+}
+
+function AlbumPhotos({ id }: { id: string }) {
+  const { message, modal } = App.useApp();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [editForm] = Form.useForm<PhotoEditValues>();
   const [editingPhoto, setEditingPhoto] = useState<AlbumPhoto | null>(null);
+  const [linkPhoto, setLinkPhoto] = useState<AlbumPhoto | null>(null);
+  const [movingPhoto, setMovingPhoto] = useState<AlbumPhoto | null>(null);
+  const [position, setPosition] = useState<number | null>(null);
   const albumQuery = useQuery({
     queryKey: ['admin-album', id],
     queryFn: () => getAdminAlbum(id),
@@ -84,12 +83,15 @@ export default function AlbumPhotosPage() {
 
   const reorderMutation = useMutation({
     mutationFn: (photoIds: string[]) => reorderAdminAlbumPhotos(id, photoIds),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin-album-photos', id] });
+    onSuccess: async (orderedPhotos) => {
+      await queryClient.cancelQueries({ queryKey: ['admin-album-photos', id] });
+      queryClient.setQueryData(['admin-album-photos', id], orderedPhotos);
+      setMovingPhoto(null);
+      message.success('照片顺序已更新');
     },
-    onError: (mutationError) => {
+    onError: async (mutationError) => {
       message.error(mutationError instanceof Error ? mutationError.message : '照片排序失败');
-      void queryClient.invalidateQueries({ queryKey: ['admin-album-photos', id] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-album-photos', id] });
     },
   });
 
@@ -121,13 +123,22 @@ export default function AlbumPhotosPage() {
     },
   });
 
-  const movePhoto = (index: number, direction: -1 | 1) => {
-    const target = index + direction;
-    if (target < 0 || target >= photos.length) return;
-    const next = [...photos];
-    const [moved] = next.splice(index, 1);
-    next.splice(target, 0, moved);
-    reorderMutation.mutate(next.map((photo) => photo.photoId));
+  const movingIndex = photos.findIndex((photo) => photo.photoId === movingPhoto?.photoId);
+  const canMove =
+    movingIndex >= 0 &&
+    position !== null &&
+    Number.isInteger(position) &&
+    position >= 1 &&
+    position <= photos.length &&
+    position !== movingIndex + 1;
+
+  const movePhoto = () => {
+    if (!canMove || position === null || reorderMutation.isPending || photosQuery.isFetching)
+      return;
+    const photoIds = photos.map(({ photoId }) => photoId);
+    const [moved] = photoIds.splice(movingIndex, 1);
+    photoIds.splice(position - 1, 0, moved);
+    reorderMutation.mutate(photoIds);
   };
 
   const openPhotoEdit = (photo: AlbumPhoto) => {
@@ -139,11 +150,13 @@ export default function AlbumPhotosPage() {
     });
   };
 
-  const copyPhotoURL = async (url: string) => {
+  const copyPhotoURL = async (photo: AlbumPhoto) => {
+    if (!photo.url) return;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(photo.url);
       message.success('图片 URL 已复制');
     } catch {
+      setLinkPhoto(photo);
       message.error('复制失败，请选中图片 URL 手动复制');
     }
   };
@@ -199,131 +212,82 @@ export default function AlbumPhotosPage() {
           ) : (
             <Image.PreviewGroup>
               <div className="cms-photo-grid">
-                {photos.map((photo, index) => {
-                  const isCover = album?.coverPhotoId
-                    ? album.coverPhotoId === photo.photoId
-                    : index === 0;
-                  return (
-                    <Card
-                      key={photo.photoId}
-                      className="cms-photo-card"
-                      size="small"
-                      cover={
-                        photo.url ? (
-                          <Image
-                            src={photo.url}
-                            aria-label={'预览' + photo.alt}
-                            width="100%"
-                            height={160}
-                            preview={{ cover: '预览' }}
-                            alt={photo.alt}
-                            style={{ height: 160, objectFit: 'cover' }}
-                            loading="lazy"
-                          />
-                        ) : undefined
-                      }
-                      actions={[
-                        <Button
-                          aria-label="上移照片"
-                          key="up"
-                          type="text"
-                          size="small"
-                          icon={<ArrowUpOutlined />}
-                          disabled={index === 0 || reorderMutation.isPending}
-                          onClick={() => movePhoto(index, -1)}
-                        />,
-                        <Button
-                          aria-label="下移照片"
-                          key="down"
-                          type="text"
-                          size="small"
-                          icon={<ArrowDownOutlined />}
-                          disabled={index === photos.length - 1 || reorderMutation.isPending}
-                          onClick={() => movePhoto(index, 1)}
-                        />,
-                        <Button
-                          aria-label="编辑照片"
-                          key="edit"
-                          type="text"
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={() => openPhotoEdit(photo)}
-                        />,
-                        <Button
-                          key="cover"
-                          aria-label="设置照片封面"
-                          type="text"
-                          size="small"
-                          icon={
-                            isCover ? (
-                              <StarFilled style={{ color: 'var(--cms-warning)' }} />
-                            ) : (
-                              <StarOutlined />
-                            )
-                          }
-                          onClick={() => coverMutation.mutate(isCover ? null : photo.photoId)}
-                        />,
-                        <Popconfirm
-                          key="delete"
-                          title="确认删除该照片？"
-                          okText="删除"
-                          okButtonProps={{ danger: true }}
-                          cancelText="取消"
-                          onConfirm={() => deletePhotoMutation.mutate(photo.photoId)}
-                        >
-                          <Button
-                            aria-label="删除照片"
-                            type="text"
-                            size="small"
-                            danger
-                            icon={<DeleteOutlined />}
-                          />
-                        </Popconfirm>,
-                      ]}
-                    >
-                      <Card.Meta
-                        title={
-                          <Space size={6}>
-                            <Text ellipsis style={{ maxWidth: 160 }}>
-                              {photo.alt}
-                            </Text>
-                            {isCover && <Tag color="warning">封面</Tag>}
-                          </Space>
-                        }
-                        description={
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            {photo.width}×{photo.height}
-                            {photo.takenAt ? ` · ${dayjs(photo.takenAt).format('YYYY-MM-DD')}` : ''}
-                          </Text>
-                        }
-                      />
-                      {photo.url ? (
-                        <Space.Compact style={{ width: '100%', marginTop: 12 }}>
-                          <Input
-                            aria-label={`${photo.alt}的图片 URL`}
-                            readOnly
-                            value={photo.url}
-                            onFocus={(event) => event.target.select()}
-                          />
-                          <Button
-                            aria-label={`复制${photo.alt}的图片 URL`}
-                            icon={<CopyOutlined />}
-                            onClick={() => void copyPhotoURL(photo.url!)}
-                          >
-                            复制
-                          </Button>
-                        </Space.Compact>
-                      ) : (
-                        <Text type="secondary">暂无图片 URL，请检查公开访问地址配置</Text>
-                      )}
-                    </Card>
-                  );
-                })}
+                {photos.map((photo, index) => (
+                  <AlbumPhotoCard
+                    key={photo.photoId}
+                    photo={photo}
+                    isCover={
+                      album?.coverPhotoId ? album.coverPhotoId === photo.photoId : index === 0
+                    }
+                    hasExplicitCover={album?.coverPhotoId === photo.photoId}
+                    canReorder={photos.length > 1 && !reorderMutation.isPending}
+                    canSetCover={!coverMutation.isPending}
+                    onEdit={() => openPhotoEdit(photo)}
+                    onCopy={() => void copyPhotoURL(photo)}
+                    onViewLink={() => setLinkPhoto(photo)}
+                    onMove={() => {
+                      setPosition(index + 1);
+                      setMovingPhoto(photo);
+                    }}
+                    onCover={() =>
+                      coverMutation.mutate(
+                        album?.coverPhotoId === photo.photoId ? null : photo.photoId,
+                      )
+                    }
+                    onDelete={() =>
+                      modal.confirm({
+                        title: '删除照片？',
+                        content: `「${photo.alt}」将从相册移除。`,
+                        okText: '删除照片',
+                        okButtonProps: { danger: true },
+                        cancelText: '取消',
+                        onOk: () => deletePhotoMutation.mutateAsync(photo.photoId),
+                      })
+                    }
+                  />
+                ))}
               </div>
             </Image.PreviewGroup>
           )}
         </Card>
       )}
+      <Modal
+        title="调整照片顺序"
+        open={movingPhoto !== null}
+        destroyOnHidden
+        onCancel={() => setMovingPhoto(null)}
+        onOk={movePhoto}
+        okText="保存顺序"
+        cancelText="取消"
+        confirmLoading={reorderMutation.isPending}
+        okButtonProps={{ disabled: !canMove || photosQuery.isFetching }}
+        cancelButtonProps={{ disabled: reorderMutation.isPending }}
+        closable={!reorderMutation.isPending}
+        keyboard={!reorderMutation.isPending}
+        mask={{ closable: !reorderMutation.isPending }}
+      >
+        <p className="cms-photo-dialog-text">{movingPhoto?.alt}</p>
+        <label htmlFor="album-photo-position">目标位置（1–{photos.length}）</label>
+        <InputNumber
+          id="album-photo-position"
+          className="cms-photo-position"
+          min={1}
+          max={photos.length}
+          value={position}
+          onChange={setPosition}
+          onPressEnter={movePhoto}
+          disabled={reorderMutation.isPending}
+        />
+      </Modal>
+      <Modal
+        title="图片链接"
+        open={linkPhoto !== null}
+        destroyOnHidden
+        onCancel={() => setLinkPhoto(null)}
+        footer={null}
+      >
+        <p className="cms-photo-dialog-text">{linkPhoto?.url}</p>
+      </Modal>
       <Modal
         title="编辑照片信息"
         okText="保存照片"

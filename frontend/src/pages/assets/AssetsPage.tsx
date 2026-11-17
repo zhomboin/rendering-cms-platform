@@ -1,13 +1,26 @@
 import { UploadProgressList, uploadTransferProgress } from '../../components/UploadProgressList';
 import type { UploadProgressItem } from '../../components/UploadProgressList';
 import { useRef, useState } from 'react';
-import { App, Upload, Table, Button, Tag, Typography, Modal, Image } from 'antd';
+import {
+  Alert,
+  App,
+  Upload,
+  Table,
+  Button,
+  Tag,
+  Typography,
+  Modal,
+  Image,
+  Input,
+  Select,
+} from 'antd';
 import {
   InboxOutlined,
   DownloadOutlined,
   ReloadOutlined,
   EyeOutlined,
   CopyOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps } from 'antd/es/upload/interface';
@@ -19,6 +32,8 @@ import {
   uploadAdminAsset,
 } from '../../api/assets';
 import type { AssetFile } from '../../api/assets';
+import { imageContentTypes } from '../../api/uploadLimits';
+import { formatFileSize } from '../../utils/formatFileSize';
 
 const { Title, Text } = Typography;
 const { Dragger } = Upload;
@@ -41,12 +56,6 @@ const contentTypeColor: Record<string, string> = {
   'application/zip': 'orange',
 };
 
-function formatBytes(bytes: number): string {
-  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
-  if (bytes >= 1_000) return `${(bytes / 1_000).toFixed(0)} KB`;
-  return `${bytes} B`;
-}
-
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
     year: 'numeric',
@@ -56,8 +65,6 @@ function formatDate(value: string) {
     minute: '2-digit',
   }).format(new Date(value));
 }
-
-const imageContentTypes = ['image/png', 'image/jpeg', 'image/webp'];
 
 function isImageAsset(asset: AssetFile): boolean {
   return imageContentTypes.includes(asset.contentType);
@@ -87,6 +94,8 @@ function AssetsPage() {
   const {
     data = [],
     isLoading,
+    isFetching,
+    error,
     refetch,
   } = useQuery({
     queryKey: ['admin-assets'],
@@ -95,6 +104,16 @@ function AssetsPage() {
   const uploadSequence = useRef(0);
   const [uploads, setUploads] = useState<UploadProgressItem[]>([]);
   const [preview, setPreview] = useState<{ asset: AssetFile; url: string } | null>(null);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const keyword = search.trim().toLocaleLowerCase();
+  const assets = data.filter((asset) => {
+    const matchesType =
+      !typeFilter ||
+      (typeFilter === 'image' ? isImageAsset(asset) : asset.contentType === typeFilter);
+    return matchesType && asset.filename.toLocaleLowerCase().includes(keyword);
+  });
 
   const handleDownload = async (asset: AssetFile) => {
     try {
@@ -147,7 +166,9 @@ function AssetsPage() {
       dataIndex: 'filename',
       key: 'filename',
       render: (name: string) => (
-        <Text style={{ color: 'var(--cms-ink)', fontWeight: 500 }}>{name}</Text>
+        <Text style={{ color: 'var(--cms-ink)', fontWeight: 500, overflowWrap: 'anywhere' }}>
+          {name}
+        </Text>
       ),
     },
     {
@@ -178,7 +199,9 @@ function AssetsPage() {
       width: 100,
       align: 'right',
       render: (size: number) => (
-        <Text style={{ color: 'var(--cms-muted)' }}>{formatBytes(size)}</Text>
+        <Text style={{ color: 'var(--cms-muted)', whiteSpace: 'nowrap' }}>
+          {formatFileSize(size)}
+        </Text>
       ),
     },
     {
@@ -268,7 +291,7 @@ function AssetsPage() {
     <div>
       <div className="cms-page-heading">
         <Title level={1}>资源管理</Title>
-        <Button icon={<ReloadOutlined />} loading={isLoading} onClick={() => refetch()}>
+        <Button icon={<ReloadOutlined />} loading={isFetching} onClick={() => refetch()}>
           刷新
         </Button>
       </div>
@@ -280,7 +303,7 @@ function AssetsPage() {
           </p>
           <p className="ant-upload-text">点击或拖拽文件到此处上传</p>
           <p className="ant-upload-hint">
-            支持 PNG、JPEG、WebP、PDF、TXT、ZIP，图片最大 50MB，其它文件最大 20MB
+            支持 PNG、JPEG、WebP、PDF、TXT、ZIP，图片最大 50 MiB，其它文件最大 20 MiB
           </p>
         </Dragger>
         {uploads.length > 0 && (
@@ -301,12 +324,57 @@ function AssetsPage() {
         )}
       </div>
 
+      <div className="cms-list-filters">
+        <Input
+          aria-label="搜索文件名"
+          placeholder="搜索文件名"
+          prefix={<SearchOutlined />}
+          allowClear
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setPage(1);
+          }}
+          style={{ width: 240, maxWidth: '100%' }}
+        />
+        <Select
+          aria-label="文件类型"
+          value={typeFilter}
+          virtual={false}
+          options={[
+            { value: '', label: '全部类型' },
+            { value: 'image', label: '图片' },
+            { value: 'application/pdf', label: 'PDF' },
+            { value: 'text/plain', label: 'TXT' },
+            { value: 'application/zip', label: 'ZIP' },
+          ]}
+          onChange={(value) => {
+            setTypeFilter(value);
+            setPage(1);
+          }}
+          style={{ width: 128 }}
+        />
+      </div>
+      {error && <Alert type="error" showIcon title={error.message} />}
       <Table
         columns={columns}
-        dataSource={data}
+        dataSource={assets}
         rowKey="assetId"
         loading={isLoading}
-        pagination={{ pageSize: 10 }}
+        locale={{
+          emptyText:
+            error && !data.length
+              ? '资源读取失败'
+              : keyword || typeFilter
+                ? '没有匹配的文件'
+                : '暂无资源',
+        }}
+        pagination={{
+          current: Math.min(page, Math.max(1, Math.ceil(assets.length / 10))),
+          pageSize: 10,
+          showSizeChanger: false,
+          onChange: setPage,
+        }}
         scroll={{ x: 820 }}
         style={{ borderRadius: 8 }}
       />
@@ -336,7 +404,7 @@ function AssetsPage() {
               }}
             >
               <Text type="secondary">
-                {preview.asset.filename} · {formatBytes(preview.asset.byteSize)}
+                {preview.asset.filename} · {formatFileSize(preview.asset.byteSize)}
               </Text>
               <Button
                 type="link"

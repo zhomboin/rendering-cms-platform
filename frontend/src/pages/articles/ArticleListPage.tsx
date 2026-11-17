@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
 import { createSearchParams, Link, useNavigate } from 'react-router-dom';
-import { App, Table, Button, Tag, Input, Select, Space, Typography, Alert, Popconfirm } from 'antd';
+import { App, Table, Button, Tag, Input, Select, Space, Typography, Alert, Dropdown } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   PlusOutlined,
-  EditOutlined,
   ReloadOutlined,
   StopOutlined,
-  EyeOutlined,
   LockOutlined,
   UnlockOutlined,
 } from '@ant-design/icons';
@@ -20,6 +19,7 @@ import {
 } from '../../api/articles';
 import type { AdminArticleRecord } from '../../api/articles';
 import { getAuthUser } from '../../api/auth';
+import './ArticleListPage.css';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -51,7 +51,7 @@ function formatDate(value: string | null) {
 }
 
 export default function ArticleListPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const navigate = useNavigate();
   const isAdmin = getAuthUser()?.role === 'admin';
   const queryClient = useQueryClient();
@@ -121,11 +121,7 @@ export default function ArticleListPage() {
       dataIndex: 'title',
       key: 'title',
       render: (text: string, record: AdminArticleRecord) => (
-        <Link
-          className="cms-table-title"
-          to={'/admin/articles/' + record.articleId + '/edit'}
-          onClick={(event) => event.stopPropagation()}
-        >
+        <Link className="cms-table-title" to={'/admin/articles/' + record.articleId + '/edit'}>
           {text}
         </Link>
       ),
@@ -134,7 +130,7 @@ export default function ArticleListPage() {
       title: '英文名',
       dataIndex: 'articleName',
       key: 'articleName',
-      width: 220,
+      width: 168,
     },
     {
       title: '短链',
@@ -146,7 +142,7 @@ export default function ArticleListPage() {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 110,
+      width: 96,
       render: (status: AdminArticleRecord['status']) => {
         const cfg = statusConfig[status];
         return (
@@ -174,122 +170,109 @@ export default function ArticleListPage() {
       title: '发布时间',
       dataIndex: 'publishedAt',
       key: 'publishedAt',
-      width: 180,
+      width: 152,
       render: (val: string | null) => formatDate(val),
     },
     {
       title: '操作',
       key: 'action',
-      width: isAdmin ? 360 : 240,
-      render: (_: unknown, record: AdminArticleRecord) => (
-        <Space size={0} wrap>
-          <Button
-            type="link"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/admin/articles/${record.articleId}/read`);
-            }}
-          >
-            阅读
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/admin/articles/${record.articleId}/edit`);
-            }}
-          >
-            编辑
-          </Button>
-          {record.status === 'draft' && (
-            <Popconfirm
-              title="确认设为私有？"
-              description="设为私有后仅在后台可见，公开站点不展示；可随时转为草稿再发布。"
-              okText="设为私有"
-              cancelText="取消"
-              onConfirm={(e) => {
-                e?.stopPropagation();
-                markPrivateMutation.mutate(record.articleId);
-              }}
-              onCancel={(e) => e?.stopPropagation()}
-            >
-              <Button
-                type="link"
-                size="small"
-                icon={<LockOutlined />}
-                onClick={(e) => e.stopPropagation()}
-              >
-                私有
-              </Button>
-            </Popconfirm>
-          )}
-          {record.status === 'private' && (
-            <Popconfirm
-              title="确认转为草稿？"
-              description="转为草稿后仍不会自动公开，需要再执行发布才会出现在公开站点。"
-              okText="转为草稿"
-              cancelText="取消"
-              onConfirm={(e) => {
-                e?.stopPropagation();
-                restoreDraftMutation.mutate(record.articleId);
-              }}
-              onCancel={(e) => e?.stopPropagation()}
-            >
-              <Button
-                type="link"
-                size="small"
-                icon={<UnlockOutlined />}
-                onClick={(e) => e.stopPropagation()}
-              >
-                转草稿
-              </Button>
-            </Popconfirm>
-          )}
-          {isAdmin && record.status === 'published' && Boolean(record.version) && (
-            <Link
-              to={{
-                pathname: '/admin/postbridge',
-                search: createSearchParams({
-                  articleId: record.articleId,
-                  prepare: '1',
-                }).toString(),
-              }}
-              onClick={(event) => event.stopPropagation()}
-              style={{ paddingInline: 8 }}
-            >
-              保存到 CSDN 草稿箱
-            </Link>
-          )}
-          {record.status === 'published' && (
-            <Popconfirm
-              title="确认下架这篇文章？"
-              description="下架后立即对公众不可见，文章恢复为草稿，可修改后再次发布。"
-              okText="下架"
-              okButtonProps={{ danger: true }}
-              cancelText="取消"
-              onConfirm={(e) => {
-                e?.stopPropagation();
-                unpublishMutation.mutate(record.articleId);
-              }}
-              onCancel={(e) => e?.stopPropagation()}
-            >
-              <Button
-                type="link"
-                size="small"
-                danger
-                icon={<StopOutlined />}
-                onClick={(e) => e.stopPropagation()}
-              >
-                下架
-              </Button>
-            </Popconfirm>
-          )}
-        </Space>
-      ),
+      width: 196,
+      render: (_: unknown, record: AdminArticleRecord) => {
+        const articlePath = `/admin/articles/${record.articleId}`;
+        const items: MenuProps['items'] = [];
+
+        if (record.status === 'draft') {
+          items.push({
+            key: 'private',
+            icon: <LockOutlined aria-hidden="true" />,
+            label: '设为私有',
+            onClick: () =>
+              modal.confirm({
+                title: '确认设为私有？',
+                content: '设为私有后仅在后台可见，可转为草稿再发布。',
+                okText: '设为私有',
+                cancelText: '取消',
+                onOk: () => markPrivateMutation.mutateAsync(record.articleId),
+              }),
+          });
+        }
+        if (record.status === 'private') {
+          items.push({
+            key: 'draft',
+            icon: <UnlockOutlined aria-hidden="true" />,
+            label: '转为草稿',
+            onClick: () =>
+              modal.confirm({
+                title: '确认转为草稿？',
+                content: '转为草稿后需要再执行发布才会出现在公开站点。',
+                okText: '转为草稿',
+                cancelText: '取消',
+                onOk: () => restoreDraftMutation.mutateAsync(record.articleId),
+              }),
+          });
+        }
+        if (record.status === 'published') {
+          if (isAdmin && record.version) {
+            items.push(
+              {
+                key: 'csdn',
+                label: (
+                  <Link
+                    to={{
+                      pathname: '/admin/postbridge',
+                      search: createSearchParams({
+                        articleId: record.articleId,
+                        prepare: '1',
+                      }).toString(),
+                    }}
+                  >
+                    保存到 CSDN 草稿箱
+                  </Link>
+                ),
+              },
+              { type: 'divider' },
+            );
+          }
+          items.push({
+            key: 'unpublish',
+            label: '下架',
+            icon: <StopOutlined aria-hidden="true" />,
+            danger: true,
+            onClick: () =>
+              modal.confirm({
+                title: '确认下架这篇文章？',
+                content: `「${record.title}」将恢复为草稿，并立即停止公开展示。`,
+                okText: '下架',
+                okButtonProps: { danger: true },
+                cancelText: '取消',
+                onOk: () => unpublishMutation.mutateAsync(record.articleId),
+              }),
+          });
+        }
+
+        return (
+          <Space size={0} className="article-list-actions">
+            <Button type="link" size="small" onClick={() => navigate(`${articlePath}/read`)}>
+              阅读
+            </Button>
+            <Button type="link" size="small" onClick={() => navigate(`${articlePath}/edit`)}>
+              编辑
+            </Button>
+            {items.length > 0 && (
+              <Dropdown autoFocus destroyOnHidden trigger={['click']} menu={{ items }}>
+                <Button
+                  type="text"
+                  size="small"
+                  aria-label={`更多操作：${record.title}`}
+                  aria-haspopup="menu"
+                >
+                  更多
+                </Button>
+              </Dropdown>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -350,11 +333,7 @@ export default function ArticleListPage() {
           showSizeChanger: false,
           showTotal: (total) => `共 ${total} 篇文章`,
         }}
-        scroll={{ x: isAdmin ? 1240 : 1120 }}
-        onRow={(record) => ({
-          onClick: () => navigate(`/admin/articles/${record.articleId}/edit`),
-          style: { cursor: 'pointer' },
-        })}
+        scroll={{ x: 960 }}
       />
     </div>
   );

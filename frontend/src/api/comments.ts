@@ -21,5 +21,8 @@ export function listAdminComments() {
 }
 
 export function reviewAdminComment(commentId: string, status: CommentStatus) {
-  return apiPatch<AdminComment>(`/admin/comments/${commentId}`, { status });
+  return apiPatch<Pick<AdminComment, 'commentId' | 'status' | 'reviewedAt'>>(
+    `/admin/comments/${commentId}`,
+    { status },
+  );
 }
