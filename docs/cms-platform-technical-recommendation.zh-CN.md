@@ -13,7 +13,7 @@
 
 | 范围 | 当前实现 | 依据 |
 | --- | --- | --- |
-| 后端 | Go 1.26.10、Chi、pgx/pgxpool、sqlc、golang-migrate | `backend/go.mod`、`backend/cmd/server/main.go`、`backend/sqlc.yaml` |
+| 后端 | Go 1.26.11、Chi、pgx/pgxpool、sqlc、golang-migrate | `backend/go.mod`、`backend/cmd/server/main.go`、`backend/sqlc.yaml` |
 | 认证 | bcrypt、JWT access/refresh token、风险触发的邮箱验证码 | `backend/internal/auth/`、`backend/internal/mail/` |
 | 前端 | React、TypeScript、Vite、React Router、TanStack Query、Ant Design | `frontend/package.json`、`frontend/src/routes/index.tsx` |
 | 数据库 | PostgreSQL，SQL migration 统一管理 | `backend/migrations/`、`backend/sql/` |

@@ -16,7 +16,7 @@
 
 ## PostBridge 接入
 
-[PostBridge 单向接入](plans/2026-11-05-postbridge-integration.md)已实现连接、准备稿确认衔接、分发及取消、事务发件箱和管理后台。支持图片的 CSDN 目标可保存正文中的已发布相册图片，CMS 在准备与提交时复核照片，并在图片公开来源失效的事务内撤销关联的有效授权。Go 1.26.10、PostgreSQL 16、CMS 启动及 5 项模拟接口浏览器回归通过。CMS 后端负责冻结分发快照、签名提交、查询结果和可靠投递来源事件；PostBridge 负责平台稿确认和草稿保存。跨系统、真实 CSDN 和生产验收由 [当前任务 V10](plans/current-tasks.md#待环境验收) 跟进，均待验收。
+[PostBridge 单向接入](plans/2026-11-05-postbridge-integration.md)已实现连接、准备稿确认衔接、分发及取消、事务发件箱和管理后台。支持图片的 CSDN 目标可保存正文中的已发布相册图片，CMS 在准备与提交时复核照片，并在图片公开来源失效的事务内撤销关联的有效授权。PostgreSQL 16 验证、CMS 启动检查和 5 项模拟接口浏览器回归通过。CMS 后端负责冻结分发快照、签名提交、查询结果和可靠投递来源事件；PostBridge 负责平台稿确认和草稿保存。跨系统、真实 CSDN 和生产验收由 [当前任务 V10](plans/current-tasks.md#待环境验收) 跟进，均待验收。
 
 ## 仓库维护
 
@@ -39,7 +39,7 @@ CMS 预览与后台阅读共用与博客相同的受控 MDX 核心，覆盖 GFM 
 | 代理配置   | 本地脚本语法检查通过；真实 Nginx 配置检查由 CI 独立任务执行                                    |
 | 文档与差异 | UTF-8 无 BOM、Markdown 相对链接与差异检查通过                                                  |
 
-全量后端、数据库、MDX、相册、首页、文章编辑、上传和后台交互回归由 [GitHub CI](../.github/workflows/verify.yml) 执行。前端 CI 使用与锁定依赖版本一致的 Playwright 镜像运行浏览器回归。构建保留现有包体大小提示，不影响构建结果。
+Go 与 npm 依赖漏洞审计及全量后端、数据库、MDX、相册、首页、文章编辑、上传和后台交互回归由 [GitHub CI](../.github/workflows/verify.yml) 执行。前端 CI 使用与锁定依赖版本一致的 Playwright 镜像运行浏览器回归。构建保留现有包体大小提示，不影响构建结果。
 
 ## 环境验收
 
