@@ -56,4 +56,4 @@ V11：统一解析规则的[CMS PR #30](https://github.com/zhomboin/rendering-cm
 
 ## 部署收尾
 
-统一入口为 [部署收尾清单](../operations/deploy-readiness.md)。部署代理、数据库异常阻断、独立镜像标签和相关回归在独立分支实施；目标环境的最新备份、两套完整发布、回退准备及定时器状态仍需按批准命令验收。不得把此任务与未批准的业务变更或 migration 一起部署。
+生产定时器已启用并核对定时触发，见[自动部署](../operations/auto-deploy.md#触发机制)。部署代理、数据库异常阻断和独立镜像标签已实施。待验收项为最新备份、两套完整发布及回退准备，按[部署收尾清单](../operations/deploy-readiness.md)执行。不得把此任务与未批准的业务变更或 migration 一起部署。

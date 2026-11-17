@@ -139,7 +139,7 @@ export async function generateMetadata({ params }) {
 Rendering 博客平台应新增服务端环境变量：
 
 ```env
-CMS_API_BASE=https://cms.rendering.me/api/v1
+CMS_API_BASE=https://cms.zhomboin.com/api/v1
 ```
 
 本地开发示例：
@@ -159,7 +159,7 @@ CMS_API_BASE=http://127.0.0.1:8080/api/v1
 当前生产部署默认使用 CMS 独立域名：
 
 ```text
-https://cms.rendering.me/api/v1
+https://cms.zhomboin.com/api/v1
 ```
 
 需要确保：

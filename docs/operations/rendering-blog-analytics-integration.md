@@ -259,7 +259,7 @@ Authorization: Bearer <jwt-token>
 Rendering 静态博客新增公开环境变量：
 
 ```env
-NEXT_PUBLIC_CMS_API_BASE=https://cms.rendering.me/api/v1
+NEXT_PUBLIC_CMS_API_BASE=https://cms.zhomboin.com/api/v1
 ```
 
 本地开发示例：
@@ -327,19 +327,19 @@ navigator.sendBeacon(endpoint, new Blob([JSON.stringify(payload)], {
 当前生产部署默认通过 CMS 独立域名暴露公共 API：
 
 ```text
-https://cms.rendering.me/api/v1
+https://cms.zhomboin.com/api/v1
 ```
 
 Rendering 静态博客配置：
 
 ```env
-NEXT_PUBLIC_CMS_API_BASE=https://cms.rendering.me/api/v1
+NEXT_PUBLIC_CMS_API_BASE=https://cms.zhomboin.com/api/v1
 ```
 
 CMS 后端必须允许 Rendering 站点来源。生产环境使用来源白名单：
 
 ```text
-FRONTEND_ORIGINS=https://cms.rendering.me,https://rendering.me,https://www.rendering.me
+FRONTEND_ORIGINS=https://cms.zhomboin.com,https://rendering.me,https://www.rendering.me
 ```
 
 本地开发时允许：
