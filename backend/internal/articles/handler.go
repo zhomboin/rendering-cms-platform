@@ -118,24 +118,11 @@ func (h Handler) getPublishedArticle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handler) resolvePublishedArticle(ctx context.Context, identifier string) (articleView, string, error) {
-	if identifier == "" || utf8.RuneCountInString(identifier) > 128 {
-		return articleView{}, "", errInvalidArticleIdentifier
-	}
-	if ValidSlug(identifier) {
-		article, err := h.queries.GetArticleBySlug(ctx, identifier)
-		if err != nil {
-			return articleView{}, "", err
-		}
-		return articleViewFromRow(article), "slug", nil
-	}
-	if !ValidArticleName(identifier) {
-		return articleView{}, "", errInvalidArticleIdentifier
-	}
-	article, err := h.queries.GetArticleByArticleName(ctx, identifier)
+	article, resolvedBy, err := ResolvePublishedArticle(ctx, h.queries, identifier)
 	if err != nil {
 		return articleView{}, "", err
 	}
-	return articleViewFromRow(article), "articleName", nil
+	return articleViewFromRow(article), resolvedBy, nil
 }
 
 func (h Handler) searchPublishedArticles(w http.ResponseWriter, r *http.Request) {

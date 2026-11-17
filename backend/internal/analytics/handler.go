@@ -6,12 +6,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	articleutil "rendering-cms-platform/backend/internal/articles"
@@ -27,10 +24,7 @@ type analyticsStore interface {
 	GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error)
 	GetArticleByArticleName(ctx context.Context, articleName string) (dbgen.GetArticleByArticleNameRow, error)
 	GetPublishedPhotoAlbumBySlug(ctx context.Context, slug string) (dbgen.GetPublishedPhotoAlbumBySlugRow, error)
-	CreateAnalyticsEvent(ctx context.Context, arg dbgen.CreateAnalyticsEventParams) (dbgen.CreateAnalyticsEventRow, error)
-	UpsertArticleViewDaily(ctx context.Context, arg dbgen.UpsertArticleViewDailyParams) error
-	UpsertAlbumViewDaily(ctx context.Context, arg dbgen.UpsertAlbumViewDailyParams) error
-	UpsertSiteViewDaily(ctx context.Context, arg dbgen.UpsertSiteViewDailyParams) error
+	RecordAnalyticsView(context.Context, dbgen.RecordAnalyticsViewParams) (bool, error)
 	GetTodaySiteViews(ctx context.Context) (int32, error)
 	ListSiteViewsLast7Days(ctx context.Context) ([]dbgen.ListSiteViewsLast7DaysRow, error)
 	ListHotArticles(ctx context.Context, limit int32) ([]dbgen.ListHotArticlesRow, error)
@@ -81,39 +75,15 @@ func (h Handler) recordArticleView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	today := pgtype.Date{Time: time.Now(), Valid: true}
-	if err := h.queries.UpsertArticleViewDaily(r.Context(), dbgen.UpsertArticleViewDailyParams{
-		ArticleID: articleID,
-		ViewDate:  today,
-		Views:     1,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "文章访问统计写入失败")
-		return
-	}
-	if err := h.queries.UpsertSiteViewDaily(r.Context(), dbgen.UpsertSiteViewDailyParams{
-		ViewDate: today,
-		Views:    1,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "站点访问统计写入失败")
-		return
-	}
-
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h Handler) resolveArticleID(ctx context.Context, identifier string) (pgtype.UUID, error) {
-	if articleutil.ValidSlug(identifier) {
-		article, err := h.queries.GetArticleBySlug(ctx, identifier)
-		if err != nil {
-			return pgtype.UUID{}, err
-		}
-		return article.ArticleID, nil
+	if !articleutil.ValidPublishedIdentifier(identifier) {
+		return pgtype.UUID{}, pgx.ErrNoRows
 	}
-	article, err := h.queries.GetArticleByArticleName(ctx, identifier)
-	if err != nil {
-		return pgtype.UUID{}, err
-	}
-	return article.ArticleID, nil
+	article, _, err := articleutil.ResolvePublishedArticle(ctx, h.queries, identifier)
+	return article.ArticleID, err
 }
 
 // recordAlbumView 与文章浏览上报对称：仅对已发布相册计数，
@@ -138,23 +108,6 @@ func (h Handler) recordAlbumView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	today := pgtype.Date{Time: time.Now(), Valid: true}
-	if err := h.queries.UpsertAlbumViewDaily(r.Context(), dbgen.UpsertAlbumViewDailyParams{
-		AlbumID:  album.AlbumID,
-		ViewDate: today,
-		Views:    1,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "相册访问统计写入失败")
-		return
-	}
-	if err := h.queries.UpsertSiteViewDaily(r.Context(), dbgen.UpsertSiteViewDailyParams{
-		ViewDate: today,
-		Views:    1,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "站点访问统计写入失败")
-		return
-	}
-
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -176,33 +129,17 @@ func (h Handler) recordSiteView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	today := pgtype.Date{Time: time.Now(), Valid: true}
-	if err := h.queries.UpsertSiteViewDaily(r.Context(), dbgen.UpsertSiteViewDailyParams{
-		ViewDate: today,
-		Views:    1,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "站点访问统计写入失败")
-		return
-	}
-
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h Handler) recordAnalyticsEvent(r *http.Request, eventType string, articleID pgtype.UUID, albumID pgtype.UUID) (bool, error) {
-	_, err := h.queries.CreateAnalyticsEvent(r.Context(), dbgen.CreateAnalyticsEventParams{
+	return h.queries.RecordAnalyticsView(r.Context(), dbgen.RecordAnalyticsViewParams{
 		ArticleID: articleID,
 		AlbumID:   albumID,
 		EventType: eventType,
 		IpHash:    httpapi.ClientIPHash(r),
 		UserAgent: nullableText(r.UserAgent()),
 	})
-	if err == nil {
-		return true, nil
-	}
-	if isUniqueViolation(err, "analytics_events_unique") {
-		return false, nil
-	}
-	return false, err
 }
 
 func (h Handler) summary(w http.ResponseWriter, r *http.Request) {
@@ -278,16 +215,11 @@ func mapDailyViews(days []dbgen.ListSiteViewsLast7DaysRow) []map[string]interfac
 	return result
 }
 
-func isUniqueViolation(err error, constraintPrefix string) bool {
-	var pgErr *pgconn.PgError
-	if !errors.As(err, &pgErr) {
-		return false
-	}
-	return pgErr.Code == "23505" && strings.HasPrefix(pgErr.ConstraintName, constraintPrefix)
-}
-
 func nullableText(value string) pgtype.Text {
-	return pgtype.Text{String: value, Valid: value != ""}
+	return pgtype.Text{
+		String: value,
+		Valid:  value != "",
+	}
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {

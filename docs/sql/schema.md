@@ -98,6 +98,8 @@ MVP 使用 PostgreSQL 作为唯一运行时数据源。文章、评论、统计�
 
 ## 访问统计归档规则
 
+访问事件及对应的文章、相册和站点日计数由 [统计写入查询](../../backend/sql/analytics_record.sql)原子维护。只有新事件才累加，计数使用数据库写入事件时确定的日期。
+
 - `article_view_daily` 和 `site_view_daily` 只承担当天实时计数。
 - 后端服务启动后先执行一次过期 daily 数据清理，之后每天本地时间 `00:05` 执行归档。
 - 归档只处理 `view_date < current_date` 的 daily 数据，不处理当天实时计数。

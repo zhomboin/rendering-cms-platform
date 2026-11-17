@@ -84,8 +84,11 @@ func (h Handler) createComment(w http.ResponseWriter, r *http.Request) {
 
 	ipHash := ipHashFromRequest(r)
 	recent, err := h.queries.ListRecentCommentTimesByIPHash(r.Context(), dbgen.ListRecentCommentTimesByIPHashParams{
-		IpHash:    ipHash,
-		CreatedAt: pgtype.Timestamptz{Time: time.Now().Add(-time.Minute), Valid: true},
+		IpHash: ipHash,
+		CreatedAt: pgtype.Timestamptz{
+			Time:  time.Now().Add(-time.Minute),
+			Valid: true,
+		},
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "评论限流检查失败")
@@ -180,7 +183,10 @@ func uuidFromString(value string) (pgtype.UUID, error) {
 }
 
 func nullableText(value string) pgtype.Text {
-	return pgtype.Text{String: value, Valid: value != ""}
+	return pgtype.Text{
+		String: value,
+		Valid:  value != "",
+	}
 }
 
 func ipHashFromRequest(r *http.Request) string {

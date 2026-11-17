@@ -12,7 +12,7 @@ POST /api/v1/articles/{slug}/views
 
 - 公开接口。
 - `{slug}` 是 CMS 返回的 6 位短链码，格式为 `^[0-9A-Za-z]{6}$`。
-- 兼容期内，如果 `{slug}` 不是 6 位短链码，后端会按 `articleName` 解析到对应文章后写入同一篇文章的访问量。
+- 后端优先匹配已发布短链，未命中时再按有效英文名 `articleName` 查找。六位英文名也适用。
 - Rendering 博客正式实现必须使用短链 `slug` 上报，不应长期使用 `articleName`。
 - 仅对已发布文章写入访问统计。
 - 每次调用使 `article_view_daily` 中当日文章访问量加 `1`。
@@ -165,6 +165,8 @@ Authorization: Bearer <jwt-token>
 ```
 
 ## 数据规则
+
+访问事件的去重、内容计数和站点计数使用事件所属的数据库日期，并在同一条数据库语句中提交。任一写入失败时全部回滚，重试仍可正常计入。
 
 - 统计数据按日聚合。
 - `article_view_daily` 使用 `(article_id, view_date)` 作为主键，只保存当天访问量。

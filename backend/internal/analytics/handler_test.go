@@ -3,6 +3,7 @@ package analytics
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -54,7 +55,10 @@ func TestRecordArticleViewSkipsIncrementWhenAnalyticsEventIsDuplicate(t *testing
 			ArticleName: "redis-sentinel-with-docker",
 			Status:      dbgen.ArticleStatusPublished,
 		},
-		createEventErr: &pgconn.PgError{Code: "23505", ConstraintName: "analytics_events_unique_bucket_idx"},
+		createEventErr: &pgconn.PgError{
+			Code:           "23505",
+			ConstraintName: "analytics_events_unique_bucket_idx",
+		},
 	}
 	handler := NewHandler(store)
 	router := chi.NewRouter()
@@ -76,14 +80,20 @@ func TestRecordArticleViewSkipsIncrementWhenAnalyticsEventIsDuplicate(t *testing
 func TestTrendReturnsSiteAndArticleTrend(t *testing.T) {
 	store := &analyticsStoreStub{
 		siteTrendRows: []dbgen.ListSiteViewTrendRow{
-			{ViewDate: pgtype.Date{Time: time.Date(2026, 5, 12, 0, 0, 0, 0, time.UTC), Valid: true}, Views: 42},
+			{ViewDate: pgtype.Date{
+				Time:  time.Date(2026, 5, 12, 0, 0, 0, 0, time.UTC),
+				Valid: true,
+			}, Views: 42},
 		},
 		articleTrendRows: []dbgen.ListArticleViewTrendRow{
 			{
-				ViewDate: pgtype.Date{Time: time.Date(2026, 5, 12, 0, 0, 0, 0, time.UTC), Valid: true},
-				Slug:     "postgres-search",
-				Title:    "PostgreSQL 搜索增强",
-				Views:    12,
+				ViewDate: pgtype.Date{
+					Time:  time.Date(2026, 5, 12, 0, 0, 0, 0, time.UTC),
+					Valid: true,
+				},
+				Slug:  "postgres-search",
+				Title: "PostgreSQL 搜索增强",
+				Views: 12,
 			},
 		},
 	}
@@ -123,7 +133,7 @@ type analyticsStoreStub struct {
 	publishedAlbum        dbgen.GetPublishedPhotoAlbumBySlugRow
 	albumLookupErr        error
 	createEventErr        error
-	createdEvents         []dbgen.CreateAnalyticsEventParams
+	createdEvents         []dbgen.RecordAnalyticsViewParams
 	lastArticleNameLookup string
 	lastArticleViewID     pgtype.UUID
 	articleViewCalls      int
@@ -135,29 +145,25 @@ type analyticsStoreStub struct {
 	lastArticleTrendDays  int32
 }
 
-func (s *analyticsStoreStub) UpsertArticleViewDaily(ctx context.Context, arg dbgen.UpsertArticleViewDailyParams) error {
-	s.lastArticleViewID = arg.ArticleID
-	s.articleViewCalls++
-	return nil
-}
-
-func (s *analyticsStoreStub) UpsertAlbumViewDaily(ctx context.Context, arg dbgen.UpsertAlbumViewDailyParams) error {
-	s.lastAlbumViewID = arg.AlbumID
-	s.albumViewCalls++
-	return nil
-}
-
-func (s *analyticsStoreStub) UpsertSiteViewDaily(ctx context.Context, arg dbgen.UpsertSiteViewDailyParams) error {
-	s.siteViewCalls++
-	return nil
-}
-
-func (s *analyticsStoreStub) CreateAnalyticsEvent(ctx context.Context, arg dbgen.CreateAnalyticsEventParams) (dbgen.CreateAnalyticsEventRow, error) {
+func (s *analyticsStoreStub) RecordAnalyticsView(ctx context.Context, arg dbgen.RecordAnalyticsViewParams) (bool, error) {
 	s.createdEvents = append(s.createdEvents, arg)
 	if s.createEventErr != nil {
-		return dbgen.CreateAnalyticsEventRow{}, s.createEventErr
+		var duplicate *pgconn.PgError
+		if errors.As(s.createEventErr, &duplicate) && duplicate.Code == "23505" {
+			return false, nil
+		}
+		return false, s.createEventErr
 	}
-	return dbgen.CreateAnalyticsEventRow{}, nil
+	if arg.ArticleID.Valid {
+		s.lastArticleViewID = arg.ArticleID
+		s.articleViewCalls++
+	}
+	if arg.AlbumID.Valid {
+		s.lastAlbumViewID = arg.AlbumID
+		s.albumViewCalls++
+	}
+	s.siteViewCalls++
+	return true, nil
 }
 
 func (s *analyticsStoreStub) GetPublishedPhotoAlbumBySlug(ctx context.Context, slug string) (dbgen.GetPublishedPhotoAlbumBySlugRow, error) {
