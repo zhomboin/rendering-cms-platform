@@ -196,7 +196,7 @@ Content-Type: application/json
 - 验证码校验失败统一返回 `验证码错误或已过期`，不区分错误类型，避免探测。
 - 验证码猜错会以失败原因 `mfa_invalid_code` 计入 `login_attempts`，与密码失败共享三级锁定规则，防止持正确密码的攻击者无限轮换验证码爆破。
 - 验证码校验通过才记录登录成功并更新 IP 基线；挑战签发阶段不计入 `login_attempts`。
-- `LOGIN_MFA_DEV_LOG=true` 时验证码写入后端日志而不实际发信，仅用于本地联调。
+- 开发环境可在未配置 SMTP 时通过 `LOGIN_MFA_DEV_LOG=true` 将验证码写入后端日志。配置了 SMTP 时优先发信。其它环境拒绝开启此日志，显式开启验证码功能时必须具备发送渠道。
 
 ## 后台认证规则
 
