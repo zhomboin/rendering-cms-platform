@@ -89,13 +89,14 @@ func main() {
 		AssetFilePrefix: cfg.S3.AssetFilePrefix,
 	})
 	// 相册照片为公开内容：走独立 photos 前缀并要求配置公共访问基地址。
-	albumHandler := albums.NewHandlerWithOptions(queries, storageClient, albums.HandlerOptions{
+	albumHandler := albums.NewHandlerWithOptions(albums.NewDatabaseStore(db), storageClient, albums.HandlerOptions{
 		PublicBaseURL: cfg.S3.PublicBaseURL,
 		PhotoPrefix:   cfg.S3.PhotoPrefix,
 	})
 
 	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
 	defer stopScheduler()
+	albumHandler.StartObjectCleanup(schedulerCtx, logger)
 	analytics.StartDailyViewArchiveScheduler(schedulerCtx, queries, logger)
 	articles.StartDailyArticleLogPruneScheduler(schedulerCtx, queries, cfg.ArticleLogRetention, logger)
 

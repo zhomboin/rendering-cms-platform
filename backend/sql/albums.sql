@@ -1,95 +1,3 @@
--- 相册公开读取：仅返回 published 状态，按 published_at 倒序。
--- 封面解析：优先 cover_photo_id 指定的照片，未指定时回退相册内第一张照片。
--- photo_count 由关联子查询实时计算，保证与 album_photos 永远一致。
-
--- name: CountPublishedPhotoAlbums :one
-select count(*)::int as total
-from photo_albums
-where status = 'published';
-
--- name: ListPublishedPhotoAlbums :many
-select
-  a.album_id,
-  a.slug,
-  a.title,
-  a.title_en,
-  a.description,
-  a.description_en,
-  a.tags,
-  a.published_at,
-  a.created_at,
-  a.updated_at,
-  (select count(*) from album_photos p where p.album_id = a.album_id)::int as photo_count,
-  coalesce(cover.public_url, first_photo.public_url) as cover_url,
-  coalesce(cover.width, first_photo.width, 0)::int as cover_width,
-  coalesce(cover.height, first_photo.height, 0)::int as cover_height
-from photo_albums a
-left join album_photos cover_photo on cover_photo.photo_id = a.cover_photo_id
-left join assets cover on cover.asset_id = cover_photo.asset_id
-left join lateral (
-  select ast.public_url, ast.width, ast.height
-  from album_photos ap
-  join assets ast on ast.asset_id = ap.asset_id
-  where ap.album_id = a.album_id
-  order by ap.position asc, ap.created_at asc
-  limit 1
-) first_photo on true
-where a.status = 'published'
-order by a.published_at desc nulls last, a.created_at desc
-limit $1 offset $2;
-
--- name: GetPublishedPhotoAlbumBySlug :one
-select
-  a.album_id,
-  a.slug,
-  a.title,
-  a.title_en,
-  a.description,
-  a.description_en,
-  a.tags,
-  a.published_at,
-  a.created_at,
-  a.updated_at,
-  (select count(*) from album_photos p where p.album_id = a.album_id)::int as photo_count,
-  coalesce(cover.public_url, first_photo.public_url) as cover_url,
-  coalesce(cover.width, first_photo.width, 0)::int as cover_width,
-  coalesce(cover.height, first_photo.height, 0)::int as cover_height
-from photo_albums a
-left join album_photos cover_photo on cover_photo.photo_id = a.cover_photo_id
-left join assets cover on cover.asset_id = cover_photo.asset_id
-left join lateral (
-  select ast.public_url, ast.width, ast.height
-  from album_photos ap
-  join assets ast on ast.asset_id = ap.asset_id
-  where ap.album_id = a.album_id
-  order by ap.position asc, ap.created_at asc
-  limit 1
-) first_photo on true
-where a.slug = $1 and a.status = 'published';
-
--- name: CountPublishedAlbumPhotosBySlug :one
-select count(*)::int as total
-from album_photos p
-join photo_albums a on a.album_id = p.album_id
-where a.slug = $1 and a.status = 'published';
-
--- name: ListPublishedAlbumPhotosBySlug :many
-select
-  p.photo_id,
-  p.alt,
-  p.caption,
-  p.width,
-  p.height,
-  p.taken_at,
-  p.position,
-  ast.public_url as url
-from album_photos p
-join photo_albums a on a.album_id = p.album_id
-join assets ast on ast.asset_id = p.asset_id
-where a.slug = $1 and a.status = 'published'
-order by p.position asc, p.created_at asc
-limit $2 offset $3;
-
 -- 相册后台管理。
 
 -- name: ListAdminPhotoAlbums :many
@@ -181,6 +89,7 @@ set
   tags = $7,
   updated_at = now()
 where album_id = $1
+  and (slug = $2 or (status = 'draft' and published_at is null))
 returning album_id, slug, title, title_en, description, description_en, status, tags, cover_photo_id, published_at, created_by, created_at, updated_at;
 
 -- 首次发布写入 published_at 并保持稳定；重新发布沿用原时间。
@@ -280,7 +189,7 @@ insert into assets (
 )
 returning asset_id, filename, content_type, byte_size, storage_key, public_url, created_by, created_at, status, deleted_at, width, height;
 
--- position 用同一语句内的子查询追加到相册末尾，避免并发下的重复位次。
+-- position 以当前最大位次加一追加；并发写入仍需额外的串行化保护。
 -- name: CreateAlbumPhoto :one
 insert into album_photos (
   album_id,
