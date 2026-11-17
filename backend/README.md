@@ -6,7 +6,7 @@
 
 ## 技术栈
 
-- Go 1.26.10
+- Go 1.26.11
 - Chi
 - pgx / pgxpool
 - sqlc

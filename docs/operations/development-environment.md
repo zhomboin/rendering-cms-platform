@@ -23,7 +23,7 @@ bash scripts/env/check-env.sh
 
 | 工具 | 项目要求 | 说明 |
 | --- | --- | --- |
-| Go | Go 1.26.10，与 backend/go.mod 一致 | 用于本机后端开发和 CLI 工具安装；也可以使用 Docker Go 容器执行测试。 |
+| Go | Go 1.26.11，与 backend/go.mod 一致 | 用于本机后端开发和 CLI 工具安装；也可以使用 Docker Go 容器执行测试。 |
 | Node.js | 使用符合锁文件要求的 Linux 版本，CI 使用 24 | 用于本机前端开发；也可以使用 Docker Node 容器执行构建。 |
 | npm | npm 10+ | 与 Node.js 配套使用。 |
 | Docker | Docker Engine 或 Docker Desktop WSL integration | 用于依赖服务、后端容器、前端容器和生产镜像验证。 |
@@ -249,7 +249,7 @@ scripts/env/docker-compose.dev.yml
 | `postgres` | 本地 PostgreSQL 数据库 | `127.0.0.1:5432` |
 | `minio` | 本地 S3 兼容对象存储 | `127.0.0.1:9000` |
 | `minio-init` | 初始化 MinIO bucket | 无对外端口 |
-| `backend` | Go API 开发服务，使用 `golang:1.26.10-alpine` | `127.0.0.1:8080` |
+| `backend` | Go API 开发服务，使用 `golang:1.26.11-alpine` | `127.0.0.1:8080` |
 | `frontend` | Vite 前端开发服务，使用 `node:22-alpine` | `127.0.0.1:5173` |
 
 `backend` 和 `frontend` 使用 Docker Compose profile，不会随前置依赖服务自动启动。这样可以先启动数据库和 MinIO，再按需要单独启动后端或前端。
