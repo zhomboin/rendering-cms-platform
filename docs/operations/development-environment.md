@@ -292,6 +292,8 @@ bash scripts/env/stop-dev-services.sh
 
 停止 Compose 中的前置依赖服务、后端 profile 服务和前端 profile 服务。
 
+AI 草稿协作与发布按 [MCP 本地接入](article-mcp.md#本地启动)配置和验证。
+
 ## 推荐开发启动顺序
 
 1. 在 WSL 中进入仓库根目录，运行环境检查并准备 `.env`。

@@ -50,7 +50,7 @@ type articleStore interface {
 	CreateDraftArticle(ctx context.Context, arg dbgen.CreateDraftArticleParams) (dbgen.CreateDraftArticleRow, error)
 	UpdateDraftArticle(ctx context.Context, arg dbgen.UpdateDraftArticleParams) (dbgen.UpdateDraftArticleRow, error)
 	UpdatePrivateArticle(ctx context.Context, arg dbgen.UpdatePrivateArticleParams) (dbgen.UpdatePrivateArticleRow, error)
-	PublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.PublishArticleRow, error)
+	PublishArticle(ctx context.Context, arg dbgen.PublishArticleParams) (dbgen.PublishArticleRow, error)
 	UnpublishArticle(ctx context.Context, articleID pgtype.UUID) (dbgen.UnpublishArticleRow, error)
 	MarkArticlePrivate(ctx context.Context, articleID pgtype.UUID) (dbgen.MarkArticlePrivateRow, error)
 	RestoreArticleToDraft(ctx context.Context, articleID pgtype.UUID) (dbgen.RestoreArticleToDraftRow, error)
@@ -237,23 +237,32 @@ func (h Handler) updateDraftArticle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	expected, ok := expectedArticleVersion(w, r)
+	if !ok {
+		return
+	}
 	updateParams := dbgen.UpdateDraftArticleParams{
-		ArticleID:     articleID,
-		Slug:          current.Slug,
-		ArticleName:   payload.ArticleName,
-		Title:         payload.Title,
-		Summary:       payload.Summary,
-		BodyMdx:       payload.BodyMdx,
-		Tags:          payload.Tags,
-		Featured:      payload.Featured,
-		FeaturedRank:  int32WithDefault(payload.FeaturedRank, 100),
-		FeaturedAt:    nullableTimestamptzFromString(payload.FeaturedAt),
-		CoverImageUrl: nullableText(payload.CoverImageURL),
+		ExpectedVersion: expected,
+		ArticleID:       articleID,
+		Slug:            current.Slug,
+		ArticleName:     payload.ArticleName,
+		Title:           payload.Title,
+		Summary:         payload.Summary,
+		BodyMdx:         payload.BodyMdx,
+		Tags:            payload.Tags,
+		Featured:        payload.Featured,
+		FeaturedRank:    int32WithDefault(payload.FeaturedRank, 100),
+		FeaturedAt:      nullableTimestamptzFromString(payload.FeaturedAt),
+		CoverImageUrl:   nullableText(payload.CoverImageURL),
 	}
 	if current.Status == dbgen.ArticleStatusPrivate {
 		privateParams := dbgen.UpdatePrivateArticleParams(updateParams)
 		article, err := h.queries.UpdatePrivateArticle(r.Context(), privateParams)
 		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				writeError(w, http.StatusConflict, versionConflict)
+				return
+			}
 			if isArticleNameUniqueViolation(err) {
 				writeError(w, http.StatusBadRequest, "文章英文名已存在")
 				return
@@ -267,6 +276,10 @@ func (h Handler) updateDraftArticle(w http.ResponseWriter, r *http.Request) {
 
 	article, err := h.queries.UpdateDraftArticle(r.Context(), updateParams)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusConflict, versionConflict)
+			return
+		}
 		if isArticleNameUniqueViolation(err) {
 			writeError(w, http.StatusBadRequest, "文章英文名已存在")
 			return
@@ -306,10 +319,14 @@ func (h Handler) publishArticle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	article, err := h.queries.PublishArticle(r.Context(), articleID)
+	expected, ok := expectedArticleVersion(w, r)
+	if !ok {
+		return
+	}
+	article, err := h.queries.PublishArticle(r.Context(), dbgen.PublishArticleParams{ArticleID: articleID, ExpectedVersion: expected})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusConflict, "仅草稿状态的文章可以发布")
+			writeError(w, http.StatusConflict, versionConflict)
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "文章发布失败")

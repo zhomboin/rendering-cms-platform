@@ -40,6 +40,7 @@ export function toPayload(values: ArticleFormData): AdminArticlePayload {
 }
 
 type StoredArticleDraft = {
+  baseVersion?: number;
   values: ArticleFormData;
   updatedAt: string;
 };
@@ -87,6 +88,7 @@ export function loadArticleDraft(key: string): StoredArticleDraft | null {
     return {
       values,
       updatedAt: parsed.updatedAt,
+      baseVersion: parsed.baseVersion,
     };
   } catch {
     window.localStorage.removeItem(key);
@@ -94,7 +96,11 @@ export function loadArticleDraft(key: string): StoredArticleDraft | null {
   }
 }
 
-export function saveArticleDraft(key: string, values: Partial<ArticleFormData>) {
+export function saveArticleDraft(
+  key: string,
+  values: Partial<ArticleFormData>,
+  baseVersion?: number,
+) {
   try {
     const normalizedValues = normalizeFormData(values);
     if (!hasMeaningfulDraft(normalizedValues)) {
@@ -103,6 +109,7 @@ export function saveArticleDraft(key: string, values: Partial<ArticleFormData>) 
     }
     const draft: StoredArticleDraft = {
       values: normalizedValues,
+      baseVersion,
       updatedAt: new Date().toISOString(),
     };
     window.localStorage.setItem(key, JSON.stringify(draft));

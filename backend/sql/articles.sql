@@ -166,6 +166,7 @@ set
   updated_at = now()
 where article_id = $1
   and status = 'draft'
+  and version = coalesce(sqlc.narg('expected_version')::integer, version)
 returning
   article_id,
   slug,
@@ -202,6 +203,7 @@ set
   updated_at = now()
 where article_id = $1
   and status = 'private'
+  and version = coalesce(sqlc.narg('expected_version')::integer, version)
 returning
   article_id,
   slug,
@@ -230,6 +232,7 @@ set
   updated_at = now()
 where article_id = $1
   and status = 'draft'
+  and version = coalesce(sqlc.narg('expected_version')::integer, version)
 returning
   article_id,
   slug,

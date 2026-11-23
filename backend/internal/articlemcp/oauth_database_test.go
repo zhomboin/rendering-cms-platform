@@ -1,0 +1,86 @@
+package articlemcp
+
+import (
+	"crypto/rand"
+	"crypto/rsa"
+	"errors"
+	"os"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
+	"rendering-cms-platform/backend/internal/config"
+	"rendering-cms-platform/backend/internal/database/dbgen"
+	"rendering-cms-platform/backend/internal/testutil"
+)
+
+func TestOAuthGrantAndMigration(t *testing.T) {
+	pool := testutil.Database(t)
+	ctx := t.Context()
+	var owner pgtype.UUID
+	if err := pool.QueryRow(ctx, "insert into users(email,name,password_hash) values ('oauth@example.invalid','Owner','unused') returning user_id").Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := config.ArticleMCPConfig{Origin: "https://cms.example.invalid", Issuer: "https://id.example.invalid", Key: &key.PublicKey}
+	svc := New(pool, c)
+	q := dbgen.New(pool)
+	id, err := q.CreateMCPConnection(ctx, dbgen.CreateMCPConnectionParams{OwnerID: owner, Label: "OAuth", OauthIssuer: textValue(c.Issuer), OauthClient: textValue("client"), OauthSubject: textValue("subject")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := func(subject, scope string) string {
+		tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims{RegisteredClaims: jwt.RegisteredClaims{Issuer: c.Issuer, Audience: jwt.ClaimStrings{c.Origin + endpoint}, Subject: subject, ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))}, ClientID: "client", Scope: scope})
+		tok.Header["typ"] = "at+jwt"
+		signed, err := tok.SignedString(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return signed
+	}
+	if _, err := svc.verify(ctx, token("other", draftScope), nil); !errors.Is(err, mcpauth.ErrInvalidToken) {
+		t.Fatalf("其他主体获得授权 %v", err)
+	}
+	all := token("subject", draftScope+" "+publishScope)
+	check := func(tok string, publish bool) {
+		t.Helper()
+		info, err := svc.verify(ctx, tok, nil)
+		if err != nil || info.UserID != id.String() || slices.Contains(info.Scopes, publishScope) != publish {
+			t.Fatalf("授权范围 %v %v", info, err)
+		}
+	}
+	check(all, false)
+	if _, err = q.ChangeMCPPublish(ctx, dbgen.ChangeMCPPublishParams{OwnerID: owner, ID: id, AllowPublish: true}); err != nil {
+		t.Fatal(err)
+	}
+	check(all, true)
+	check(token("subject", draftScope), false)
+	a, err := svc.store.create(ctx, principal{id: id}, CreateInput{RequestKey: "check", ArticleName: "check", Content: Content{Title: "检查", Body: "正文"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, direction := range []string{"down", "up"} {
+		raw, err := os.ReadFile("../../migrations/000019_article_mcp." + direction + ".sql")
+		if err != nil {
+			t.Fatal(err)
+		}
+		testutil.Exec(t, pool, string(raw))
+	}
+	if _, err := q.GetArticleByID(ctx, mustArticleID(t, a.ArticleID)); err != nil {
+		t.Fatalf("迁移往返丢失文章 %v", err)
+	}
+}
+func mustArticleID(t *testing.T, raw string) pgtype.UUID {
+	t.Helper()
+	id, err := parseID(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}

@@ -53,6 +53,7 @@ async function setup(t, route, body = source, viewport = { width: 1440, height: 
           articleName: 'markdown-fixture',
           bodyMdx: body,
           status: 'draft',
+          version: 1,
           tags: [],
           summary: '',
           slug: 'abc123',
@@ -111,6 +112,42 @@ test('手机宽表格只在自身区域滚动', async (t) => {
     document: document.documentElement.scrollWidth <= window.innerWidth,
   }));
   assert.deepEqual(size, { own: true, document: true });
+});
+
+test('AI 更新后保留人工草稿，重新确认后按新版本保存', async (t) => {
+  const page = await setup(t, 'edit');
+  const editor = page.locator('[data-article-body-editor]');
+  await editor.fill('我正在编辑');
+  let patched = false;
+  await page.route('**/api/v1/admin/articles**', async (route) => {
+    const article = {
+      articleId: 'markdown-fixture',
+      articleName: 'markdown-fixture',
+      slug: 'abc123',
+      version: 2,
+      title: '新文章',
+      bodyMdx: 'AI 的修改',
+      status: 'draft',
+      tags: [],
+      summary: '',
+    };
+    if (route.request().method() === 'PATCH') {
+      assert.equal(new URL(route.request().url()).searchParams.get('expectedVersion'), '2');
+      assert.equal(route.request().postDataJSON().bodyMdx, '我正在编辑');
+      patched = true;
+      return route.fulfill({ json: { ...article, version: 3 } });
+    }
+    return route.fulfill({ json: [article] });
+  });
+  await page.reload();
+  await page.getByText('服务器已有新版本，本地修改已保留').waitFor();
+  assert.equal(await editor.inputValue(), '我正在编辑');
+  const save = page.getByRole('button', { name: '保存草稿' });
+  assert.equal(await save.isDisabled(), true);
+  await page.getByRole('button', { name: '基于新版继续编辑' }).click();
+  await save.click();
+  await page.getByText('草稿已保存', { exact: true }).waitFor();
+  assert.equal(patched, true);
 });
 
 test('错误预览不执行表达式，修正后不会保留旧错误', async (t) => {

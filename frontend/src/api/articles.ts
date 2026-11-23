@@ -44,12 +44,25 @@ export function createAdminArticle(payload: AdminArticlePayload) {
   return apiPost<AdminArticleRecord>('/admin/articles', payload);
 }
 
-export function updateAdminArticle(articleId: string, payload: AdminArticlePayload) {
-  return apiPatch<AdminArticleRecord>(`/admin/articles/${articleId}`, payload);
+function versionQuery(version?: number) {
+  return version === undefined ? '' : `?expectedVersion=${version}`;
 }
 
-export function publishAdminArticle(articleId: string) {
-  return apiPost<AdminArticleRecord>(`/admin/articles/${articleId}/publish`);
+export function updateAdminArticle(
+  articleId: string,
+  payload: AdminArticlePayload,
+  version?: number,
+) {
+  return apiPatch<AdminArticleRecord>(
+    `/admin/articles/${articleId}${versionQuery(version)}`,
+    payload,
+  );
+}
+
+export function publishAdminArticle(articleId: string, version?: number) {
+  return apiPost<AdminArticleRecord>(
+    `/admin/articles/${articleId}/publish${versionQuery(version)}`,
+  );
 }
 
 export function unpublishAdminArticle(articleId: string) {

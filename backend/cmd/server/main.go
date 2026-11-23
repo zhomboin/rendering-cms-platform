@@ -9,6 +9,7 @@ import (
 
 	"rendering-cms-platform/backend/internal/albums"
 	"rendering-cms-platform/backend/internal/analytics"
+	"rendering-cms-platform/backend/internal/articlemcp"
 	"rendering-cms-platform/backend/internal/articles"
 	"rendering-cms-platform/backend/internal/assets"
 	"rendering-cms-platform/backend/internal/auth"
@@ -123,6 +124,12 @@ func main() {
 		}, service)
 	}
 
+	var mcpRoutes, mcpAdminRoutes httpapi.RouteRegistrar
+	if cfg.ArticleMCP.Origin != "" {
+		service := articlemcp.New(db, cfg.ArticleMCP)
+		mcpRoutes, mcpAdminRoutes = service.Register, service.RegisterAdmin
+	}
+
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.NewRouter(
@@ -153,6 +160,8 @@ func main() {
 			httpapi.WithAdminRoutes(assetHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(albumHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(postBridgeRoutes),
+			httpapi.WithPublicRoutes(mcpRoutes),
+			httpapi.WithAdminRoutes(mcpAdminRoutes),
 		),
 		// 照片上传走 50MB 后端代理链路，ReadTimeout/WriteTimeout 需覆盖慢速
 		// 上行的整个请求周期（与前端 120s 超时对齐）；slowloris 头部防护由

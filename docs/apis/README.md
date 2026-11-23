@@ -4,6 +4,7 @@
 
 - [认证 API](./auth.md)
 - [文章 API](./articles.md)
+- [AI 文章 MCP](./article-mcp.md)
 - [统计 API](./analytics.md)
 - [首页数据驾驶舱 API](./dashboard.md)
 - [评论 API](./comments.md)

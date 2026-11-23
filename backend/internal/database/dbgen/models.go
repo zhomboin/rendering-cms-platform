@@ -305,6 +305,30 @@ type ArticleLog struct {
 	FeaturedAt    pgtype.Timestamptz
 }
 
+type ArticleMcpConnection struct {
+	ID           pgtype.UUID
+	OwnerID      pgtype.UUID
+	Label        string
+	TokenHash    []byte
+	OauthIssuer  pgtype.Text
+	OauthClient  pgtype.Text
+	OauthSubject pgtype.Text
+	AllowPublish bool
+	Revoked      bool
+	CreatedAt    pgtype.Timestamptz
+}
+
+type ArticleMcpDraft struct {
+	ArticleID       pgtype.UUID
+	ConnectionID    pgtype.UUID
+	RequestKey      string
+	PayloadHash     []byte
+	SearchVersion   pgtype.Int4
+	SearchResult    pgtype.Text
+	SearchCheckedAt pgtype.Timestamptz
+	Detached        bool
+}
+
 type ArticleShortSlugMapping struct {
 	ArticleID pgtype.UUID
 	ShortSlug string
