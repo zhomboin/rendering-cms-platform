@@ -752,6 +752,7 @@ set
   updated_at = now()
 where article_id = $1
   and status = 'draft'
+  and version = coalesce($2::integer, version)
 returning
   article_id,
   slug,
@@ -772,6 +773,11 @@ returning
   version,
   search_vector
 `
+
+type PublishArticleParams struct {
+	ArticleID       pgtype.UUID
+	ExpectedVersion pgtype.Int4
+}
 
 type PublishArticleRow struct {
 	ArticleID     pgtype.UUID
@@ -794,8 +800,8 @@ type PublishArticleRow struct {
 	SearchVector  interface{}
 }
 
-func (q *Queries) PublishArticle(ctx context.Context, articleID pgtype.UUID) (PublishArticleRow, error) {
-	row := q.db.QueryRow(ctx, publishArticle, articleID)
+func (q *Queries) PublishArticle(ctx context.Context, arg PublishArticleParams) (PublishArticleRow, error) {
+	row := q.db.QueryRow(ctx, publishArticle, arg.ArticleID, arg.ExpectedVersion)
 	var i PublishArticleRow
 	err := row.Scan(
 		&i.ArticleID,
@@ -986,6 +992,7 @@ set
   updated_at = now()
 where article_id = $1
   and status = 'draft'
+  and version = coalesce($12::integer, version)
 returning
   article_id,
   slug,
@@ -1008,17 +1015,18 @@ returning
 `
 
 type UpdateDraftArticleParams struct {
-	ArticleID     pgtype.UUID
-	Slug          string
-	ArticleName   string
-	Title         string
-	Summary       string
-	BodyMdx       string
-	Tags          []string
-	Featured      bool
-	FeaturedRank  int32
-	FeaturedAt    pgtype.Timestamptz
-	CoverImageUrl pgtype.Text
+	ArticleID       pgtype.UUID
+	Slug            string
+	ArticleName     string
+	Title           string
+	Summary         string
+	BodyMdx         string
+	Tags            []string
+	Featured        bool
+	FeaturedRank    int32
+	FeaturedAt      pgtype.Timestamptz
+	CoverImageUrl   pgtype.Text
+	ExpectedVersion pgtype.Int4
 }
 
 type UpdateDraftArticleRow struct {
@@ -1055,6 +1063,7 @@ func (q *Queries) UpdateDraftArticle(ctx context.Context, arg UpdateDraftArticle
 		arg.FeaturedRank,
 		arg.FeaturedAt,
 		arg.CoverImageUrl,
+		arg.ExpectedVersion,
 	)
 	var i UpdateDraftArticleRow
 	err := row.Scan(
@@ -1096,6 +1105,7 @@ set
   updated_at = now()
 where article_id = $1
   and status = 'private'
+  and version = coalesce($12::integer, version)
 returning
   article_id,
   slug,
@@ -1118,17 +1128,18 @@ returning
 `
 
 type UpdatePrivateArticleParams struct {
-	ArticleID     pgtype.UUID
-	Slug          string
-	ArticleName   string
-	Title         string
-	Summary       string
-	BodyMdx       string
-	Tags          []string
-	Featured      bool
-	FeaturedRank  int32
-	FeaturedAt    pgtype.Timestamptz
-	CoverImageUrl pgtype.Text
+	ArticleID       pgtype.UUID
+	Slug            string
+	ArticleName     string
+	Title           string
+	Summary         string
+	BodyMdx         string
+	Tags            []string
+	Featured        bool
+	FeaturedRank    int32
+	FeaturedAt      pgtype.Timestamptz
+	CoverImageUrl   pgtype.Text
+	ExpectedVersion pgtype.Int4
 }
 
 type UpdatePrivateArticleRow struct {
@@ -1165,6 +1176,7 @@ func (q *Queries) UpdatePrivateArticle(ctx context.Context, arg UpdatePrivateArt
 		arg.FeaturedRank,
 		arg.FeaturedAt,
 		arg.CoverImageUrl,
+		arg.ExpectedVersion,
 	)
 	var i UpdatePrivateArticleRow
 	err := row.Scan(

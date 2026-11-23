@@ -88,7 +88,9 @@ func WithLogger(logger *slog.Logger) RouterOption {
 
 func WithPublicRoutes(registrar RouteRegistrar) RouterOption {
 	return func(config *RouterConfig) {
-		config.PublicRoutes = append(config.PublicRoutes, registrar)
+		if registrar != nil {
+			config.PublicRoutes = append(config.PublicRoutes, registrar)
+		}
 	}
 }
 

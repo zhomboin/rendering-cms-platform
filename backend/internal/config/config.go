@@ -33,6 +33,7 @@ type Config struct {
 	S3                  S3Config
 	SMTP                SMTPConfig
 	PostBridge          PostBridgeConfig
+	ArticleMCP          ArticleMCPConfig
 	// LoginMFAEnabled 未显式设置时由 SMTP 是否配置齐全决定；关闭后登录不触发邮箱验证码。
 	LoginMFAEnabled bool
 	// LoginMFADevLog 开发调试开关，开启后验证码写入后端日志而不实际发信。
@@ -141,6 +142,10 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.PostBridge = bridge
+	cfg.ArticleMCP, err = loadArticleMCP(cfg.AppEnv == "development")
+	if err != nil {
+		return Config{}, err
+	}
 
 	return cfg, nil
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent, ReactNode } from 'react';
+import type { KeyboardEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   App,
@@ -51,92 +51,12 @@ import {
 } from './articleEditorDraft';
 import { revisionListColumns, formatRevisionTime } from './articleRevisionColumns';
 import { normalizeArticleTag, normalizeArticleTags } from './articleTags';
-import {
-  CodeInlineIcon,
-  CodeBlockIcon,
-  LinkIcon,
-  ImageIcon,
-  FullscreenIcon,
-  ExitFullscreenIcon,
-} from './ArticleEditorIcons';
+import { FullscreenIcon, ExitFullscreenIcon } from './ArticleEditorIcons';
+import { markdownActions, type MarkdownAction } from './articleMarkdownActions';
 import './ArticleEditorPage.css';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
-
-type MarkdownAction = {
-  id: 'bold' | 'italic' | 'underline' | 'strike' | 'inlineCode' | 'codeBlock' | 'link' | 'image';
-  icon: ReactNode;
-  title: string;
-  shortcut?: string;
-  prefix?: string;
-  suffix?: string;
-  placeholder?: string;
-};
-
-const markdownActions: MarkdownAction[] = [
-  {
-    id: 'bold',
-    icon: <strong>B</strong>,
-    title: '加粗',
-    shortcut: 'Ctrl+B',
-    prefix: '**',
-    suffix: '**',
-    placeholder: '加粗文本',
-  },
-  {
-    id: 'italic',
-    icon: <em>I</em>,
-    title: '斜体',
-    shortcut: 'Ctrl+I',
-    prefix: '*',
-    suffix: '*',
-    placeholder: '斜体文本',
-  },
-  {
-    id: 'underline',
-    icon: <span style={{ textDecoration: 'underline' }}>U</span>,
-    title: '下划线',
-    shortcut: 'Ctrl+U',
-    prefix: '<u>',
-    suffix: '</u>',
-    placeholder: '下划线文本',
-  },
-  {
-    id: 'strike',
-    icon: <span style={{ textDecoration: 'line-through' }}>S</span>,
-    title: '删除线',
-    prefix: '~~',
-    suffix: '~~',
-    placeholder: '删除线文本',
-  },
-  {
-    id: 'inlineCode',
-    icon: <CodeInlineIcon />,
-    title: '行内代码',
-    prefix: '`',
-    suffix: '`',
-    placeholder: 'code',
-  },
-  {
-    id: 'codeBlock',
-    icon: <CodeBlockIcon />,
-    title: '代码块',
-    prefix: '```ts\n',
-    suffix: '\n```',
-    placeholder: 'const example = true;',
-  },
-  {
-    id: 'link',
-    icon: <LinkIcon />,
-    title: '添加链接',
-    shortcut: 'Ctrl+K',
-    prefix: '[',
-    suffix: '](https://example.com)',
-    placeholder: '链接文本',
-  },
-  { id: 'image', icon: <ImageIcon />, title: '插入图片' },
-];
 
 export default function ArticleEditorPage() {
   const { message, modal } = App.useApp();
@@ -155,6 +75,7 @@ export default function ArticleEditorPage() {
   });
   const [writerFullscreen, setWriterFullscreen] = useState(false);
   const [mobilePane, setMobilePane] = useState<'edit' | 'preview'>('edit');
+  const [baseVersion, setBaseVersion] = useState<number>();
   const [restoredDraftAt, setRestoredDraftAt] = useState<string | null>(null);
   const [revisionDrawerOpen, setRevisionDrawerOpen] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
@@ -198,6 +119,7 @@ export default function ArticleEditorPage() {
     setRestoredDraftAt(null);
     setImageModalOpen(false);
     if (!isEdit) {
+      setBaseVersion(undefined);
       const draft = loadArticleDraft(draftKey);
       form.setFieldsValue(draft?.values ?? initialFormData);
       if (draft) setRestoredDraftAt(draft.updatedAt);
@@ -217,6 +139,7 @@ export default function ArticleEditorPage() {
         coverImageUrl: currentArticle.coverImageUrl ?? '',
       };
       const draft = loadArticleDraft(draftKey);
+      setBaseVersion(draft?.baseVersion ?? currentArticle.version);
       form.setFieldsValue({
         ...articleValues,
         ...(draft?.values ?? {}),
@@ -226,10 +149,17 @@ export default function ArticleEditorPage() {
     }
   }, [currentArticle, draftKey, form, isEdit]);
 
+  const rememberDraft = (values: Partial<ArticleFormData>) =>
+    saveArticleDraft(draftKey, values, baseVersion);
+  const hasVersionConflict =
+    baseVersion !== undefined &&
+    currentArticle?.version !== undefined &&
+    baseVersion !== currentArticle.version;
+
   const saveMutation = useMutation({
     mutationFn: async (values: ArticleFormData) => {
       if (isEdit && id) {
-        return updateAdminArticle(id, toPayload(values));
+        return updateAdminArticle(id, toPayload(values), baseVersion);
       }
       return createAdminArticle(toPayload(values));
     },
@@ -241,6 +171,7 @@ export default function ArticleEditorPage() {
       if (!isEdit) navigate(`/admin/articles/${article.articleId}/edit`, { replace: true });
     },
     onError: (error) => {
+      if (isEdit) void articlesQuery.refetch();
       message.error(error instanceof Error ? error.message : '草稿保存失败');
     },
   });
@@ -249,9 +180,9 @@ export default function ArticleEditorPage() {
     mutationFn: async (values: ArticleFormData) => {
       const saved =
         isEdit && id
-          ? await updateAdminArticle(id, toPayload(values))
+          ? await updateAdminArticle(id, toPayload(values), baseVersion)
           : await createAdminArticle(toPayload(values));
-      return publishAdminArticle(saved.articleId);
+      return publishAdminArticle(saved.articleId, saved.version);
     },
     onSuccess: async () => {
       clearArticleDraft(draftKey);
@@ -263,6 +194,7 @@ export default function ArticleEditorPage() {
     },
     onError: (error) => {
       setPublishModalOpen(false);
+      if (isEdit) void articlesQuery.refetch();
       message.error(error instanceof Error ? error.message : '文章发布失败');
     },
   });
@@ -360,7 +292,7 @@ export default function ArticleEditorPage() {
           coverImageUrl: revisionDetail.coverImageUrl ?? '',
         };
         form.setFieldsValue(restoredValues);
-        saveArticleDraft(draftKey, restoredValues);
+        rememberDraft(restoredValues);
         setSelectedVersion(null);
         setRevisionDrawerOpen(false);
         message.success('已载入历史版本内容，确认后保存草稿');
@@ -373,10 +305,11 @@ export default function ArticleEditorPage() {
     const formatted = normalizeArticleName(value);
     if (formatted === value) return;
     form.setFieldValue('articleName', formatted);
-    saveArticleDraft(draftKey, form.getFieldsValue());
+    rememberDraft(form.getFieldsValue());
   };
 
   const handleSaveDraft = async () => {
+    if (hasVersionConflict) return;
     if (isLockedArticle) {
       message.warning('请先下架文章恢复为草稿，再修改内容');
       return;
@@ -387,6 +320,7 @@ export default function ArticleEditorPage() {
   };
 
   const handlePublish = async () => {
+    if (hasVersionConflict) return;
     if (isLockedArticle) {
       message.warning('请先下架文章恢复为草稿，修改后再发布');
       return;
@@ -449,7 +383,7 @@ export default function ArticleEditorPage() {
     const { currentValue, selectionStart, selectionEnd } = imageSelection.current;
     const next = insertArticleImages(currentValue, selectionStart, selectionEnd, images);
     form.setFieldsValue({ bodyMdx: next.value });
-    saveArticleDraft(draftKey, form.getFieldsValue());
+    rememberDraft(form.getFieldsValue());
     setImageModalOpen(false);
     window.requestAnimationFrame(() => {
       const editor = document.querySelector<HTMLTextAreaElement>(
@@ -585,6 +519,29 @@ export default function ArticleEditorPage() {
         />
       )}
 
+      {hasVersionConflict && currentArticle && (
+        <Alert
+          type="warning"
+          showIcon
+          title="服务器已有新版本，本地修改已保留"
+          action={
+            <Space>
+              <Button href={`/admin/articles/${id}/read`} target="_blank" rel="noreferrer">
+                查看服务器稿
+              </Button>
+              <Button
+                onClick={() => {
+                  saveArticleDraft(draftKey, form.getFieldsValue(), currentArticle.version);
+                  setBaseVersion(currentArticle.version);
+                }}
+              >
+                基于新版继续编辑
+              </Button>
+            </Space>
+          }
+        />
+      )}
+
       {restoredDraftAt && (
         <Alert
           type="info"
@@ -679,7 +636,7 @@ export default function ArticleEditorPage() {
             }
             layout="vertical"
             initialValues={initialFormData}
-            onValuesChange={(_, values) => saveArticleDraft(draftKey, values)}
+            onValuesChange={(_, values) => rememberDraft(values)}
           >
             <Form.Item
               name="title"
@@ -791,7 +748,7 @@ export default function ArticleEditorPage() {
               bodyMdx={bodyMdx}
               onSelect={(url) => {
                 form.setFieldValue('coverImageUrl', url);
-                saveArticleDraft(draftKey, form.getFieldsValue());
+                rememberDraft(form.getFieldsValue());
               }}
             />
           </Form>
@@ -816,7 +773,7 @@ export default function ArticleEditorPage() {
           <Button
             onClick={handleSaveDraft}
             loading={saveMutation.isPending}
-            disabled={isLockedArticle}
+            disabled={isLockedArticle || hasVersionConflict || (isEdit && !currentArticle)}
           >
             {isPrivateArticle ? '保存' : '保存草稿'}
           </Button>
@@ -839,7 +796,12 @@ export default function ArticleEditorPage() {
                 type="primary"
                 size="large"
                 loading={publishMutation.isPending}
-                disabled={isLockedArticle || isPrivateArticle}
+                disabled={
+                  isLockedArticle ||
+                  isPrivateArticle ||
+                  hasVersionConflict ||
+                  (isEdit && !currentArticle)
+                }
                 onClick={() => setPublishModalOpen(true)}
               >
                 发布
