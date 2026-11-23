@@ -28,8 +28,11 @@ AI 客户端连接 `/api/v1/mcp`，选择 Streamable HTTP。服务使用官方 G
 
 | 后台接口（前缀 `/api/v1/admin/mcp`） | 用途 |
 | --- | --- |
+| `GET /settings` | 返回全站开关、三个来源、客户端接入地址、OAuth 发行方和配置版本。 |
+| `PATCH /settings` | 提交完整的 `enabled`、`origin`、`adminOrigin`、`blogOrigin` 和 `revision`。并发修改返回 409。关闭后 MCP 入口和资源发现返回 404，管理员仍可管理连接、查询记录。 |
+| `GET /operations` | 按时间倒序列出本人连接的工具调用，每页 50 条。返回 `items` 和下一页游标 `next`，续页使用 `?before=<next>`。`pending` 表示结果待确认。日志仅保存连接、工具、结果、时间和成功访问的文章 ID。 |
 | `POST /connections` | 必填 `label`，`allowPublish` 默认为 false。个人连接令牌仅在创建时返回一次。指定 `oauthClient` 和 `oauthSubject` 时绑定配置好的 OAuth 发行方。 |
-| `GET /connections` | 列出本人签发的连接 ID、名称、发布权和撤销状态。 |
+| `GET /connections` | 列出本人签发的连接、认证方式、发布权、撤销状态、客户端自报名称和最近活动时间。首次观测前 `lastSeenAt` 为空。 |
 | `PATCH /connections/{id}` | 用 `allowPublish` 启用或收回发布权限。 |
 | `DELETE /connections/{id}` | 撤销连接，文章和修订保留。 |
 | `GET /articles/{id}/search-check` | 为连接所有者返回已发布稿件的标题、公开链接和版本。 |

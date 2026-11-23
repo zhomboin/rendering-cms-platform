@@ -171,3 +171,49 @@ test('资源大小按二进制显示，文件名和类型可组合筛选', async
   await page.getByText('没有匹配的文件', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320);
 });
+
+test('管理员可在手机配置 MCP，编辑不能直接进入管理页', async (t) => {
+  const page = await newPage(t);
+  await page.addInitScript(() => {
+    localStorage.setItem('rendering-cms-user', JSON.stringify({ userId: 'test', role: 'admin' }));
+  });
+  let settings = {
+    revision: 0,
+    enabled: false,
+    origin: '',
+    adminOrigin: '',
+    blogOrigin: '',
+    issuer: '',
+    endpoint: '',
+  };
+  await page.route('**/api/v1/admin/mcp/settings', async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const input = route.request().postDataJSON();
+      assert.equal(input.revision, 0);
+      settings = { ...settings, ...input, revision: 1, endpoint: input.origin + '/api/v1/mcp' };
+      return route.fulfill({ status: 204 });
+    }
+    return route.fulfill({ json: settings });
+  });
+  await page.route('**/api/v1/admin/mcp/connections', (route) => route.fulfill({ json: [] }));
+  await page.goto(origin + '/admin/mcp');
+  await page.getByRole('button', { name: '服务设置' }).click();
+  await page.getByLabel('CMS API 来源').fill('https://cms.example.invalid');
+  await page.getByLabel('博客来源').fill('https://blog.example.invalid');
+  await page.getByRole('switch').click();
+  await page.getByRole('button', { name: '保存设置' }).click();
+  await page.getByText('已开启', { exact: true }).waitFor();
+  await page.getByText(settings.endpoint, { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320);
+
+  const editor = await newPage(t);
+  await editor.addInitScript(() =>
+    localStorage.setItem(
+      'rendering-cms-user',
+      JSON.stringify({ userId: 'editor', role: 'editor' }),
+    ),
+  );
+  await editor.route('**/api/v1/admin/articles**', (route) => route.fulfill({ json: [] }));
+  await editor.goto(origin + '/admin/mcp');
+  await editor.waitForURL('**/admin/articles');
+});

@@ -3,7 +3,7 @@ insert into article_mcp_connections(owner_id,label,token_hash,oauth_issuer,oauth
 values ($1,$2,$3,$4,$5,$6,$7) returning id;
 
 -- name: ListMCPConnections :many
-select id,label,allow_publish,revoked,created_at from article_mcp_connections
+select id,label,allow_publish,revoked,created_at,client_name,last_seen_at,(token_hash is null)::boolean as oauth from article_mcp_connections
 where owner_id=$1 order by created_at desc;
 
 -- name: ChangeMCPPublish :execrows

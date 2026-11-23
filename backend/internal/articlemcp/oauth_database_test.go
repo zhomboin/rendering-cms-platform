@@ -65,8 +65,8 @@ func TestOAuthGrantAndMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, direction := range []string{"down", "up"} {
-		raw, err := os.ReadFile("../../migrations/000019_article_mcp." + direction + ".sql")
+	for _, migration := range []string{"000020_mcp_console.down", "000019_article_mcp.down", "000019_article_mcp.up", "000020_mcp_console.up"} {
+		raw, err := os.ReadFile("../../migrations/" + migration + ".sql")
 		if err != nil {
 			t.Fatal(err)
 		}

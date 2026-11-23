@@ -56,6 +56,7 @@ func registerTool[I, O any](server *mcp.Server, name, description string, call f
 }
 func (s *Server) tools(publish bool) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "rendering-cms", Version: "1.0.0"}, nil)
+	server.AddReceivingMiddleware(s.observe)
 	registerTool(server, "create_draft", "创建草稿，重试使用相同 requestKey。", s.store.create)
 	registerTool(server, "get_article", "读取此连接创建的文章及当前版本。", func(ctx context.Context, p principal, in ArticleInput) (Article, error) {
 		return s.store.read(ctx, p, in.ArticleID)
@@ -71,7 +72,7 @@ func (s *Server) tools(publish bool) *mcp.Server {
 	registerTool(server, "article_status", "检查 CMS 状态与博客公开页面，并说明搜索的验证状态。", s.status)
 	return server
 }
-func (s *Server) Register(r chi.Router) {
+func (s *Server) registerEnabled(r chi.Router) {
 	draft, publish := s.tools(false), s.tools(true)
 	handler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		info := mcpauth.TokenInfoFromContext(r.Context())

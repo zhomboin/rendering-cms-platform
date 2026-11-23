@@ -213,7 +213,7 @@ R2 bucket CORS JSON 示例：
 - `S3_BLOG_IMAGE_PREFIX=blog`：文章正文图片上传后保存为 `blog/YYYY/MM/<uuid>.<ext>`，并返回公开访问 URL。
 - `S3_ASSET_FILE_PREFIX=assets`：后台普通资源上传后保存为 `assets/YYYY/MM/<uuid>.<ext>`，默认不返回公开 URL，通过下载预签名 URL 访问。
 
-AI 文章入口默认关闭。启用前按 [MCP 生产接入](article-mcp.md#生产接入与回退)核对配置、迁移、代理、授权与回退。
+首次配置前 AI 文章入口默认关闭；管理员可在「MCP 管理」保存全站服务设置。启用前按 [MCP 生产接入](article-mcp.md#生产接入与回退)核对配置、迁移、代理、授权与回退。
 
 ## 首次部署
 

@@ -172,6 +172,77 @@ func TestMCPThroughHTTP(t *testing.T) {
 	call(session, "get_article", article, true, nil)
 	request("DELETE", connections+"/"+g.ID, admin, "", 204)
 	request("POST", endpoint, g.Token, "{}", 401)
+	settingsPath := "/api/v1/admin/mcp/settings"
+	operationsPath := "/api/v1/admin/mcp/operations"
+	request("GET", settingsPath, editor, "", 403)
+	request("GET", operationsPath, g.Token, "", 401)
+	request("GET", operationsPath+"?before=bad", admin, "", 400)
+	grants := request("GET", connections, admin, "", 200)
+	if !bytes.Contains(grants, []byte("integration")) || bytes.Contains(grants, []byte(`"lastSeenAt":null`)) {
+		t.Fatal("未记录已使用连接的客户端和最近访问时间")
+	}
+	raw := request("GET", operationsPath, admin, "", 200)
+	var history struct{ Items []operationItem }
+	if err := json.Unmarshal(raw, &history); err != nil {
+		t.Fatal(err)
+	}
+	var creations int
+	for _, item := range history.Items {
+		if item.Operation == "create_draft" && item.Outcome == "success" {
+			if item.ArticleID.String() != first.ArticleID {
+				t.Fatal("创建记录缺少真实文章 ID")
+			}
+			creations++
+		}
+	}
+	if creations != 2 {
+		t.Fatal("建稿与幂等重试均应记入工具日志")
+	}
+	for _, expected := range []string{"create_draft", "publish_article", "failed", "success", first.ArticleID} {
+		if !bytes.Contains(raw, []byte(expected)) {
+			t.Fatalf("审计缺少 %s", expected)
+		}
+	}
+	for _, private := range []string{g.Token, "初稿", "weekly-1", "bodyMdx"} {
+		if bytes.Contains(raw, []byte(private)) {
+			t.Fatal("审计包含凭据或正文")
+		}
+	}
+	anotherAdmin, _ := auth.IssueToken(secret, "00000000-0000-0000-0000-000000000002", "admin")
+	if bytes.Contains(request("GET", operationsPath, anotherAdmin, "", 200), []byte("create_draft")) {
+		t.Fatal("泄漏其他管理员的记录")
+	}
+	disabled := `{"revision":0,"enabled":false,"origin":"https://writer.example.invalid","blogOrigin":"https://blog.example.invalid"}`
+	request("PATCH", settingsPath, editor, disabled, 403)
+	request("PATCH", settingsPath, admin, `{"revision":0,"enabled":true}`, 400)
+	request("PATCH", settingsPath, admin, disabled, 204)
+	request("PATCH", settingsPath, admin, disabled, 409)
+	request("POST", endpoint, "", "{}", 404)
+	reqSettings := request("GET", settingsPath, admin, "", 200)
+	if !bytes.Contains(reqSettings, []byte("https://writer.example.invalid/api/v1/mcp")) {
+		t.Fatal("连接地址未更新")
+	}
+	request("PATCH", settingsPath, admin, `{"revision":1,"enabled":true,"origin":"https://writer.example.invalid","blogOrigin":"https://blog.example.invalid"}`, 204)
+	request("POST", endpoint, "", "{}", 401)
+}
+
+func TestSettingsBootstrap(t *testing.T) {
+	pool := testutil.Database(t)
+	ctx := t.Context()
+	s := New(pool, config.ArticleMCPConfig{})
+	before, err := s.current(ctx)
+	if err != nil || before.Enabled || before.Origin != "" {
+		t.Fatal(before, err)
+	}
+	q := dbgen.New(pool)
+	change := dbgen.SaveMCPSettingsParams{Enabled: true, Origin: "https://cms.example.invalid", AdminOrigin: "https://cms.example.invalid", BlogOrigin: "https://blog.example.invalid"}
+	if n, err := q.SaveMCPSettings(ctx, change); err != nil || n != 1 {
+		t.Fatal(n, err)
+	}
+	after, err := New(pool, config.ArticleMCPConfig{}).current(ctx)
+	if err != nil || !after.Enabled || after.Origin != change.Origin || after.Revision != 1 {
+		t.Fatal(after, err)
+	}
 }
 
 func TestConcurrentVersions(t *testing.T) {
