@@ -124,11 +124,7 @@ func main() {
 		}, service)
 	}
 
-	var mcpRoutes, mcpAdminRoutes httpapi.RouteRegistrar
-	if cfg.ArticleMCP.Origin != "" {
-		service := articlemcp.New(db, cfg.ArticleMCP)
-		mcpRoutes, mcpAdminRoutes = service.Register, service.RegisterAdmin
-	}
+	mcpService := articlemcp.New(db, cfg.ArticleMCP)
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
@@ -160,8 +156,8 @@ func main() {
 			httpapi.WithAdminRoutes(assetHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(albumHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(postBridgeRoutes),
-			httpapi.WithPublicRoutes(mcpRoutes),
-			httpapi.WithAdminRoutes(mcpAdminRoutes),
+			httpapi.WithPublicRoutes(mcpService.Register),
+			httpapi.WithAdminRoutes(mcpService.RegisterAdmin),
 		),
 		// 照片上传走 50MB 后端代理链路，ReadTimeout/WriteTimeout 需覆盖慢速
 		// 上行的整个请求周期（与前端 120s 超时对齐）；slowloris 头部防护由

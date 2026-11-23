@@ -316,6 +316,8 @@ type ArticleMcpConnection struct {
 	AllowPublish bool
 	Revoked      bool
 	CreatedAt    pgtype.Timestamptz
+	ClientName   string
+	LastSeenAt   pgtype.Timestamptz
 }
 
 type ArticleMcpDraft struct {
@@ -327,6 +329,24 @@ type ArticleMcpDraft struct {
 	SearchResult    pgtype.Text
 	SearchCheckedAt pgtype.Timestamptz
 	Detached        bool
+}
+
+type ArticleMcpOperation struct {
+	ID           int64
+	ConnectionID pgtype.UUID
+	Operation    string
+	ArticleID    pgtype.UUID
+	Outcome      string
+	CreatedAt    pgtype.Timestamptz
+}
+
+type ArticleMcpSetting struct {
+	Singleton   bool
+	Revision    int32
+	Enabled     bool
+	Origin      string
+	AdminOrigin string
+	BlogOrigin  string
 }
 
 type ArticleShortSlugMapping struct {

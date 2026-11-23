@@ -15,6 +15,7 @@ type ArticleMCPConfig struct {
 	Origin, AdminOrigin, BlogOrigin string
 	Issuer                          string
 	Key                             *rsa.PublicKey
+	Development                     bool
 }
 
 func mcpOrigin(raw string, dev bool) (string, error) {
@@ -30,24 +31,16 @@ func mcpOrigin(raw string, dev bool) (string, error) {
 	return u.Scheme + "://" + u.Host, nil
 }
 func loadArticleMCP(dev bool) (ArticleMCPConfig, error) {
-	var c ArticleMCPConfig
+	c := ArticleMCPConfig{Development: dev}
 	origin, admin, blog := os.Getenv("MCP_ORIGIN"), os.Getenv("MCP_ADMIN_ORIGIN"), os.Getenv("MCP_BLOG_ORIGIN")
 	issuer, key := os.Getenv("MCP_OAUTH_ISSUER"), os.Getenv("MCP_OAUTH_PUBLIC_KEY")
 	if origin == "" && admin == "" && blog == "" && issuer == "" && key == "" {
 		return c, nil
 	}
-	if admin == "" {
-		admin = origin
-	}
-	var err error
-	if c.Origin, err = mcpOrigin(origin, dev); err != nil {
-		return c, err
-	}
-	if c.AdminOrigin, err = mcpOrigin(admin, dev); err != nil {
-		return c, err
-	}
-	if c.BlogOrigin, err = mcpOrigin(blog, dev); err != nil {
-		return c, err
+	if origin != "" || admin != "" || blog != "" {
+		if err := c.SetOrigins(origin, admin, blog); err != nil {
+			return c, err
+		}
 	}
 	if issuer == "" && key == "" {
 		return c, nil
@@ -70,4 +63,21 @@ func loadArticleMCP(dev bool) (ArticleMCPConfig, error) {
 	}
 	c.Issuer, c.Key = issuer, rsaKey
 	return c, nil
+}
+
+func (c *ArticleMCPConfig) SetOrigins(origin, admin, blog string) error {
+	if admin == "" {
+		admin = origin
+	}
+	var err error
+	if c.Origin, err = mcpOrigin(origin, c.Development); err != nil {
+		return errors.New("请填写有效的 CMS API 来源")
+	}
+	if c.AdminOrigin, err = mcpOrigin(admin, c.Development); err != nil {
+		return errors.New("请填写有效的后台来源")
+	}
+	if c.BlogOrigin, err = mcpOrigin(blog, c.Development); err != nil {
+		return errors.New("请填写有效的博客来源")
+	}
+	return nil
 }

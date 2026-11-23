@@ -9,6 +9,7 @@ import {
   MenuOutlined,
   MessageOutlined,
   PictureOutlined,
+  ApiOutlined,
   SendOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -30,6 +31,7 @@ const baseMenuItems = [
 ];
 
 const postBridgeItem = { key: '/admin/postbridge', icon: <SendOutlined />, label: 'PostBridge' };
+const mcpItem = { key: '/admin/mcp', icon: <ApiOutlined />, label: 'MCP 管理' };
 const brandIcon = (
   <span className="cms-brand-icon">
     <img src="/logo/rendering-woodcut-128.png" width={30} height={30} alt="" />
@@ -51,7 +53,7 @@ export default function AdminLayout() {
     return <Navigate to="/admin/login" replace state={{ from: location }} />;
   }
 
-  const menuItems = authUser?.role === 'admin' ? [...baseMenuItems, postBridgeItem] : baseMenuItems;
+  const menuItems = authUser?.role === 'admin' ? [...baseMenuItems, postBridgeItem, mcpItem] : baseMenuItems;
   const activeItem =
     menuItems
       .filter(({ key }) => location.pathname === key || location.pathname.startsWith(key + '/'))

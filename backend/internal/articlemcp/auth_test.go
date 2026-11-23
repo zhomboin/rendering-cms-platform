@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -45,7 +46,7 @@ func TestOAuthAccessToken(t *testing.T) {
 		})
 	}
 	r := chi.NewRouter()
-	service.Register(r)
+	service.registerEnabled(r)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest("GET", metadata, nil))
 	if rec.Code != 200 {
@@ -86,5 +87,16 @@ func TestPageProbe(t *testing.T) {
 		if got != tc.want {
 			t.Fatalf("%d %q: %s", tc.code, tc.body, got)
 		}
+	}
+}
+
+func TestConfigurableBlogProbe(t *testing.T) {
+	for _, addr := range []string{"127.0.0.1", "10.0.0.1", "100.64.0.1", "169.254.1.1", "::1", "fd00::1", "64:ff9b::a00:1", "2002::1"} {
+		if publicBlogIP(netip.MustParseAddr(addr)) {
+			t.Fatalf("不应探测 %s", addr)
+		}
+	}
+	if !publicBlogIP(netip.MustParseAddr("1.1.1.1")) {
+		t.Fatal("公网地址不应被拒绝")
 	}
 }

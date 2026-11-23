@@ -178,7 +178,7 @@ func (q *Queries) GetMCPArticle(ctx context.Context, arg GetMCPArticleParams) (G
 }
 
 const listMCPConnections = `-- name: ListMCPConnections :many
-select id,label,allow_publish,revoked,created_at from article_mcp_connections
+select id,label,allow_publish,revoked,created_at,client_name,last_seen_at,(token_hash is null)::boolean as oauth from article_mcp_connections
 where owner_id=$1 order by created_at desc
 `
 
@@ -188,6 +188,9 @@ type ListMCPConnectionsRow struct {
 	AllowPublish bool
 	Revoked      bool
 	CreatedAt    pgtype.Timestamptz
+	ClientName   string
+	LastSeenAt   pgtype.Timestamptz
+	Oauth        bool
 }
 
 func (q *Queries) ListMCPConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListMCPConnectionsRow, error) {
@@ -205,6 +208,9 @@ func (q *Queries) ListMCPConnections(ctx context.Context, ownerID pgtype.UUID) (
 			&i.AllowPublish,
 			&i.Revoked,
 			&i.CreatedAt,
+			&i.ClientName,
+			&i.LastSeenAt,
+			&i.Oauth,
 		); err != nil {
 			return nil, err
 		}

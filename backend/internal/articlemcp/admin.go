@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -45,12 +46,15 @@ func (s *Server) RegisterAdmin(r chi.Router) {
 				next.ServeHTTP(w, r)
 			})
 		})
+		r.Get("/settings", s.settings)
+		r.Patch("/settings", s.saveSettings)
+		r.Get("/operations", s.operations)
 		r.Get("/connections", s.list)
-		r.Post("/connections", s.issue)
+		r.Post("/connections", s.withSettings((*Server).issue))
 		r.Patch("/connections/{id}", s.modify)
 		r.Delete("/connections/{id}", s.modify)
-		r.Get("/articles/{id}/search-check", s.searchCheck)
-		r.Post("/articles/{id}/search-check", s.searchCheck)
+		r.Get("/articles/{id}/search-check", s.withSettings((*Server).searchCheck))
+		r.Post("/articles/{id}/search-check", s.withSettings((*Server).searchCheck))
 	})
 }
 
@@ -61,10 +65,13 @@ func owner(r *http.Request) pgtype.UUID {
 }
 
 type grantInfo struct {
-	ID           string `json:"id"`
-	Label        string `json:"label"`
-	AllowPublish bool   `json:"allowPublish"`
-	Revoked      bool   `json:"revoked"`
+	ID           string     `json:"id"`
+	Label        string     `json:"label"`
+	AllowPublish bool       `json:"allowPublish"`
+	Revoked      bool       `json:"revoked"`
+	OAuth        bool       `json:"oauth"`
+	ClientName   string     `json:"clientName"`
+	LastSeenAt   *time.Time `json:"lastSeenAt"`
 }
 
 func (s *Server) list(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +82,11 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	}
 	result := make([]grantInfo, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, grantInfo{row.ID.String(), row.Label, row.AllowPublish, row.Revoked})
+		g := grantInfo{ID: row.ID.String(), Label: row.Label, AllowPublish: row.AllowPublish, Revoked: row.Revoked, OAuth: row.Oauth, ClientName: row.ClientName}
+		if row.LastSeenAt.Valid {
+			g.LastSeenAt = &row.LastSeenAt.Time
+		}
+		result = append(result, g)
 	}
 	respond(w, 200, result)
 }
@@ -91,7 +102,7 @@ func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 	}
 	in.Label = strings.TrimSpace(in.Label)
 	if in.Label == "" || len(in.Label) > 160 {
-		http.Error(w, "连接名称无效", 400)
+		respond(w, 400, map[string]string{"error": "请填写 160 字节以内的连接名称"})
 		return
 	}
 	args := dbgen.CreateMCPConnectionParams{OwnerID: owner(r), Label: in.Label, AllowPublish: in.AllowPublish}
@@ -104,7 +115,7 @@ func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 		args.TokenHash = hash[:]
 	} else {
 		if s.cfg.Issuer == "" || strings.TrimSpace(in.OAuthClient) == "" || strings.TrimSpace(in.OAuthSubject) == "" {
-			http.Error(w, "OAuth 连接配置不完整", 400)
+			respond(w, 400, map[string]string{"error": "OAuth 连接配置不完整"})
 			return
 		}
 		args.OauthIssuer, args.OauthClient, args.OauthSubject = textValue(s.cfg.Issuer), textValue(in.OAuthClient), textValue(in.OAuthSubject)
@@ -113,7 +124,7 @@ func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var pe *pgconn.PgError
 		if errors.As(err, &pe) && pe.Code == "23505" {
-			http.Error(w, "连接身份已登记", 409)
+			respond(w, 409, map[string]string{"error": "此 OAuth 身份已有有效连接"})
 			return
 		}
 		http.Error(w, "创建连接失败", 500)
