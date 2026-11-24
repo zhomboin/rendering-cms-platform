@@ -340,6 +340,7 @@ type ArticleMcpOperation struct {
 	ArticleID    pgtype.UUID
 	Outcome      string
 	CreatedAt    pgtype.Timestamptz
+	AlbumID      pgtype.UUID
 }
 
 type ArticleMcpSetting struct {
@@ -423,6 +424,20 @@ type LoginEmailCode struct {
 	Attempts  int32
 	UsedAt    pgtype.Timestamptz
 	CreatedAt pgtype.Timestamptz
+}
+
+type McpAlbum struct {
+	AlbumID      pgtype.UUID
+	ConnectionID pgtype.UUID
+	RequestKey   string
+	PayloadHash  []byte
+}
+
+type McpAlbumUpload struct {
+	AlbumID     pgtype.UUID
+	RequestKey  string
+	PayloadHash []byte
+	PhotoID     pgtype.UUID
 }
 
 type PhotoAlbum struct {

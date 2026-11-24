@@ -9,7 +9,7 @@ import (
 	"rendering-cms-platform/backend/internal/database/dbgen"
 )
 
-var errPhotoOrder = errors.New("排序数组必须包含相册内全部照片且不重复")
+var ErrPhotoOrder = errors.New("排序数组必须包含相册内全部照片且不重复")
 
 func (h Handler) removeAlbum(ctx context.Context, albumID pgtype.UUID) ([]string, error) {
 	var keys []string
@@ -35,7 +35,7 @@ func (h Handler) removeAlbum(ctx context.Context, albumID pgtype.UUID) ([]string
 	return keys, err
 }
 
-func (h Handler) removePhoto(ctx context.Context, albumID, photoID pgtype.UUID) (string, error) {
+func (h Handler) RemovePhoto(ctx context.Context, albumID, photoID pgtype.UUID) (string, error) {
 	var key string
 	err := h.queries.WithinAlbumWrite(ctx, albumID, func(ctx context.Context, q albumStore) error {
 		photo, err := q.GetAlbumPhotoByID(ctx, dbgen.GetAlbumPhotoByIDParams{
@@ -77,7 +77,7 @@ func (h Handler) removePhoto(ctx context.Context, albumID, photoID pgtype.UUID) 
 	return key, err
 }
 
-func (h Handler) reorderPhotos(ctx context.Context, albumID pgtype.UUID, ordered []string) ([]dbgen.ListAlbumPhotosRow, error) {
+func (h Handler) ReorderPhotos(ctx context.Context, albumID pgtype.UUID, ordered []string) ([]dbgen.ListAlbumPhotosRow, error) {
 	var result []dbgen.ListAlbumPhotosRow
 	err := h.queries.WithinAlbumWrite(ctx, albumID, func(ctx context.Context, q albumStore) error {
 		rows, err := q.ListAlbumPhotos(ctx, albumID)
@@ -85,7 +85,7 @@ func (h Handler) reorderPhotos(ctx context.Context, albumID pgtype.UUID, ordered
 			return err
 		}
 		if len(rows) != len(ordered) {
-			return errPhotoOrder
+			return ErrPhotoOrder
 		}
 		known := make(map[pgtype.UUID]bool, len(rows))
 		for _, row := range rows {
@@ -96,7 +96,7 @@ func (h Handler) reorderPhotos(ctx context.Context, albumID pgtype.UUID, ordered
 		for index, raw := range ordered {
 			id, err := uuidFromString(raw)
 			if err != nil || !known[id] {
-				return errPhotoOrder
+				return ErrPhotoOrder
 			}
 			delete(known, id)
 			ids = append(ids, id)

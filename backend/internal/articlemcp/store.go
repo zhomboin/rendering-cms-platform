@@ -30,6 +30,7 @@ var (
 type principal struct {
 	id           pgtype.UUID
 	publishScope bool
+	albumScope   bool
 }
 type store struct {
 	pool                    *pgxpool.Pool

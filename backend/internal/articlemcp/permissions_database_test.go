@@ -30,6 +30,11 @@ func TestPermissionMigrationPreservesGrants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	raw, err := os.ReadFile("../../migrations/000022_mcp_albums.down.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.Exec(t, pool, string(raw))
 	apply("down")
 	testutil.Exec(t, pool, "insert into article_mcp_connections(owner_id,label,token_hash,allow_publish) values ($1,'草稿',$2,false),($1,'发布',$3,true)", owner, []byte{2}, []byte{3})
 	apply("up")

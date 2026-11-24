@@ -193,8 +193,8 @@ func TestConcurrentUploadsAndReordersHaveUniquePositions(t *testing.T) {
 	group.Add(1)
 	go func() {
 		defer group.Done()
-		_, err := f.handler.reorderPhotos(context.Background(), f.id, []string{first.PhotoID.String()})
-		if err != nil && !errors.Is(err, errPhotoOrder) {
+		_, err := f.handler.ReorderPhotos(context.Background(), f.id, []string{first.PhotoID.String()})
+		if err != nil && !errors.Is(err, ErrPhotoOrder) {
 			failures <- 500
 		}
 	}()
@@ -214,7 +214,7 @@ func TestConcurrentUploadsAndReordersHaveUniquePositions(t *testing.T) {
 		}
 		reversed[len(rows)-1-index] = row.PhotoID.String()
 	}
-	reordered, err := f.handler.reorderPhotos(context.Background(), f.id, reversed)
+	reordered, err := f.handler.ReorderPhotos(context.Background(), f.id, reversed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +281,7 @@ func TestDraftSlugAndPublishedMetadataRemainEditable(t *testing.T) {
 		t.Fatal("never-published draft must accept a new slug", err)
 	}
 	f.singlePhoto(t)
-	if err := f.handler.publishAlbumRecord(ctx, f.id); err != nil {
+	if err := f.handler.PublishAlbumRecord(ctx, f.id); err != nil {
 		t.Fatal(err)
 	}
 	input.Title = "发布后更新标题"

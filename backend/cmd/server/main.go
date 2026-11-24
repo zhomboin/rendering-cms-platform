@@ -124,7 +124,7 @@ func main() {
 		}, service)
 	}
 
-	mcpService := articlemcp.New(db, cfg.ArticleMCP)
+	mcpService := articlemcp.New(db, cfg.ArticleMCP).WithAlbums(albumHandler)
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,

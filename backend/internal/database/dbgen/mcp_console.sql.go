@@ -12,17 +12,23 @@ import (
 )
 
 const finishMCPOperation = `-- name: FinishMCPOperation :exec
-update article_mcp_operations set outcome=$2,article_id=$3 where id=$1
+update article_mcp_operations set outcome=$2,article_id=$3,album_id=$4 where id=$1
 `
 
 type FinishMCPOperationParams struct {
 	ID        int64
 	Outcome   string
 	ArticleID pgtype.UUID
+	AlbumID   pgtype.UUID
 }
 
 func (q *Queries) FinishMCPOperation(ctx context.Context, arg FinishMCPOperationParams) error {
-	_, err := q.db.Exec(ctx, finishMCPOperation, arg.ID, arg.Outcome, arg.ArticleID)
+	_, err := q.db.Exec(ctx, finishMCPOperation,
+		arg.ID,
+		arg.Outcome,
+		arg.ArticleID,
+		arg.AlbumID,
+	)
 	return err
 }
 
@@ -52,7 +58,7 @@ func (q *Queries) GetMCPSettings(ctx context.Context) (GetMCPSettingsRow, error)
 }
 
 const listMCPOperations = `-- name: ListMCPOperations :many
-select o.id,c.label,o.operation,o.outcome,o.created_at,o.article_id
+select o.id,c.label,o.operation,o.outcome,o.created_at,o.article_id,o.album_id
 from article_mcp_operations o join article_mcp_connections c on c.id=o.connection_id
 where c.owner_id=$1 and ($2::bigint=0 or o.id<$2)
 order by o.id desc limit 51
@@ -70,6 +76,7 @@ type ListMCPOperationsRow struct {
 	Outcome   string
 	CreatedAt pgtype.Timestamptz
 	ArticleID pgtype.UUID
+	AlbumID   pgtype.UUID
 }
 
 func (q *Queries) ListMCPOperations(ctx context.Context, arg ListMCPOperationsParams) ([]ListMCPOperationsRow, error) {
@@ -88,6 +95,7 @@ func (q *Queries) ListMCPOperations(ctx context.Context, arg ListMCPOperationsPa
 			&i.Outcome,
 			&i.CreatedAt,
 			&i.ArticleID,
+			&i.AlbumID,
 		); err != nil {
 			return nil, err
 		}

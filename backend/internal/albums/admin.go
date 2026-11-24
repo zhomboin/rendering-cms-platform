@@ -179,11 +179,11 @@ func (h Handler) publishAlbum(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.publishAlbumRecord(r.Context(), albumID); err != nil {
+	if err := h.PublishAlbumRecord(r.Context(), albumID); err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 			writeError(w, http.StatusNotFound, "相册不存在")
-		case errors.Is(err, errAlbumPublished), errors.Is(err, errAlbumEmpty):
+		case errors.Is(err, errAlbumPublished), errors.Is(err, ErrAlbumEmpty):
 			writeError(w, http.StatusConflict, err.Error())
 		default:
 			writeError(w, http.StatusInternalServerError, "相册发布失败")
@@ -242,7 +242,7 @@ func (h Handler) deleteAlbum(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	h.cleanupObjectsAfterWrite(r.Context(), keys...)
+	h.CleanupObjectsAfterWrite(r.Context(), keys...)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -331,7 +331,7 @@ func (h Handler) deleteAlbumPhoto(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	key, err := h.removePhoto(r.Context(), albumID, photoID)
+	key, err := h.RemovePhoto(r.Context(), albumID, photoID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "相册或照片不存在")
@@ -340,7 +340,7 @@ func (h Handler) deleteAlbumPhoto(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	h.cleanupObjectsAfterWrite(r.Context(), key)
+	h.CleanupObjectsAfterWrite(r.Context(), key)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -357,13 +357,13 @@ func (h Handler) reorderAlbumPhotos(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "请求体格式不正确")
 		return
 	}
-	rows, err := h.reorderPhotos(r.Context(), albumID, payload.PhotoIds)
+	rows, err := h.ReorderPhotos(r.Context(), albumID, payload.PhotoIds)
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 			writeError(w, http.StatusNotFound, "相册不存在")
-		case errors.Is(err, errPhotoOrder):
-			writeError(w, http.StatusBadRequest, errPhotoOrder.Error())
+		case errors.Is(err, ErrPhotoOrder):
+			writeError(w, http.StatusBadRequest, ErrPhotoOrder.Error())
 		default:
 			writeError(w, http.StatusInternalServerError, "照片排序失败")
 		}
@@ -394,7 +394,7 @@ func (h Handler) setAlbumCover(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := h.setCoverPhoto(r.Context(), albumID, coverID); err != nil {
+	if err := h.SetCoverPhoto(r.Context(), albumID, coverID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "相册或封面照片不存在")
 		} else {
@@ -556,6 +556,14 @@ func decodeAlbumPayload(w http.ResponseWriter, r *http.Request) (AlbumPayload, b
 		writeError(w, http.StatusBadRequest, "请求体格式不正确")
 		return payload, false
 	}
+	if err := payload.Normalize(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return payload, false
+	}
+	return payload, true
+}
+
+func (payload *AlbumPayload) Normalize() error {
 	payload.Slug = strings.TrimSpace(payload.Slug)
 	payload.Title = strings.TrimSpace(payload.Title)
 	payload.TitleEn = strings.TrimSpace(payload.TitleEn)
@@ -565,22 +573,18 @@ func decodeAlbumPayload(w http.ResponseWriter, r *http.Request) (AlbumPayload, b
 		payload.Tags = []string{}
 	}
 	if err := ValidateAlbumInput(payload.Slug, payload.Title, payload.Description); err != nil {
-		writeError(w, http.StatusBadRequest, "相册 slug、标题或导语不合法")
-		return payload, false
+		return errors.New("相册 slug、标题或导语不合法")
 	}
 	if err := ValidateOptionalText(payload.TitleEn, maxAlbumTitleRunes); err != nil {
-		writeError(w, http.StatusBadRequest, "英文标题不能超过 200 个字符")
-		return payload, false
+		return errors.New("英文标题不能超过 200 个字符")
 	}
 	if err := ValidateOptionalText(payload.DescriptionEn, maxAlbumDescriptionRunes); err != nil {
-		writeError(w, http.StatusBadRequest, "英文导语不能超过 2000 个字符")
-		return payload, false
+		return errors.New("英文导语不能超过 2000 个字符")
 	}
 	if err := ValidateTagList(payload.Tags); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return payload, false
+		return err
 	}
-	return payload, true
+	return nil
 }
 
 func userFromRequest(w http.ResponseWriter, r *http.Request) (pgtype.UUID, bool) {

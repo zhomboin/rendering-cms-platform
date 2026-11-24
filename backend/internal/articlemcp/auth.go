@@ -17,6 +17,7 @@ import (
 
 const draftScope = "articles:draft"
 const publishScope = "articles:publish"
+const albumScope = "albums:manage"
 const tokenPrefix = "rcms_mcp_"
 const endpoint = "/api/v1/mcp"
 const metadata = "/.well-known/oauth-protected-resource/api/v1/mcp"
@@ -41,7 +42,7 @@ func (s *Server) verify(ctx context.Context, token string, _ *http.Request) (*mc
 		row, e := q.LookupMCPToken(ctx, hash[:])
 		id, allow, err = row.ID, row.AllowPublish, e
 		drafts = row.DraftPermissions
-		info.Scopes = []string{draftScope, publishScope}
+		info.Scopes = []string{draftScope, publishScope, albumScope}
 	} else {
 		c, e := s.oauthClaims(token)
 		if e != nil {
@@ -61,6 +62,9 @@ func (s *Server) verify(ctx context.Context, token string, _ *http.Request) (*mc
 	}
 	if !allow {
 		info.Scopes = slices.DeleteFunc(info.Scopes, func(s string) bool { return s == publishScope })
+	}
+	if !slices.Contains(info.Scopes, albumScope) {
+		drafts = slices.DeleteFunc(drafts, func(name string) bool { return slices.Contains(albumTools, name) })
 	}
 	info.UserID = id.String()
 	info.Extra = map[string]any{"permissions": allPermissions(drafts, slices.Contains(info.Scopes, publishScope))}

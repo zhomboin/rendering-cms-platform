@@ -91,7 +91,7 @@ func (s *Server) saveSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) configured(v serviceSettings) *Server {
 	cfg := s.cfg
 	cfg.Origin, cfg.AdminOrigin, cfg.BlogOrigin = v.Origin, v.AdminOrigin, v.BlogOrigin
-	instance := New(s.store.pool, cfg)
+	instance := New(s.store.pool, cfg).WithAlbums(s.albums)
 	if v.BlogOrigin != s.cfg.BlogOrigin {
 		instance.client.Transport = publicBlogTransport
 	}
@@ -139,6 +139,7 @@ func (s *Server) Register(r chi.Router) {
 		current.ServeHTTP(w, req)
 	}
 	r.HandleFunc(endpoint, handler)
+	r.Post(uploadRoute, handler)
 	if s.cfg.Issuer != "" {
 		r.Get(metadata, handler)
 	}

@@ -257,5 +257,5 @@ func isPhotoUploadRequest(r *http.Request) bool {
 		return false
 	}
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/"), "/")
-	return len(parts) == 6 && parts[0] == "api" && parts[1] == "v1" && parts[2] == "admin" && parts[3] == "albums" && parts[4] != "" && parts[5] == "photos"
+	return len(parts) == 6 && parts[0] == "api" && parts[1] == "v1" && (parts[2] == "admin" || parts[2] == "mcp") && parts[3] == "albums" && parts[4] != "" && parts[5] == "photos"
 }

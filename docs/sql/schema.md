@@ -4,7 +4,7 @@ PostgreSQL 是 CMS 唯一的运行时数据源。文章、评论、统计、文�
 
 ## AI 写作连接
 
-`article_mcp_settings` 保管全站开关、来源与并发编辑版本。`article_mcp_connections` 保存最近观测到的客户端和时间。迁移 `000021_mcp_permissions` 为连接增加草稿工具列表和授权版本，发布权沿用 `allow_publish`。现有连接保留四项草稿权限和原发布权。降级迁移会撤销无法用完整草稿权限表示的连接。`article_mcp_operations` 按连接记录工具、时间、成功涉及的文章 ID 和结果；操作执行前落库，结果尚待核实时保留 `pending`。见迁移 `000020_mcp_console`。
+`article_mcp_settings` 保管全站开关、来源与并发编辑版本。`article_mcp_connections` 保存最近观测到的客户端和时间。连接的 `draft_permissions` 存储逐项文章草稿、相册和照片工具，`allow_publish` 单独保存文章发布权，修改授权按 `permission_revision` 检查并发。`mcp_albums` 绑定相册与签发连接，`mcp_album_uploads` 记录上传请求键与摘要，删除照片后保留请求键以避免重试恢复照片。`article_mcp_operations` 保存连接、工具、时间、结果及成功涉及的文章或相册 ID。结果尚待确认时为 `pending`。
 
 迁移 `000019_article_mcp` 增加 `article_mcp_connections` 和 `article_mcp_drafts`。前者记录所有者、授权、撤销状态以及令牌哈希或 OAuth 绑定。后者将文章关联到唯一连接，按连接和请求键去重，并保存当前核验所依据的文章版本和时间。转为私有时数据库触发器永久解除该连接对稿件的访问。文章内容、修订和标签仍使用原文章表及触发器。
 

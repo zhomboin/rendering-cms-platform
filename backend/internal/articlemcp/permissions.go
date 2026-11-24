@@ -14,6 +14,23 @@ const (
 	publishTool = "publish_article"
 )
 
+const (
+	createAlbumTool    = "create_album"
+	listAlbumsTool     = "list_albums"
+	getAlbumTool       = "get_album"
+	updateAlbumTool    = "update_album"
+	publishAlbumTool   = "publish_album"
+	unpublishAlbumTool = "unpublish_album"
+	listPhotosTool     = "list_album_photos"
+	uploadPhotoTool    = "upload_album_photo"
+	updatePhotoTool    = "update_album_photo"
+	orderPhotosTool    = "reorder_album_photos"
+	coverTool          = "set_album_cover"
+	deletePhotoTool    = "delete_album_photo"
+)
+
+var albumTools = []string{createAlbumTool, listAlbumsTool, getAlbumTool, updateAlbumTool, publishAlbumTool, unpublishAlbumTool, listPhotosTool, uploadPhotoTool, updatePhotoTool, orderPhotosTool, coverTool, deletePhotoTool}
+
 var draftTools = []string{createTool, readTool, editTool, statusTool}
 
 // nil 是省略字段，空列表是明确收回全部工具。
@@ -24,7 +41,7 @@ func (p *permissionList) UnmarshalJSON(raw []byte) error {
 	if err := json.Unmarshal(raw, &names); err != nil || names == nil {
 		return errors.New("权限必须是列表")
 	}
-	ordered := allPermissions(draftTools, true)
+	ordered := slices.Concat(allPermissions(draftTools, true), albumTools)
 	result := make(permissionList, 0, len(ordered))
 	for _, name := range ordered {
 		if slices.Contains(names, name) {

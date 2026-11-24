@@ -10,10 +10,10 @@ import (
 
 var (
 	errAlbumPublished = errors.New("相册已发布")
-	errAlbumEmpty     = errors.New("相册至少需要一张照片才能发布")
+	ErrAlbumEmpty     = errors.New("相册至少需要一张照片才能发布")
 )
 
-func (h Handler) publishAlbumRecord(ctx context.Context, id pgtype.UUID) error {
+func (h Handler) PublishAlbumRecord(ctx context.Context, id pgtype.UUID) error {
 	return h.queries.WithinAlbumWrite(ctx, id, func(ctx context.Context, q albumStore) error {
 		album, err := q.GetPhotoAlbumByID(ctx, id)
 		if err != nil {
@@ -27,14 +27,14 @@ func (h Handler) publishAlbumRecord(ctx context.Context, id pgtype.UUID) error {
 			return err
 		}
 		if count == 0 {
-			return errAlbumEmpty
+			return ErrAlbumEmpty
 		}
 		_, err = q.PublishPhotoAlbum(ctx, id)
 		return err
 	})
 }
 
-func (h Handler) setCoverPhoto(ctx context.Context, id, photoID pgtype.UUID) error {
+func (h Handler) SetCoverPhoto(ctx context.Context, id, photoID pgtype.UUID) error {
 	return h.queries.WithinAlbumWrite(ctx, id, func(ctx context.Context, q albumStore) error {
 		if _, err := q.GetPhotoAlbumByID(ctx, id); err != nil {
 			return err

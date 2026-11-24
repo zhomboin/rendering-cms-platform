@@ -69,7 +69,20 @@ func TestOAuthGrantAndMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, migration := range []string{"000021_mcp_permissions.down", "000020_mcp_console.down", "000019_article_mcp.down", "000019_article_mcp.up", "000020_mcp_console.up", "000021_mcp_permissions.up"} {
+	if _, err := q.ChangeMCPPermissions(ctx, dbgen.ChangeMCPPermissionsParams{OwnerID: owner, ID: id, DraftPermissions: []string{getAlbumTool}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, scope := range []string{draftScope, draftScope + " " + albumScope} {
+		info, err := svc.verify(ctx, token("subject", scope), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		names := info.Extra["permissions"].([]string)
+		if slices.Contains(names, getAlbumTool) != (scope != draftScope) {
+			t.Fatal("OAuth 相册范围不匹配", scope, names)
+		}
+	}
+	for _, migration := range []string{"000022_mcp_albums.down", "000021_mcp_permissions.down", "000020_mcp_console.down", "000019_article_mcp.down", "000019_article_mcp.up", "000020_mcp_console.up", "000021_mcp_permissions.up", "000022_mcp_albums.up"} {
 		raw, err := os.ReadFile("../../migrations/" + migration + ".sql")
 		if err != nil {
 			t.Fatal(err)

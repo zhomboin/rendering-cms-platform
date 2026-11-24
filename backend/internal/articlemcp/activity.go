@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -64,7 +65,9 @@ func (s *Server) observe(next mcp.MethodHandler) mcp.MethodHandler {
 		switch name {
 		case createTool, readTool, editTool, publishTool, statusTool:
 		default:
-			name = "unknown"
+			if !slices.Contains(albumTools, name) {
+				name = "unknown"
+			}
 		}
 		entry, err := q.StartMCPOperation(ctx, dbgen.StartMCPOperationParams{ConnectionID: id, Operation: name})
 		if err != nil {
@@ -75,21 +78,32 @@ func (s *Server) observe(next mcp.MethodHandler) mcp.MethodHandler {
 		if res, ok := result.(*mcp.CallToolResult); ok && res != nil && !res.IsError && callErr == nil {
 			finish.Outcome = "success"
 			raw := params.Arguments
-			if name == "create_draft" {
+			if name == createTool || name == createAlbumTool {
 				raw, _ = res.StructuredContent.(json.RawMessage)
 			}
-			var target ArticleInput
+			var target struct {
+				ArticleID string `json:"articleId"`
+				AlbumID   string `json:"albumId"`
+			}
 			if json.Unmarshal(raw, &target) == nil {
-				finish.ArticleID, _ = parseID(target.ArticleID)
+				if slices.Contains(albumTools, name) {
+					finish.AlbumID, _ = parseID(target.AlbumID)
+				} else {
+					finish.ArticleID, _ = parseID(target.ArticleID)
+				}
 			}
 		}
-		// 客户端可以在文章操作提交后断开。单独限时写回结果，避免将已提交操作报告为失败。
-		finalCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
-		defer cancel()
-		if err := q.FinishMCPOperation(finalCtx, finish); err != nil {
-			log.Printf("MCP 操作 %d 结果待核实", entry)
-		}
+		finishOperation(ctx, q, finish)
 		return result, callErr
+	}
+}
+
+// 客户端断开后仍在独立期限内写回审计结果。
+func finishOperation(ctx context.Context, q *dbgen.Queries, finish dbgen.FinishMCPOperationParams) {
+	final, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+	defer cancel()
+	if err := q.FinishMCPOperation(final, finish); err != nil {
+		log.Printf("MCP 操作 %d 结果待核实", finish.ID)
 	}
 }
 
@@ -99,6 +113,7 @@ type operationItem struct {
 	Operation  string      `json:"operation"`
 	Outcome    string      `json:"outcome"`
 	ArticleID  pgtype.UUID `json:"articleId"`
+	AlbumID    pgtype.UUID `json:"albumId"`
 	CreatedAt  time.Time   `json:"createdAt"`
 }
 
@@ -120,7 +135,7 @@ func (s *Server) operations(w http.ResponseWriter, r *http.Request) {
 	page := rows[:min(50, len(rows))]
 	items := make([]operationItem, 0, len(page))
 	for _, row := range page {
-		items = append(items, operationItem{ID: strconv.FormatInt(row.ID, 10), Connection: row.Label, Operation: row.Operation, Outcome: row.Outcome, ArticleID: row.ArticleID, CreatedAt: row.CreatedAt.Time})
+		items = append(items, operationItem{ID: strconv.FormatInt(row.ID, 10), Connection: row.Label, Operation: row.Operation, Outcome: row.Outcome, ArticleID: row.ArticleID, AlbumID: row.AlbumID, CreatedAt: row.CreatedAt.Time})
 	}
 	var next string
 	if len(rows) > 50 {
