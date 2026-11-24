@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -131,6 +132,61 @@ func TestMCPThroughHTTP(t *testing.T) {
 	if first.ArticleID == "" || first.ArticleID != again.ArticleID || first.Version != 1 || first.Status != "draft" || !strings.HasSuffix(first.PreviewURL, "/read") {
 		t.Fatal("建稿或幂等契约", first)
 	}
+	path := connections + "/" + g.ID
+	expectTools := func(want ...string) {
+		t.Helper()
+		list, err := session.ListTools(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, tool := range list.Tools {
+			got = append(got, tool.Name)
+		}
+		slices.Sort(got)
+		want = slices.Clone(want)
+		slices.Sort(want)
+		if !slices.Equal(got, want) {
+			t.Fatalf("工具列表 %v，预期 %v", got, want)
+		}
+	}
+	lookup := ArticleInput{first.ArticleID}
+	request("PATCH", path, admin, `{"permissions":["article_status"],"expectedRevision":1}`, 204)
+	request("PATCH", path, admin, `{"permissions":["publish_article"],"expectedRevision":1}`, 409)
+	request("PATCH", path, editor, `{"permissions":["publish_article"]}`, 403)
+	for _, invalid := range []string{`{"permissions":null}`, `{"permissions":["unknown"]}`, `{"permissions":["get_article","get_article"]}`, `{"permissions":[],"allowPublish":true}`} {
+		request("PATCH", path, admin, invalid, 400)
+	}
+	expectTools(statusTool)
+	call(session, statusTool, lookup, false, nil)
+	call(session, readTool, lookup, true, nil)
+	call(session, createTool, in, true, nil)
+	call(session, editTool, EditInput{VersionInput: VersionInput{first.ArticleID, first.Version}, Content: in.Content}, true, nil)
+	call(session, publishTool, VersionInput{first.ArticleID, first.Version}, true, nil)
+	// 直接验证已完成鉴权的在途调用仍需在数据库事务内复核。
+	grantPrincipal := principal{id: mustArticleID(t, g.ID), publishScope: true}
+	if _, err := service.store.create(ctx, grantPrincipal, in); !errors.Is(err, errDenied) {
+		t.Fatal("建稿缺少事务内校验", err)
+	}
+	request("PATCH", path, admin, `{"permissions":[]}`, 204)
+	expectTools()
+	call(session, statusTool, lookup, true, nil)
+	request("PATCH", path, admin, `{"allowPublish":true}`, 204)
+	expectTools(publishTool)
+	var writeGrant grant
+	if err := json.Unmarshal(request("POST", connections, admin, `{"label":"只写","permissions":["create_draft"]}`, 201), &writeGrant); err != nil {
+		t.Fatal(err)
+	}
+	writer := connect(writeGrant.Token)
+	var receipt Article
+	call(writer, createTool, CreateInput{RequestKey: "write-only", ArticleName: "write-only", Content: in.Content}, false, &receipt)
+	if receipt.ArticleID == "" || receipt.Body != "" || receipt.Title != "" {
+		t.Fatal("只写回执暴露内容或缺少文章 ID")
+	}
+	call(writer, readTool, ArticleInput{receipt.ArticleID}, true, nil)
+	request("DELETE", connections+"/"+writeGrant.ID, admin, "", 204)
+	request("PATCH", path, admin, `{"permissions":["create_draft","get_article","article_status","update_draft"]}`, 204)
+	expectTools(draftTools...)
 	in.Title = "重复键的新正文"
 	call(session, "create_draft", in, true, nil)
 	other := connect(issue().Token)
@@ -188,7 +244,7 @@ func TestMCPThroughHTTP(t *testing.T) {
 	}
 	var creations int
 	for _, item := range history.Items {
-		if item.Operation == "create_draft" && item.Outcome == "success" {
+		if item.Operation == "create_draft" && item.Outcome == "success" && item.Connection == "写作" {
 			if item.ArticleID.String() != first.ArticleID {
 				t.Fatal("创建记录缺少真实文章 ID")
 			}
@@ -254,7 +310,7 @@ func TestConcurrentVersions(t *testing.T) {
 	}
 	hash := sha256.Sum256([]byte("test"))
 	q := dbgen.New(pool)
-	id, err := q.CreateMCPConnection(ctx, dbgen.CreateMCPConnectionParams{OwnerID: owner, TokenHash: hash[:], Label: "写作"})
+	id, err := q.CreateMCPConnection(ctx, dbgen.CreateMCPConnectionParams{OwnerID: owner, TokenHash: hash[:], Label: "写作", DraftPermissions: draftTools})
 	if err != nil {
 		t.Fatal(err)
 	}

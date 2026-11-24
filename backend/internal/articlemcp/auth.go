@@ -34,11 +34,13 @@ func (s *Server) verify(ctx context.Context, token string, _ *http.Request) (*mc
 	var info mcpauth.TokenInfo
 	var id pgtype.UUID
 	var allow bool
+	var drafts []string
 	var err error
 	if strings.HasPrefix(token, tokenPrefix) {
 		hash := sha256.Sum256([]byte(token))
 		row, e := q.LookupMCPToken(ctx, hash[:])
 		id, allow, err = row.ID, row.AllowPublish, e
+		drafts = row.DraftPermissions
 		info.Scopes = []string{draftScope, publishScope}
 	} else {
 		c, e := s.oauthClaims(token)
@@ -49,6 +51,7 @@ func (s *Server) verify(ctx context.Context, token string, _ *http.Request) (*mc
 		info.Scopes = strings.Fields(c.Scope)
 		row, e := q.LookupMCPOAuth(ctx, dbgen.LookupMCPOAuthParams{OauthIssuer: textValue(c.Issuer), OauthClient: textValue(c.ClientID), OauthSubject: textValue(c.Subject)})
 		id, allow, err = row.ID, row.AllowPublish, e
+		drafts = row.DraftPermissions
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, mcpauth.ErrInvalidToken
@@ -60,6 +63,7 @@ func (s *Server) verify(ctx context.Context, token string, _ *http.Request) (*mc
 		info.Scopes = slices.DeleteFunc(info.Scopes, func(s string) bool { return s == publishScope })
 	}
 	info.UserID = id.String()
+	info.Extra = map[string]any{"permissions": allPermissions(drafts, slices.Contains(info.Scopes, publishScope))}
 	return &info, nil
 }
 func (s *Server) oauthClaims(token string) (claims, error) {

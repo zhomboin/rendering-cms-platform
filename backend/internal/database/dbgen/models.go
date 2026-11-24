@@ -306,18 +306,20 @@ type ArticleLog struct {
 }
 
 type ArticleMcpConnection struct {
-	ID           pgtype.UUID
-	OwnerID      pgtype.UUID
-	Label        string
-	TokenHash    []byte
-	OauthIssuer  pgtype.Text
-	OauthClient  pgtype.Text
-	OauthSubject pgtype.Text
-	AllowPublish bool
-	Revoked      bool
-	CreatedAt    pgtype.Timestamptz
-	ClientName   string
-	LastSeenAt   pgtype.Timestamptz
+	ID                 pgtype.UUID
+	OwnerID            pgtype.UUID
+	Label              string
+	TokenHash          []byte
+	OauthIssuer        pgtype.Text
+	OauthClient        pgtype.Text
+	OauthSubject       pgtype.Text
+	AllowPublish       bool
+	Revoked            bool
+	CreatedAt          pgtype.Timestamptz
+	ClientName         string
+	LastSeenAt         pgtype.Timestamptz
+	DraftPermissions   []string
+	PermissionRevision int32
 }
 
 type ArticleMcpDraft struct {

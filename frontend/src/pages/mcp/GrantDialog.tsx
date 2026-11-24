@@ -1,6 +1,7 @@
 import { Alert, Button, Form, Input, Modal, Select, Space, Typography } from 'antd';
 import { useState } from 'react';
-import { createConnection } from '../../api/mcp';
+import { createConnection, defaultPermissions } from '../../api/mcp';
+import { PermissionPicker } from './PermissionPicker';
 import type { GrantInput, GrantResult } from '../../api/mcp';
 
 export function GrantDialog({
@@ -20,7 +21,9 @@ export function GrantDialog({
     setBusy(true);
     setError('');
     try {
-      const grant = await createConnection(mode === 'oauth' ? input : { label: input.label });
+      const grant = await createConnection(
+        mode === 'oauth' ? input : { label: input.label, permissions: input.permissions },
+      );
       setResult(grant);
       created();
     } catch (err) {
@@ -67,7 +70,12 @@ export function GrantDialog({
           )}
         </Space>
       ) : (
-        <Form<GrantInput> id="mcp-grant" layout="vertical" onFinish={submit}>
+        <Form<GrantInput>
+          id="mcp-grant"
+          layout="vertical"
+          onFinish={submit}
+          initialValues={{ permissions: defaultPermissions }}
+        >
           <Form.Item
             name="label"
             label="连接名称"
@@ -95,9 +103,9 @@ export function GrantDialog({
               </Form.Item>
             </>
           )}
-          <Typography.Paragraph type="secondary">
-            新连接仅可协作草稿。需要 AI 发文时，可单独启用发布权限。
-          </Typography.Paragraph>
+          <Form.Item name="permissions" label="工具权限">
+            <PermissionPicker />
+          </Form.Item>
           {error && <Alert type="error" showIcon title={error} />}
         </Form>
       )}

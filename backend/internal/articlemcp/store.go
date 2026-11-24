@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -81,7 +82,7 @@ func (c *Content) normalize() error {
 
 type action func(*dbgen.Queries, dbgen.LockMCPConnectionRow) (pgtype.UUID, error)
 
-func (s store) run(ctx context.Context, p principal, op action) (Article, error) {
+func (s store) run(ctx context.Context, p principal, tool string, op action) (Article, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Article{}, err
@@ -94,6 +95,13 @@ func (s store) run(ctx context.Context, p principal, op action) (Article, error)
 	}
 	if err != nil {
 		return Article{}, err
+	}
+	if tool == publishTool {
+		if !p.publishScope || !conn.AllowPublish {
+			return Article{}, errDenied
+		}
+	} else if !slices.Contains(conn.DraftPermissions, tool) {
+		return Article{}, errDenied
 	}
 	id, err := op(q, conn)
 	if err != nil {
@@ -110,7 +118,10 @@ func (s store) run(ctx context.Context, p principal, op action) (Article, error)
 		Status:      string(row.Status),
 		Version:     row.Version,
 		PreviewURL:  s.adminOrigin + "/admin/articles/" + id.String() + "/read",
-		Content:     Content{Title: row.Title, Summary: row.Summary, Body: row.BodyMdx, Tags: row.Tags},
+	}
+	// 无读取授权时，建稿重试和写入回执只返回文章标识、版本和链接。
+	if slices.Contains(conn.DraftPermissions, readTool) {
+		a.Content = Content{Title: row.Title, Summary: row.Summary, Body: row.BodyMdx, Tags: row.Tags}
 	}
 	if a.Status == "published" {
 		a.PublicURL = s.blogOrigin + "/blog/" + row.Slug
@@ -147,7 +158,7 @@ func (s store) create(ctx context.Context, p principal, in CreateInput) (Article
 	hash := sha256.Sum256(raw)
 	// 短链冲突会中止当前事务，使用新事务重试。
 	for range 8 {
-		a, err := s.run(ctx, p, func(q *dbgen.Queries, c dbgen.LockMCPConnectionRow) (pgtype.UUID, error) {
+		a, err := s.run(ctx, p, createTool, func(q *dbgen.Queries, c dbgen.LockMCPConnectionRow) (pgtype.UUID, error) {
 			prev, err := q.FindMCPRequest(ctx, dbgen.FindMCPRequestParams{ConnectionID: p.id, RequestKey: in.RequestKey})
 			if err == nil {
 				if !bytes.Equal(prev.PayloadHash, hash[:]) {
@@ -183,8 +194,8 @@ func (s store) create(ctx context.Context, p principal, in CreateInput) (Article
 	}
 	return Article{}, errors.New("短链分配失败")
 }
-func (s store) read(ctx context.Context, p principal, raw string) (Article, error) {
-	return s.run(ctx, p, func(*dbgen.Queries, dbgen.LockMCPConnectionRow) (pgtype.UUID, error) { return parseID(raw) })
+func (s store) read(ctx context.Context, p principal, raw string, tool string) (Article, error) {
+	return s.run(ctx, p, tool, func(*dbgen.Queries, dbgen.LockMCPConnectionRow) (pgtype.UUID, error) { return parseID(raw) })
 }
 func (s store) change(ctx context.Context, p principal, in VersionInput, content *Content) (Article, error) {
 	id, err := parseID(in.ArticleID)
@@ -194,10 +205,11 @@ func (s store) change(ctx context.Context, p principal, in VersionInput, content
 	if content != nil && content.normalize() != nil {
 		return Article{}, errInput
 	}
-	return s.run(ctx, p, func(q *dbgen.Queries, c dbgen.LockMCPConnectionRow) (pgtype.UUID, error) {
-		if content == nil && !(p.publishScope && c.AllowPublish) {
-			return id, errDenied
-		}
+	tool := editTool
+	if content == nil {
+		tool = publishTool
+	}
+	return s.run(ctx, p, tool, func(q *dbgen.Queries, _ dbgen.LockMCPConnectionRow) (pgtype.UUID, error) {
 		current, err := owned(ctx, q, p, id)
 		if err != nil {
 			return id, err

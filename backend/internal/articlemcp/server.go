@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -54,32 +56,48 @@ func registerTool[I, O any](server *mcp.Server, name, description string, call f
 		return nil, out, nil
 	})
 }
-func (s *Server) tools(publish bool) *mcp.Server {
-	server := mcp.NewServer(&mcp.Implementation{Name: "rendering-cms", Version: "1.0.0"}, nil)
+func (s *Server) tools(permissions []string) *mcp.Server {
+	server := mcp.NewServer(&mcp.Implementation{Name: "rendering-cms", Version: "1.0.0"}, &mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{}, Logging: &mcp.LoggingCapabilities{}}})
 	server.AddReceivingMiddleware(s.observe)
-	registerTool(server, "create_draft", "创建草稿，重试使用相同 requestKey。", s.store.create)
-	registerTool(server, "get_article", "读取此连接创建的文章及当前版本。", func(ctx context.Context, p principal, in ArticleInput) (Article, error) {
-		return s.store.read(ctx, p, in.ArticleID)
-	})
-	registerTool(server, "update_draft", "按版本替换草稿标题、摘要、正文和标签，未提供的摘要和标签会清空。", func(ctx context.Context, p principal, in EditInput) (Article, error) {
-		return s.store.change(ctx, p, in.VersionInput, &in.Content)
-	})
-	if publish {
-		registerTool(server, "publish_article", "公开发布指定版本的草稿。", func(ctx context.Context, p principal, in VersionInput) (Article, error) {
+	if slices.Contains(permissions, createTool) {
+		registerTool(server, createTool, "创建草稿，重试使用相同 requestKey。", s.store.create)
+	}
+	if slices.Contains(permissions, readTool) {
+		registerTool(server, readTool, "读取此连接创建的文章及当前版本。", func(ctx context.Context, p principal, in ArticleInput) (Article, error) {
+			return s.store.read(ctx, p, in.ArticleID, readTool)
+		})
+	}
+	if slices.Contains(permissions, editTool) {
+		registerTool(server, editTool, "按版本替换草稿标题、摘要、正文和标签，未提供的摘要和标签会清空。", func(ctx context.Context, p principal, in EditInput) (Article, error) {
+			return s.store.change(ctx, p, in.VersionInput, &in.Content)
+		})
+	}
+	if slices.Contains(permissions, publishTool) {
+		registerTool(server, publishTool, "公开发布指定版本的草稿。", func(ctx context.Context, p principal, in VersionInput) (Article, error) {
 			return s.store.change(ctx, p, in, nil)
 		})
 	}
-	registerTool(server, "article_status", "检查 CMS 状态与博客公开页面，并说明搜索的验证状态。", s.status)
+	if slices.Contains(permissions, statusTool) {
+		registerTool(server, statusTool, "检查 CMS 状态与博客公开页面，并说明搜索的验证状态。", s.status)
+	}
 	return server
 }
 func (s *Server) registerEnabled(r chi.Router) {
-	draft, publish := s.tools(false), s.tools(true)
+	var mu sync.Mutex
+	servers := map[string]*mcp.Server{}
 	handler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		info := mcpauth.TokenInfoFromContext(r.Context())
-		if info != nil && slices.Contains(info.Scopes, publishScope) {
-			return publish
+		if info == nil {
+			return nil
 		}
-		return draft
+		permissions, _ := info.Extra["permissions"].([]string)
+		key := strings.Join(permissions, ",")
+		mu.Lock()
+		defer mu.Unlock()
+		if servers[key] == nil {
+			servers[key] = s.tools(permissions)
+		}
+		return servers[key]
 	}, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true, MaxRequestBodyBytes: 2 << 20})
 	opts := &mcpauth.RequireBearerTokenOptions{Scopes: []string{draftScope}, AllowMissingExpiration: true}
 	if s.cfg.Issuer != "" {

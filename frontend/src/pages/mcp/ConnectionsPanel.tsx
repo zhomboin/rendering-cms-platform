@@ -2,12 +2,13 @@ import { Alert, Button, Modal, Space, Table, Tag } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getConnections, revokeConnection, setPublish } from '../../api/mcp';
-import type { McpConnection, McpSettings } from '../../api/mcp';
+import { getConnections, permissionOptions, revokeConnection, setPermissions } from '../../api/mcp';
+import type { McpConnection, McpSettings, McpPermission } from '../../api/mcp';
+import { PermissionPicker } from './PermissionPicker';
 import { GrantDialog } from './GrantDialog';
 
-type Action = { row: McpConnection; type: 'publish' | 'draft' | 'revoke' };
-const actions = { publish: '允许发布', draft: '收回发布权', revoke: '撤销连接' };
+type Action = { row: McpConnection; type: 'permissions' | 'revoke' };
+const actions = { permissions: '配置权限', revoke: '撤销连接' };
 export function ConnectionsPanel({ owner, settings }: { owner: string; settings: McpSettings }) {
   const connections = useQuery({
     queryKey: ['mcp-connections', owner],
@@ -18,8 +19,10 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
   const [action, setAction] = useState<Action>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<McpPermission[]>([]);
   function choose(row: McpConnection, type: Action['type']) {
     setError('');
+    setSelected(row.permissions);
     setAction({ row, type });
   }
   async function confirm() {
@@ -27,11 +30,12 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
     setBusy(true);
     try {
       if (action.type === 'revoke') await revokeConnection(action.row.id);
-      else await setPublish(action.row.id, action.type === 'publish');
+      else await setPermissions(action.row.id, selected, action.row.permissionRevision);
       await connections.refetch();
       setAction(undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : '操作失败');
+      void connections.refetch();
     } finally {
       setBusy(false);
     }
@@ -69,11 +73,23 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
           },
           {
             title: '权限',
-            render: (_, r) => (
-              <Tag color={r.revoked ? undefined : r.allowPublish ? 'gold' : 'blue'}>
-                {r.revoked ? '已撤销' : r.allowPublish ? '可发布' : '仅草稿'}
-              </Tag>
-            ),
+            width: 240,
+            render: (_, r) =>
+              r.revoked ? (
+                <Tag>已撤销</Tag>
+              ) : r.permissions.length === 0 ? (
+                '无工具权限'
+              ) : (
+                <Space size={[2, 4]} wrap>
+                  {permissionOptions
+                    .filter((p) => r.permissions.includes(p.value))
+                    .map((p) => (
+                      <Tag key={p.value} color={p.value === 'publish_article' ? 'gold' : 'blue'}>
+                        {p.label}
+                      </Tag>
+                    ))}
+                </Space>
+              ),
           },
           {
             title: '操作',
@@ -82,8 +98,8 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
                 '—'
               ) : (
                 <Space wrap>
-                  <Button size="small" onClick={() => choose(r, r.allowPublish ? 'draft' : 'publish')}>
-                    {r.allowPublish ? actions.draft : actions.publish}
+                  <Button size="small" onClick={() => choose(r, 'permissions')}>
+                    配置权限
                   </Button>
                   <Button size="small" danger onClick={() => choose(r, 'revoke')}>
                     撤销
@@ -105,7 +121,7 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
           open
           title={actions[action.type] + ' · ' + action.row.label}
           cancelText="取消"
-          okText={actions[action.type]}
+          okText={action.type === 'permissions' ? '保存权限' : actions.revoke}
           okButtonProps={{ danger: action.type === 'revoke' }}
           confirmLoading={busy}
           onOk={confirm}
@@ -113,13 +129,11 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
             if (!busy) setAction(undefined);
           }}
         >
-          <p>
-            {action.type === 'revoke'
-              ? '撤销后，该连接的凭据将永久失效。'
-              : action.type === 'publish'
-                ? '此 AI 可以直接公开发布本连接创建的草稿。'
-                : '此 AI 将只能协作草稿。'}
-          </p>
+          {action.type === 'revoke' ? (
+            <p>撤销后，该连接的凭据将永久失效。</p>
+          ) : (
+            <PermissionPicker value={selected} onChange={setSelected} />
+          )}
           {error && <Alert type="error" showIcon title={error} />}
         </Modal>
       )}

@@ -32,8 +32,37 @@ func (q *Queries) BindMCPDraft(ctx context.Context, arg BindMCPDraftParams) erro
 	return err
 }
 
+const changeMCPPermissions = `-- name: ChangeMCPPermissions :execrows
+update article_mcp_connections
+set draft_permissions=$3,allow_publish=$4,permission_revision=permission_revision+1
+where owner_id=$1 and id=$2 and not revoked
+    and ($5::integer=0 or permission_revision=$5)
+`
+
+type ChangeMCPPermissionsParams struct {
+	OwnerID          pgtype.UUID
+	ID               pgtype.UUID
+	DraftPermissions []string
+	AllowPublish     bool
+	ExpectedRevision int32
+}
+
+func (q *Queries) ChangeMCPPermissions(ctx context.Context, arg ChangeMCPPermissionsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, changeMCPPermissions,
+		arg.OwnerID,
+		arg.ID,
+		arg.DraftPermissions,
+		arg.AllowPublish,
+		arg.ExpectedRevision,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const changeMCPPublish = `-- name: ChangeMCPPublish :execrows
-update article_mcp_connections set allow_publish=$3 where owner_id=$1 and id=$2 and not revoked
+update article_mcp_connections set allow_publish=$3,permission_revision=permission_revision+1 where owner_id=$1 and id=$2 and not revoked
 `
 
 type ChangeMCPPublishParams struct {
@@ -51,18 +80,19 @@ func (q *Queries) ChangeMCPPublish(ctx context.Context, arg ChangeMCPPublishPara
 }
 
 const createMCPConnection = `-- name: CreateMCPConnection :one
-insert into article_mcp_connections(owner_id,label,token_hash,oauth_issuer,oauth_client,oauth_subject,allow_publish)
-values ($1,$2,$3,$4,$5,$6,$7) returning id
+insert into article_mcp_connections(owner_id,label,token_hash,oauth_issuer,oauth_client,oauth_subject,allow_publish,draft_permissions)
+values ($1,$2,$3,$4,$5,$6,$7,$8) returning id
 `
 
 type CreateMCPConnectionParams struct {
-	OwnerID      pgtype.UUID
-	Label        string
-	TokenHash    []byte
-	OauthIssuer  pgtype.Text
-	OauthClient  pgtype.Text
-	OauthSubject pgtype.Text
-	AllowPublish bool
+	OwnerID          pgtype.UUID
+	Label            string
+	TokenHash        []byte
+	OauthIssuer      pgtype.Text
+	OauthClient      pgtype.Text
+	OauthSubject     pgtype.Text
+	AllowPublish     bool
+	DraftPermissions []string
 }
 
 func (q *Queries) CreateMCPConnection(ctx context.Context, arg CreateMCPConnectionParams) (pgtype.UUID, error) {
@@ -74,6 +104,7 @@ func (q *Queries) CreateMCPConnection(ctx context.Context, arg CreateMCPConnecti
 		arg.OauthClient,
 		arg.OauthSubject,
 		arg.AllowPublish,
+		arg.DraftPermissions,
 	)
 	var id pgtype.UUID
 	err := row.Scan(&id)
@@ -178,19 +209,21 @@ func (q *Queries) GetMCPArticle(ctx context.Context, arg GetMCPArticleParams) (G
 }
 
 const listMCPConnections = `-- name: ListMCPConnections :many
-select id,label,allow_publish,revoked,created_at,client_name,last_seen_at,(token_hash is null)::boolean as oauth from article_mcp_connections
+select id,label,allow_publish,draft_permissions,permission_revision,revoked,created_at,client_name,last_seen_at,(token_hash is null)::boolean as oauth from article_mcp_connections
 where owner_id=$1 order by created_at desc
 `
 
 type ListMCPConnectionsRow struct {
-	ID           pgtype.UUID
-	Label        string
-	AllowPublish bool
-	Revoked      bool
-	CreatedAt    pgtype.Timestamptz
-	ClientName   string
-	LastSeenAt   pgtype.Timestamptz
-	Oauth        bool
+	ID                 pgtype.UUID
+	Label              string
+	AllowPublish       bool
+	DraftPermissions   []string
+	PermissionRevision int32
+	Revoked            bool
+	CreatedAt          pgtype.Timestamptz
+	ClientName         string
+	LastSeenAt         pgtype.Timestamptz
+	Oauth              bool
 }
 
 func (q *Queries) ListMCPConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListMCPConnectionsRow, error) {
@@ -206,6 +239,8 @@ func (q *Queries) ListMCPConnections(ctx context.Context, ownerID pgtype.UUID) (
 			&i.ID,
 			&i.Label,
 			&i.AllowPublish,
+			&i.DraftPermissions,
+			&i.PermissionRevision,
 			&i.Revoked,
 			&i.CreatedAt,
 			&i.ClientName,
@@ -223,23 +258,24 @@ func (q *Queries) ListMCPConnections(ctx context.Context, ownerID pgtype.UUID) (
 }
 
 const lockMCPConnection = `-- name: LockMCPConnection :one
-select owner_id,allow_publish from article_mcp_connections where id=$1 and not revoked for update
+select owner_id,allow_publish,draft_permissions from article_mcp_connections where id=$1 and not revoked for update
 `
 
 type LockMCPConnectionRow struct {
-	OwnerID      pgtype.UUID
-	AllowPublish bool
+	OwnerID          pgtype.UUID
+	AllowPublish     bool
+	DraftPermissions []string
 }
 
 func (q *Queries) LockMCPConnection(ctx context.Context, id pgtype.UUID) (LockMCPConnectionRow, error) {
 	row := q.db.QueryRow(ctx, lockMCPConnection, id)
 	var i LockMCPConnectionRow
-	err := row.Scan(&i.OwnerID, &i.AllowPublish)
+	err := row.Scan(&i.OwnerID, &i.AllowPublish, &i.DraftPermissions)
 	return i, err
 }
 
 const lookupMCPOAuth = `-- name: LookupMCPOAuth :one
-select id,allow_publish from article_mcp_connections
+select id,allow_publish,draft_permissions from article_mcp_connections
 where oauth_issuer=$1 and oauth_client=$2 and oauth_subject=$3 and not revoked
 `
 
@@ -250,30 +286,32 @@ type LookupMCPOAuthParams struct {
 }
 
 type LookupMCPOAuthRow struct {
-	ID           pgtype.UUID
-	AllowPublish bool
+	ID               pgtype.UUID
+	AllowPublish     bool
+	DraftPermissions []string
 }
 
 func (q *Queries) LookupMCPOAuth(ctx context.Context, arg LookupMCPOAuthParams) (LookupMCPOAuthRow, error) {
 	row := q.db.QueryRow(ctx, lookupMCPOAuth, arg.OauthIssuer, arg.OauthClient, arg.OauthSubject)
 	var i LookupMCPOAuthRow
-	err := row.Scan(&i.ID, &i.AllowPublish)
+	err := row.Scan(&i.ID, &i.AllowPublish, &i.DraftPermissions)
 	return i, err
 }
 
 const lookupMCPToken = `-- name: LookupMCPToken :one
-select id,allow_publish from article_mcp_connections where token_hash=$1 and not revoked
+select id,allow_publish,draft_permissions from article_mcp_connections where token_hash=$1 and not revoked
 `
 
 type LookupMCPTokenRow struct {
-	ID           pgtype.UUID
-	AllowPublish bool
+	ID               pgtype.UUID
+	AllowPublish     bool
+	DraftPermissions []string
 }
 
 func (q *Queries) LookupMCPToken(ctx context.Context, tokenHash []byte) (LookupMCPTokenRow, error) {
 	row := q.db.QueryRow(ctx, lookupMCPToken, tokenHash)
 	var i LookupMCPTokenRow
-	err := row.Scan(&i.ID, &i.AllowPublish)
+	err := row.Scan(&i.ID, &i.AllowPublish, &i.DraftPermissions)
 	return i, err
 }
 

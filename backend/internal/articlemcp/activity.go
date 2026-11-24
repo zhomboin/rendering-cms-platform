@@ -62,7 +62,7 @@ func (s *Server) observe(next mcp.MethodHandler) mcp.MethodHandler {
 		}
 		name := params.Name
 		switch name {
-		case "create_draft", "get_article", "update_draft", "publish_article", "article_status":
+		case createTool, readTool, editTool, publishTool, statusTool:
 		default:
 			name = "unknown"
 		}

@@ -6,7 +6,7 @@
 
 - [技术基线](cms-platform-technical-recommendation.zh-CN.md)：项目边界、技术栈与能力。
 - [API 索引](apis/README.md)：认证、文章、首页、统计、评论、文件、相册与 PostBridge 契约。
-- [AI 文章 MCP](apis/article-mcp.md) 与[后台 MCP 管理、客户端接入及核验](operations/article-mcp.md)。
+- [AI 文章 MCP](apis/article-mcp.md) 与[后台 MCP 管理、逐项授权与客户端核验](operations/article-mcp.md)。
 - [PostBridge 接入](apis/postbridge.md)与[环境验收](plans/2026-11-05-postbridge-integration.md)。
 - [数据库说明](sql/schema.md)：数据表、索引、隐私字段与迁移规则。
 - [Go 后端导读](guides/go-backend-guide.md)、[前端架构](guides/frontend-architecture.md)、[前端设计与组件 skill](guides/frontend-design.md)。
