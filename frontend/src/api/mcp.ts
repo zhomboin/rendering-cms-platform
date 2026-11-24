@@ -32,6 +32,8 @@ export const permissionGroups = [
 ] as const;
 export const permissionOptions = [...articlePermissions, ...albumPermissions, ...photoPermissions];
 export type McpPermission = (typeof permissionOptions)[number]['value'];
+export type McpReadScope = 'own' | 'all';
+export const readScopeLabels = { own: '仅本连接创建', all: '全部可读内容' } as const;
 export const defaultPermissions = articlePermissions
   .map((option) => option.value)
   .filter((name) => name !== 'publish_article');
@@ -53,6 +55,7 @@ export interface McpConnection {
   allowPublish: boolean;
   permissions: McpPermission[];
   permissionRevision: number;
+  readScope: McpReadScope;
   revoked: boolean;
   oauth: boolean;
   clientName: string;
@@ -60,6 +63,7 @@ export interface McpConnection {
 }
 export interface GrantInput {
   label: string;
+  readScope: McpReadScope;
   permissions: McpPermission[];
   oauthClient?: string;
   oauthSubject?: string;
@@ -83,9 +87,15 @@ export const getSettings = () => apiGet<McpSettings>(base + '/settings');
 export const saveSettings = (value: SettingsInput) => apiPatch<void>(base + '/settings', value);
 export const getConnections = () => apiGet<McpConnection[]>(base + '/connections');
 export const createConnection = (input: GrantInput) => apiPost<GrantResult>(base + '/connections', input);
-export const setPermissions = (id: string, permissions: McpPermission[], expectedRevision: number) =>
+export const setPermissions = (
+  id: string,
+  permissions: McpPermission[],
+  readScope: McpReadScope,
+  expectedRevision: number,
+) =>
   apiPatch<void>(base + '/connections/' + id, {
     permissions,
+    readScope,
     expectedRevision,
   });
 export const revokeConnection = (id: string) => apiDelete<void>(base + '/connections/' + id);

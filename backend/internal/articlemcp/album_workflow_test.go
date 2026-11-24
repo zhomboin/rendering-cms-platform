@@ -72,7 +72,7 @@ func TestAlbumToolsThroughMCP(t *testing.T) {
 		return session, id, token
 	}
 	session, id, token := connect("albums", albumTools)
-	other, _, _ := connect("other", albumTools)
+	other, otherID, _ := connect("other", albumTools)
 	call := func(client *mcp.ClientSession, name string, in any, fail bool, out any) {
 		t.Helper()
 		res, err := client.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: in})
@@ -204,6 +204,38 @@ func TestAlbumToolsThroughMCP(t *testing.T) {
 	data.Reset()
 	data.Write(small)
 	first := PhotoRef{AlbumRef: album, PhotoID: a.PhotoID}
+	manual, err := q.CreatePhotoAlbum(ctx, dbgen.CreatePhotoAlbumParams{CreatedBy: owner, Slug: "manual", Title: "后台相册", Description: "后台创建", Tags: []string{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	setScope := func(all bool) {
+		t.Helper()
+		if _, err := q.ChangeMCPPermissions(ctx, dbgen.ChangeMCPPermissionsParams{OwnerID: owner, ID: otherID, ReadAll: pgtype.Bool{Bool: all, Valid: true}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	setScope(true)
+	call(other, listAlbumsTool, AlbumPage{}, false, &listing)
+	if len(listing.Items) != 2 {
+		t.Fatal("应同时看到后台和其他连接的相册", listing)
+	}
+	call(other, getAlbumTool, AlbumRef{manual.AlbumID.String()}, false, nil)
+	var sharedPhotos PhotoList
+	call(other, listPhotosTool, PhotosPage{AlbumRef: album}, false, &sharedPhotos)
+	if len(sharedPhotos.Items) != 2 {
+		t.Fatal("未读到相册照片")
+	}
+	call(other, updateAlbumTool, AlbumEdit{AlbumRef: album, AlbumFields: create.AlbumFields}, true, nil)
+	call(other, uploadPhotoTool, PhotoUploadInput{AlbumRef: album, RequestKey: "foreign"}, true, nil)
+	call(other, deletePhotoTool, first, true, nil)
+	call(other, publishAlbumTool, album, true, nil)
+	setScope(false)
+	call(other, listAlbumsTool, AlbumPage{}, false, &listing)
+	if len(listing.Items) != 0 {
+		t.Fatal("收窄范围后仍可列出相册")
+	}
+	call(other, listPhotosTool, PhotosPage{AlbumRef: album}, true, nil)
+	call(other, getAlbumTool, AlbumRef{manual.AlbumID.String()}, true, nil)
 	call(session, updatePhotoTool, PhotoEdit{PhotoRef: first, Alt: "说明", Caption: "描述"}, false, nil)
 	call(session, orderPhotosTool, PhotoOrder{AlbumRef: album, PhotoIDs: []string{a.PhotoID, a.PhotoID}}, true, nil)
 	call(session, orderPhotosTool, PhotoOrder{AlbumRef: album, PhotoIDs: []string{b.PhotoID, a.PhotoID}}, false, nil)

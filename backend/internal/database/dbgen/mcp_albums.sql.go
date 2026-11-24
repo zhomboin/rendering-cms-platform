@@ -95,37 +95,41 @@ func (q *Queries) FindMCPUpload(ctx context.Context, arg FindMCPUploadParams) (F
 	return i, err
 }
 
-const getOwnedMCPAlbum = `-- name: GetOwnedMCPAlbum :one
-select a.album_id,a.status from photo_albums a join mcp_albums m using (album_id)
-where m.connection_id=$1 and a.album_id=$2 for update of a
+const getAccessibleMCPAlbum = `-- name: GetAccessibleMCPAlbum :one
+select a.album_id,a.status from photo_albums a left join mcp_albums m using (album_id)
+where ($1::boolean or m.connection_id=$2)
+    and a.album_id=$3 for update of a
 `
 
-type GetOwnedMCPAlbumParams struct {
+type GetAccessibleMCPAlbumParams struct {
+	ReadAll      bool
 	ConnectionID pgtype.UUID
 	AlbumID      pgtype.UUID
 }
 
-type GetOwnedMCPAlbumRow struct {
+type GetAccessibleMCPAlbumRow struct {
 	AlbumID pgtype.UUID
 	Status  PhotoAlbumStatus
 }
 
-func (q *Queries) GetOwnedMCPAlbum(ctx context.Context, arg GetOwnedMCPAlbumParams) (GetOwnedMCPAlbumRow, error) {
-	row := q.db.QueryRow(ctx, getOwnedMCPAlbum, arg.ConnectionID, arg.AlbumID)
-	var i GetOwnedMCPAlbumRow
+func (q *Queries) GetAccessibleMCPAlbum(ctx context.Context, arg GetAccessibleMCPAlbumParams) (GetAccessibleMCPAlbumRow, error) {
+	row := q.db.QueryRow(ctx, getAccessibleMCPAlbum, arg.ReadAll, arg.ConnectionID, arg.AlbumID)
+	var i GetAccessibleMCPAlbumRow
 	err := row.Scan(&i.AlbumID, &i.Status)
 	return i, err
 }
 
 const listMCPAlbums = `-- name: ListMCPAlbums :many
-select a.album_id,a.slug,a.title,a.status from photo_albums a join mcp_albums m using (album_id)
-where m.connection_id=$1 order by a.created_at desc,a.album_id limit $2 offset $3
+select a.album_id,a.slug,a.title,a.status from photo_albums a left join mcp_albums m using (album_id)
+where ($1::boolean or m.connection_id=$2)
+order by a.created_at desc,a.album_id limit $4 offset $3
 `
 
 type ListMCPAlbumsParams struct {
+	ReadAll      bool
 	ConnectionID pgtype.UUID
-	Limit        int32
 	Offset       int32
+	Limit        int32
 }
 
 type ListMCPAlbumsRow struct {
@@ -136,7 +140,12 @@ type ListMCPAlbumsRow struct {
 }
 
 func (q *Queries) ListMCPAlbums(ctx context.Context, arg ListMCPAlbumsParams) ([]ListMCPAlbumsRow, error) {
-	rows, err := q.db.Query(ctx, listMCPAlbums, arg.ConnectionID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listMCPAlbums,
+		arg.ReadAll,
+		arg.ConnectionID,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

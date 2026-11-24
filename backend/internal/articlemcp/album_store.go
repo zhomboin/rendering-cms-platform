@@ -28,6 +28,7 @@ type AlbumRef struct {
 type albumTx struct {
 	q         *dbgen.Queries
 	owner, id pgtype.UUID
+	readAll   bool
 }
 
 func (s *Server) withAlbum(ctx context.Context, p principal, tool, rawID string, fn func(albumTx) error) error {
@@ -50,26 +51,26 @@ func (s *Server) withAlbum(ctx context.Context, p principal, tool, rawID string,
 	if !slices.Contains(grant.DraftPermissions, tool) {
 		return errDenied
 	}
-	a := albumTx{q: q, owner: grant.OwnerID}
+	readOnly := tool == listAlbumsTool || tool == getAlbumTool || tool == listPhotosTool
+	a := albumTx{q: q, owner: grant.OwnerID, readAll: grant.ReadAll && readOnly}
 	if tool != createAlbumTool && tool != listAlbumsTool {
 		id, err := parseID(rawID)
 		if err != nil {
 			return errAlbumMissing
 		}
-		write := tool != getAlbumTool && tool != listPhotosTool
-		if write {
+		if !readOnly {
 			if err := q.LockAlbumImageWrites(ctx); err != nil {
 				return err
 			}
 		}
-		current, err := q.GetOwnedMCPAlbum(ctx, dbgen.GetOwnedMCPAlbumParams{AlbumID: id, ConnectionID: p.id})
+		current, err := q.GetAccessibleMCPAlbum(ctx, dbgen.GetAccessibleMCPAlbumParams{AlbumID: id, ConnectionID: p.id, ReadAll: a.readAll})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return errAlbumMissing
 		}
 		if err != nil {
 			return err
 		}
-		if write {
+		if !readOnly {
 			required := dbgen.PhotoAlbumStatusDraft
 			if tool == unpublishAlbumTool {
 				required = dbgen.PhotoAlbumStatusPublished

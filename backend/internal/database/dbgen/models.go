@@ -320,6 +320,7 @@ type ArticleMcpConnection struct {
 	LastSeenAt         pgtype.Timestamptz
 	DraftPermissions   []string
 	PermissionRevision int32
+	ReadAll            bool
 }
 
 type ArticleMcpDraft struct {

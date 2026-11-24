@@ -69,6 +69,7 @@ type grantInfo struct {
 	Label              string     `json:"label"`
 	AllowPublish       bool       `json:"allowPublish"`
 	Permissions        []string   `json:"permissions"`
+	ReadScope          readScope  `json:"readScope"`
 	PermissionRevision int32      `json:"permissionRevision"`
 	Revoked            bool       `json:"revoked"`
 	OAuth              bool       `json:"oauth"`
@@ -86,6 +87,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	for _, row := range rows {
 		g := grantInfo{ID: row.ID.String(), Label: row.Label, AllowPublish: row.AllowPublish, Revoked: row.Revoked, OAuth: row.Oauth, ClientName: row.ClientName}
 		g.Permissions = allPermissions(row.DraftPermissions, row.AllowPublish)
+		g.ReadScope = connectionScope(row.ReadAll)
 		g.PermissionRevision = row.PermissionRevision
 		if row.LastSeenAt.Valid {
 			g.LastSeenAt = &row.LastSeenAt.Time
@@ -99,6 +101,7 @@ func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 		Label        string         `json:"label"`
 		AllowPublish *bool          `json:"allowPublish"`
 		Permissions  permissionList `json:"permissions"`
+		ReadScope    readScope      `json:"readScope"`
 		OAuthClient  string         `json:"oauthClient"`
 		OAuthSubject string         `json:"oauthSubject"`
 	}
@@ -110,7 +113,7 @@ func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 		respond(w, 400, map[string]string{"error": "请填写 160 字节以内的连接名称"})
 		return
 	}
-	args := dbgen.CreateMCPConnectionParams{OwnerID: owner(r), Label: in.Label, DraftPermissions: draftTools}
+	args := dbgen.CreateMCPConnectionParams{OwnerID: owner(r), Label: in.Label, DraftPermissions: draftTools, ReadAll: in.ReadScope == scopeAll}
 	if in.Permissions != nil && in.AllowPublish != nil {
 		respond(w, 400, map[string]string{"error": "请使用单一授权方式"})
 		return
@@ -148,6 +151,7 @@ func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 	if token != "" {
 		result["token"] = token
 	}
+	result["readScope"] = connectionScope(args.ReadAll)
 	respond(w, 201, result)
 }
 func (s *Server) modify(w http.ResponseWriter, r *http.Request) {
@@ -164,22 +168,29 @@ func (s *Server) modify(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			AllowPublish     *bool          `json:"allowPublish"`
 			Permissions      permissionList `json:"permissions"`
+			ReadScope        readScope      `json:"readScope"`
 			ExpectedRevision *int32         `json:"expectedRevision"`
 		}
 		if !decode(w, r, &in) {
 			return
 		}
-		if (in.AllowPublish == nil) == (in.Permissions == nil) {
-			respond(w, 400, map[string]string{"error": "请指定权限列表或发布开关"})
+		if (in.AllowPublish != nil && in.Permissions != nil) || (in.AllowPublish == nil && in.Permissions == nil && in.ReadScope == "") {
+			respond(w, 400, map[string]string{"error": "请指定数据范围或一种工具授权方式"})
 			return
 		}
-		if in.ExpectedRevision != nil && (in.Permissions == nil || *in.ExpectedRevision < 1) {
+		if in.ExpectedRevision != nil && ((in.Permissions == nil && in.ReadScope == "") || *in.ExpectedRevision < 1) {
 			respond(w, 400, map[string]string{"error": "无效的权限版本"})
 			return
 		}
-		if in.Permissions != nil {
-			drafts, publish := in.Permissions.split()
-			args := dbgen.ChangeMCPPermissionsParams{OwnerID: owner(r), ID: id, DraftPermissions: drafts, AllowPublish: publish}
+		if in.Permissions != nil || in.ReadScope != "" {
+			args := dbgen.ChangeMCPPermissionsParams{OwnerID: owner(r), ID: id, ReadAll: pgtype.Bool{Bool: in.ReadScope == scopeAll, Valid: in.ReadScope != ""}}
+			if in.Permissions != nil {
+				drafts, publish := in.Permissions.split()
+				args.DraftPermissions = drafts
+				args.AllowPublish = pgtype.Bool{Bool: publish, Valid: true}
+			} else if in.AllowPublish != nil {
+				args.AllowPublish = pgtype.Bool{Bool: *in.AllowPublish, Valid: true}
+			}
 			if in.ExpectedRevision != nil {
 				args.ExpectedRevision = *in.ExpectedRevision
 			}
