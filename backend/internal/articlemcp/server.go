@@ -53,7 +53,7 @@ func registerTool[I, O any](server *mcp.Server, name, description string, call f
 		}
 		out, err := call(ctx, principal{id: id, publishScope: slices.Contains(info.Scopes, publishScope), albumScope: slices.Contains(info.Scopes, albumScope)}, input)
 		if err != nil {
-			for _, allowed := range []error{errDenied, errMissing, errVersion, errKey, errInput, errName, errAlbumMissing, errAlbumInput, errAlbumState, errPublishedUpload, albums.ErrAlbumEmpty, albums.ErrPhotoOrder} {
+			for _, allowed := range []error{errDenied, errMissing, errVersion, errKey, errInput, errName, errCover, errRank, errEditFields, errAlbumMissing, errAlbumInput, errAlbumState, errPublishedUpload, albums.ErrAlbumEmpty, albums.ErrPhotoOrder} {
 				if errors.Is(err, allowed) {
 					return nil, empty, allowed
 				}
@@ -71,7 +71,7 @@ func (s *Server) tools(permissions []string) *mcp.Server {
 	server := mcp.NewServer(&mcp.Implementation{Name: "rendering-cms", Version: "1.0.0"}, &mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{Tools: &mcp.ToolCapabilities{}, Logging: &mcp.LoggingCapabilities{}}})
 	server.AddReceivingMiddleware(s.observe)
 	if slices.Contains(permissions, createTool) {
-		registerTool(server, createTool, "创建草稿，重试使用相同 requestKey。", s.store.create)
+		registerTool(server, createTool, "创建草稿，可设置封面、首页精选及精选排序。重试使用相同 requestKey。", s.store.create)
 	}
 	if slices.Contains(permissions, readTool) {
 		registerTool(server, readTool, "读取授权范围内的文章及当前版本。", func(ctx context.Context, p principal, in ArticleInput) (Article, error) {
@@ -79,8 +79,8 @@ func (s *Server) tools(permissions []string) *mcp.Server {
 		})
 	}
 	if slices.Contains(permissions, editTool) {
-		registerTool(server, editTool, "按版本替换草稿标题、摘要、正文和标签，未提供的摘要和标签会清空。", func(ctx context.Context, p principal, in EditInput) (Article, error) {
-			return s.store.change(ctx, p, in.VersionInput, &in.Content)
+		registerTool(server, editTool, "按版本设置草稿封面、首页精选或精选排序，可单独修改。传入标题和正文时替换内容，省略的摘要和标签会清空。", func(ctx context.Context, p principal, in EditInput) (Article, error) {
+			return s.store.change(ctx, p, in.VersionInput, &in)
 		})
 	}
 	if slices.Contains(permissions, publishTool) {

@@ -41,6 +41,7 @@ type Content struct {
 	Summary string   `json:"summary,omitempty"`
 	Body    string   `json:"bodyMdx"`
 	Tags    []string `json:"tags,omitempty"`
+	Presentation
 }
 type CreateInput struct {
 	RequestKey  string `json:"requestKey" jsonschema:"建稿及其重试使用相同请求键"`
@@ -56,16 +57,21 @@ type VersionInput struct {
 }
 type EditInput struct {
 	VersionInput
-	Content
+	Title   *string  `json:"title,omitempty" jsonschema:"与 bodyMdx 一起提交以替换正文内容"`
+	Body    *string  `json:"bodyMdx,omitempty" jsonschema:"与 title 一起提交；仅调整封面或精选时可省略两者"`
+	Summary *string  `json:"summary,omitempty"`
+	Tags    []string `json:"tags,omitempty"`
+	Presentation
 }
 type Article struct {
-	ArticleID                     string `json:"articleId"`
-	ArticleName                   string `json:"articleName"`
-	Slug                          string `json:"slug"`
-	Status                        string `json:"status"`
-	Version                       int32  `json:"version"`
-	PreviewURL                    string `json:"previewUrl"`
-	PublicURL                     string `json:"publicUrl,omitempty"`
+	ArticleID                     string     `json:"articleId"`
+	ArticleName                   string     `json:"articleName"`
+	Slug                          string     `json:"slug"`
+	Status                        string     `json:"status"`
+	Version                       int32      `json:"version"`
+	PreviewURL                    string     `json:"previewUrl"`
+	PublicURL                     string     `json:"publicUrl,omitempty"`
+	FeaturedAt                    *time.Time `json:"featuredAt,omitempty"`
 	searchResult, searchCheckedAt string
 	Content
 }
@@ -124,6 +130,10 @@ func (s store) run(ctx context.Context, p principal, tool string, op action) (Ar
 	// 无读取授权时，建稿重试和写入回执只返回文章标识、版本和链接。
 	if slices.Contains(conn.DraftPermissions, readTool) {
 		a.Content = Content{Title: row.Title, Summary: row.Summary, Body: row.BodyMdx, Tags: row.Tags}
+		a.Presentation = Presentation{CoverImageURL: &row.CoverImageUrl.String, Featured: &row.Featured, FeaturedRank: &row.FeaturedRank}
+		if row.FeaturedAt.Valid {
+			a.FeaturedAt = &row.FeaturedAt.Time
+		}
 	}
 	if a.Status == "published" {
 		a.PublicURL = s.blogOrigin + "/blog/" + row.Slug
@@ -153,6 +163,9 @@ func (s store) create(ctx context.Context, p principal, in CreateInput) (Article
 	if in.normalize() != nil || !articles.ValidArticleName(in.ArticleName) || len(in.ArticleName) > 128 || strings.TrimSpace(in.RequestKey) == "" || len(in.RequestKey) > 128 {
 		return Article{}, errInput
 	}
+	if err := in.Presentation.validate(); err != nil {
+		return Article{}, err
+	}
 	raw, err := json.Marshal(in)
 	if err != nil {
 		return Article{}, err
@@ -175,10 +188,12 @@ func (s store) create(ctx context.Context, p principal, in CreateInput) (Article
 			if err != nil {
 				return pgtype.UUID{}, err
 			}
+			display := storedPresentation{rank: 100}
+			display.apply(in.Presentation)
 			row, err := q.CreateDraftArticle(ctx, dbgen.CreateDraftArticleParams{
 				AuthorID: c.OwnerID, Slug: slug, ArticleName: in.ArticleName,
 				Title: in.Title, Summary: in.Summary, BodyMdx: in.Body, Tags: in.Tags,
-				FeaturedRank: 100,
+				CoverImageUrl: display.cover, Featured: display.featured, FeaturedRank: display.rank, FeaturedAt: display.since,
 			})
 			if err != nil {
 				return pgtype.UUID{}, err
@@ -199,17 +214,17 @@ func (s store) create(ctx context.Context, p principal, in CreateInput) (Article
 func (s store) read(ctx context.Context, p principal, raw string, tool string) (Article, error) {
 	return s.run(ctx, p, tool, func(*dbgen.Queries, dbgen.LockMCPConnectionRow) (pgtype.UUID, error) { return parseID(raw) })
 }
-func (s store) change(ctx context.Context, p principal, in VersionInput, content *Content) (Article, error) {
+func (s store) change(ctx context.Context, p principal, in VersionInput, edit *EditInput) (Article, error) {
 	id, err := parseID(in.ArticleID)
 	if err != nil {
 		return Article{}, err
 	}
-	if content != nil && content.normalize() != nil {
-		return Article{}, errInput
-	}
-	tool := editTool
-	if content == nil {
-		tool = publishTool
+	tool := publishTool
+	if edit != nil {
+		tool = editTool
+		if err := edit.validate(); err != nil {
+			return Article{}, err
+		}
 	}
 	return s.run(ctx, p, tool, func(q *dbgen.Queries, _ dbgen.LockMCPConnectionRow) (pgtype.UUID, error) {
 		current, err := accessibleArticle(ctx, q, p, id, false)
@@ -219,11 +234,35 @@ func (s store) change(ctx context.Context, p principal, in VersionInput, content
 		if current.Status != dbgen.ArticleStatusDraft || current.Version != in.ExpectedVersion {
 			return id, errVersion
 		}
-		if content == nil {
+		if edit == nil {
 			_, err = q.PublishArticle(ctx, dbgen.PublishArticleParams{ArticleID: id, ExpectedVersion: pgtype.Int4{Int32: in.ExpectedVersion, Valid: true}})
 		} else {
-			_, err = q.EditMCPDraft(ctx, dbgen.EditMCPDraftParams{ArticleID: id, Version: in.ExpectedVersion, Title: content.Title, Summary: content.Summary, BodyMdx: content.Body, Tags: content.Tags})
+			display := storedPresentation{cover: current.CoverImageUrl, featured: current.Featured, rank: current.FeaturedRank, since: current.FeaturedAt}
+			display.apply(edit.Presentation)
+			args := dbgen.EditMCPDraftParams{ArticleID: id, Version: in.ExpectedVersion,
+				Title: current.Title, Summary: current.Summary, BodyMdx: current.BodyMdx, Tags: current.Tags,
+				CoverImageUrl: display.cover, Featured: display.featured, FeaturedRank: display.rank, FeaturedAt: display.since}
+			if edit.Title != nil {
+				args.Title, args.BodyMdx = strings.TrimSpace(*edit.Title), *edit.Body
+				args.Tags = append([]string{}, edit.Tags...)
+				args.Summary = ""
+				if edit.Summary != nil {
+					args.Summary = *edit.Summary
+				}
+			}
+			_, err = q.EditMCPDraft(ctx, args)
 		}
 		return id, err
 	})
+}
+
+func (in EditInput) validate() error {
+	if in.Title == nil && in.Body == nil {
+		if in.Presentation == (Presentation{}) || in.Summary != nil || in.Tags != nil {
+			return errEditFields
+		}
+	} else if in.Title == nil || in.Body == nil || strings.TrimSpace(*in.Title) == "" || strings.TrimSpace(*in.Body) == "" {
+		return errEditFields
+	}
+	return in.Presentation.validate()
 }
