@@ -48,3 +48,35 @@ func TestPermissionMigrationPreservesGrants(t *testing.T) {
 		}
 	}
 }
+
+func TestReadScopeMigrationPreservesTools(t *testing.T) {
+	pool := testutil.Database(t)
+	ctx := t.Context()
+	var owner pgtype.UUID
+	if err := pool.QueryRow(ctx, "insert into users(email,name,password_hash) values ('scope@example.invalid','范围','unused') returning user_id").Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	q := dbgen.New(pool)
+	for i, wide := range []bool{false, true} {
+		_, err := q.CreateMCPConnection(ctx, dbgen.CreateMCPConnectionParams{OwnerID: owner, Label: string(connectionScope(wide)), TokenHash: []byte{byte(i)}, DraftPermissions: []string{listAlbumsTool}, ReadAll: wide})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, direction := range []string{"down", "up"} {
+		raw, err := os.ReadFile("../../migrations/000023_mcp_read_scope." + direction + ".sql")
+		if err != nil {
+			t.Fatal(err)
+		}
+		testutil.Exec(t, pool, string(raw))
+	}
+	rows, err := q.ListMCPConnections(ctx, owner)
+	if err != nil || len(rows) != 2 {
+		t.Fatal(rows, err)
+	}
+	for _, row := range rows {
+		if row.ReadAll || !slices.Equal(row.DraftPermissions, []string{listAlbumsTool}) || (row.PermissionRevision == 2) != (row.Label == "all") {
+			t.Fatal("回退后授权或版本不正确", row)
+		}
+	}
+}

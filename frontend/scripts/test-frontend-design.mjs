@@ -232,10 +232,12 @@ test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) 
     if (route.request().method() === 'POST') {
       const input = route.request().postDataJSON();
       assert.deepEqual(input.permissions, ['get_article', 'upload_album_photo']);
+      assert.equal(input.readScope, 'all');
       connections.push({
         id: 'writer',
         label: input.label,
         permissions: input.permissions,
+        readScope: input.readScope,
         permissionRevision: 1,
         revoked: false,
       });
@@ -250,8 +252,10 @@ test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) 
     assert.deepEqual(route.request().postDataJSON(), {
       permissions: [],
       expectedRevision: 1,
+      readScope: 'own',
     });
     connections[0].permissions = [];
+    connections[0].readScope = 'own';
     connections[0].permissionRevision++;
     return route.fulfill({ status: 204 });
   });
@@ -259,6 +263,8 @@ test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) 
   await page.getByRole('button', { name: '新建连接' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('连接名称').fill('阅读助手');
+  assert.equal(await dialog.getByRole('radio', { name: '仅本连接创建' }).isChecked(), true);
+  await dialog.getByRole('radio', { name: '全部可读内容' }).check();
   assert.equal(await dialog.getByRole('checkbox', { name: '发布文章' }).isChecked(), false);
   for (const name of ['创建草稿', '修改草稿', '查询文章状态'])
     await dialog.getByRole('checkbox', { name }).uncheck();
@@ -272,11 +278,14 @@ test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) 
   const row = page.getByRole('row').filter({ hasText: '阅读助手' });
   await row.getByText('读取文章', { exact: true }).waitFor();
   await row.getByText('上传照片', { exact: true }).waitFor();
+  await row.getByText('全部可读内容', { exact: true }).waitFor();
   assert.equal(await row.getByText('发布文章', { exact: true }).count(), 0);
   await row.getByRole('button', { name: '配置权限' }).click();
   await dialog.getByRole('checkbox', { name: '读取文章' }).uncheck();
   await dialog.getByRole('checkbox', { name: '上传照片' }).uncheck();
+  await dialog.getByRole('radio', { name: '仅本连接创建' }).check();
   await dialog.getByRole('button', { name: '保存权限' }).click();
   await row.getByText('无工具权限').waitFor();
+  await row.getByText('仅本连接创建', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320);
 });

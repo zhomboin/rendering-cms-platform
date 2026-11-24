@@ -82,7 +82,7 @@ func TestOAuthGrantAndMigration(t *testing.T) {
 			t.Fatal("OAuth 相册范围不匹配", scope, names)
 		}
 	}
-	for _, migration := range []string{"000022_mcp_albums.down", "000021_mcp_permissions.down", "000020_mcp_console.down", "000019_article_mcp.down", "000019_article_mcp.up", "000020_mcp_console.up", "000021_mcp_permissions.up", "000022_mcp_albums.up"} {
+	for _, migration := range []string{"000023_mcp_read_scope.down", "000022_mcp_albums.down", "000021_mcp_permissions.down", "000020_mcp_console.down", "000019_article_mcp.down", "000019_article_mcp.up", "000020_mcp_console.up", "000021_mcp_permissions.up", "000022_mcp_albums.up", "000023_mcp_read_scope.up"} {
 		raw, err := os.ReadFile("../../migrations/" + migration + ".sql")
 		if err != nil {
 			t.Fatal(err)

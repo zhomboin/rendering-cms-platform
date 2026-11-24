@@ -177,7 +177,12 @@ func TestMCPThroughHTTP(t *testing.T) {
 	request("PATCH", path, admin, `{"allowPublish":true}`, 204)
 	expectTools(publishTool)
 	var writeGrant grant
-	if err := json.Unmarshal(request("POST", connections, admin, `{"label":"只写","permissions":["create_draft"]}`, 201), &writeGrant); err != nil {
+	request("POST", connections, admin, `{"label":"范围无效","readScope":"*"}`, 400)
+	issued := request("POST", connections, admin, `{"label":"只写","permissions":["create_draft"],"readScope":"all"}`, 201)
+	if !bytes.Contains(issued, []byte(`"readScope":"all"`)) {
+		t.Fatal("签发回执缺少数据范围")
+	}
+	if err := json.Unmarshal(issued, &writeGrant); err != nil {
 		t.Fatal(err)
 	}
 	writer := connect(writeGrant.Token)
@@ -192,12 +197,39 @@ func TestMCPThroughHTTP(t *testing.T) {
 	expectTools(draftTools...)
 	in.Title = "重复键的新正文"
 	call(session, "create_draft", in, true, nil)
-	other := connect(issue().Token)
+	otherGrant := issue()
+	other := connect(otherGrant.Token)
+	otherPath := connections + "/" + otherGrant.ID
 	article := ArticleInput{first.ArticleID}
 	call(other, "get_article", article, true, nil)
+	request("PATCH", otherPath, admin, `{"readScope":null}`, 400)
+	request("PATCH", otherPath, editor, `{"readScope":"all"}`, 403)
+	request("PATCH", otherPath, admin, `{"readScope":"all","expectedRevision":1}`, 204)
+	request("PATCH", otherPath, admin, `{"readScope":"own","expectedRevision":1}`, 409)
+	call(other, readTool, article, false, &receipt)
+	if receipt.Body != first.Body {
+		t.Fatal("授权后未读到文章正文")
+	}
+	call(other, statusTool, article, false, nil)
+	manual, err := dbgen.New(pool).CreateDraftArticle(ctx, dbgen.CreateDraftArticleParams{
+		AuthorID: owner, Slug: "manual", ArticleName: "manual", Title: "后台文章", BodyMdx: "正文", Tags: []string{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manualArticle := ArticleInput{manual.ArticleID.String()}
+	call(other, readTool, manualArticle, false, nil)
+	testutil.Exec(t, pool, "update articles set status='private' where article_id=$1", manual.ArticleID)
+	call(other, readTool, manualArticle, true, nil)
+	request("PATCH", otherPath, admin, `{"readScope":"own","expectedRevision":2}`, 204)
+	call(other, readTool, article, true, nil)
+	request("PATCH", otherPath, admin, `{"permissions":["get_article","update_draft","publish_article"],"readScope":"all","expectedRevision":3}`, 204)
+	call(other, statusTool, article, true, nil)
 	action := VersionInput{ArticleID: first.ArticleID, ExpectedVersion: first.Version}
 	call(session, "publish_article", action, true, nil)
 	edit := EditInput{VersionInput: action, Content: Content{Title: "修订", Body: "修订正文"}}
+	call(other, editTool, edit, true, nil)
+	call(other, publishTool, action, true, nil)
 	call(session, "update_draft", edit, false, &again)
 	call(session, "update_draft", edit, true, nil)
 	manualPath := "/api/v1/admin/articles/" + first.ArticleID
@@ -226,10 +258,13 @@ func TestMCPThroughHTTP(t *testing.T) {
 	}
 	testutil.Exec(t, pool, "update articles set status='draft' where article_id=$1", first.ArticleID)
 	testutil.Exec(t, pool, "update articles set status='private' where article_id=$1", first.ArticleID)
+	call(other, readTool, article, true, nil)
+	request("PATCH", path, admin, `{"readScope":"all"}`, 204)
 	call(session, "get_article", article, true, nil)
 	testutil.Exec(t, pool, "update articles set status='draft' where article_id=$1", first.ArticleID)
 	call(session, "get_article", article, true, nil)
 	request("DELETE", connections+"/"+g.ID, admin, "", 204)
+	call(other, readTool, article, false, nil)
 	request("POST", endpoint, g.Token, "{}", 401)
 	settingsPath := "/api/v1/admin/mcp/settings"
 	operationsPath := "/api/v1/admin/mcp/operations"

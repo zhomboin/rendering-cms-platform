@@ -74,7 +74,7 @@ func (s *Server) tools(permissions []string) *mcp.Server {
 		registerTool(server, createTool, "创建草稿，重试使用相同 requestKey。", s.store.create)
 	}
 	if slices.Contains(permissions, readTool) {
-		registerTool(server, readTool, "读取此连接创建的文章及当前版本。", func(ctx context.Context, p principal, in ArticleInput) (Article, error) {
+		registerTool(server, readTool, "读取授权范围内的文章及当前版本。", func(ctx context.Context, p principal, in ArticleInput) (Article, error) {
 			return s.store.read(ctx, p, in.ArticleID, readTool)
 		})
 	}

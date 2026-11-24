@@ -1,10 +1,17 @@
-import { Alert, Button, Modal, Space, Table, Tag } from 'antd';
+import { Alert, Button, Form, Modal, Space, Table, Tag } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getConnections, permissionOptions, revokeConnection, setPermissions } from '../../api/mcp';
-import type { McpConnection, McpSettings, McpPermission } from '../../api/mcp';
+import {
+  getConnections,
+  permissionOptions,
+  readScopeLabels,
+  revokeConnection,
+  setPermissions,
+} from '../../api/mcp';
+import type { McpConnection, McpSettings, McpPermission, McpReadScope } from '../../api/mcp';
 import { PermissionPicker } from './PermissionPicker';
+import { ReadScopePicker } from './ReadScopePicker';
 import { GrantDialog } from './GrantDialog';
 
 type Action = { row: McpConnection; type: 'permissions' | 'revoke' };
@@ -20,9 +27,11 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<McpPermission[]>([]);
+  const [scope, setScope] = useState<McpReadScope>('own');
   function choose(row: McpConnection, type: Action['type']) {
     setError('');
     setSelected(row.permissions);
+    setScope(row.readScope);
     setAction({ row, type });
   }
   async function confirm() {
@@ -30,7 +39,7 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
     setBusy(true);
     try {
       if (action.type === 'revoke') await revokeConnection(action.row.id);
-      else await setPermissions(action.row.id, selected, action.row.permissionRevision);
+      else await setPermissions(action.row.id, selected, scope, action.row.permissionRevision);
       await connections.refetch();
       setAction(undefined);
     } catch (err) {
@@ -59,7 +68,7 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
         rowKey="id"
         dataSource={connections.data}
         loading={connections.isPending}
-        scroll={{ x: 850 }}
+        scroll={{ x: 980 }}
         locale={{ emptyText: '暂无 AI 连接' }}
         pagination={{ pageSize: 10, hideOnSinglePage: true }}
         columns={[
@@ -73,6 +82,10 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
             title: '最近访问',
             render: (_, r) =>
               r.lastSeenAt ? new Date(r.lastSeenAt).toLocaleString('zh-CN') : '暂无访问记录',
+          },
+          {
+            title: '数据可见范围',
+            render: (_, row) => (row.revoked ? '—' : readScopeLabels[row.readScope]),
           },
           {
             title: '权限',
@@ -144,7 +157,12 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
           {action.type === 'revoke' ? (
             <p>撤销后，该连接的凭据将永久失效。</p>
           ) : (
-            <PermissionPicker value={selected} onChange={setSelected} />
+            <>
+              <Form.Item label="数据可见范围">
+                <ReadScopePicker value={scope} onChange={setScope} />
+              </Form.Item>
+              <PermissionPicker value={selected} onChange={setSelected} />
+            </>
           )}
           {error && <Alert type="error" showIcon title={error} />}
         </Modal>

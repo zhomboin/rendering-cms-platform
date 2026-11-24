@@ -34,16 +34,20 @@ func (q *Queries) BindMCPDraft(ctx context.Context, arg BindMCPDraftParams) erro
 
 const changeMCPPermissions = `-- name: ChangeMCPPermissions :execrows
 update article_mcp_connections
-set draft_permissions=$3,allow_publish=$4,permission_revision=permission_revision+1
+set draft_permissions=coalesce($3::text[],draft_permissions),
+    allow_publish=coalesce($4::boolean,allow_publish),
+    read_all=coalesce($5::boolean,read_all),
+    permission_revision=permission_revision+1
 where owner_id=$1 and id=$2 and not revoked
-    and ($5::integer=0 or permission_revision=$5)
+    and ($6::integer=0 or permission_revision=$6)
 `
 
 type ChangeMCPPermissionsParams struct {
 	OwnerID          pgtype.UUID
 	ID               pgtype.UUID
 	DraftPermissions []string
-	AllowPublish     bool
+	AllowPublish     pgtype.Bool
+	ReadAll          pgtype.Bool
 	ExpectedRevision int32
 }
 
@@ -53,6 +57,7 @@ func (q *Queries) ChangeMCPPermissions(ctx context.Context, arg ChangeMCPPermiss
 		arg.ID,
 		arg.DraftPermissions,
 		arg.AllowPublish,
+		arg.ReadAll,
 		arg.ExpectedRevision,
 	)
 	if err != nil {
@@ -80,8 +85,8 @@ func (q *Queries) ChangeMCPPublish(ctx context.Context, arg ChangeMCPPublishPara
 }
 
 const createMCPConnection = `-- name: CreateMCPConnection :one
-insert into article_mcp_connections(owner_id,label,token_hash,oauth_issuer,oauth_client,oauth_subject,allow_publish,draft_permissions)
-values ($1,$2,$3,$4,$5,$6,$7,$8) returning id
+insert into article_mcp_connections(owner_id,label,token_hash,oauth_issuer,oauth_client,oauth_subject,allow_publish,draft_permissions,read_all)
+values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id
 `
 
 type CreateMCPConnectionParams struct {
@@ -93,6 +98,7 @@ type CreateMCPConnectionParams struct {
 	OauthSubject     pgtype.Text
 	AllowPublish     bool
 	DraftPermissions []string
+	ReadAll          bool
 }
 
 func (q *Queries) CreateMCPConnection(ctx context.Context, arg CreateMCPConnectionParams) (pgtype.UUID, error) {
@@ -105,6 +111,7 @@ func (q *Queries) CreateMCPConnection(ctx context.Context, arg CreateMCPConnecti
 		arg.OauthSubject,
 		arg.AllowPublish,
 		arg.DraftPermissions,
+		arg.ReadAll,
 	)
 	var id pgtype.UUID
 	err := row.Scan(&id)
@@ -163,14 +170,18 @@ func (q *Queries) FindMCPRequest(ctx context.Context, arg FindMCPRequestParams) 
 
 const getMCPArticle = `-- name: GetMCPArticle :one
 select a.article_id,a.slug,a.article_name,a.title,a.summary,a.body_mdx,a.tags,a.version,a.status,d.search_version,d.search_result,d.search_checked_at
-from articles a join article_mcp_drafts d using(article_id)
-where d.connection_id=$1 and a.article_id=$2 and not d.detached and a.status in ('draft','published')
+from articles a left join article_mcp_drafts d using(article_id)
+where a.article_id=$1
+  and not coalesce(d.detached and d.connection_id=$2,false)
+  and ((d.connection_id=$2 and a.status in ('draft','published'))
+       or ($3::boolean and a.status in ('draft','published','archived')))
 for update of a
 `
 
 type GetMCPArticleParams struct {
-	ConnectionID pgtype.UUID
 	ArticleID    pgtype.UUID
+	ConnectionID pgtype.UUID
+	ReadAll      bool
 }
 
 type GetMCPArticleRow struct {
@@ -189,7 +200,7 @@ type GetMCPArticleRow struct {
 }
 
 func (q *Queries) GetMCPArticle(ctx context.Context, arg GetMCPArticleParams) (GetMCPArticleRow, error) {
-	row := q.db.QueryRow(ctx, getMCPArticle, arg.ConnectionID, arg.ArticleID)
+	row := q.db.QueryRow(ctx, getMCPArticle, arg.ArticleID, arg.ConnectionID, arg.ReadAll)
 	var i GetMCPArticleRow
 	err := row.Scan(
 		&i.ArticleID,
@@ -209,7 +220,7 @@ func (q *Queries) GetMCPArticle(ctx context.Context, arg GetMCPArticleParams) (G
 }
 
 const listMCPConnections = `-- name: ListMCPConnections :many
-select id,label,allow_publish,draft_permissions,permission_revision,revoked,created_at,client_name,last_seen_at,(token_hash is null)::boolean as oauth from article_mcp_connections
+select id,label,allow_publish,draft_permissions,read_all,permission_revision,revoked,created_at,client_name,last_seen_at,(token_hash is null)::boolean as oauth from article_mcp_connections
 where owner_id=$1 order by created_at desc
 `
 
@@ -218,6 +229,7 @@ type ListMCPConnectionsRow struct {
 	Label              string
 	AllowPublish       bool
 	DraftPermissions   []string
+	ReadAll            bool
 	PermissionRevision int32
 	Revoked            bool
 	CreatedAt          pgtype.Timestamptz
@@ -240,6 +252,7 @@ func (q *Queries) ListMCPConnections(ctx context.Context, ownerID pgtype.UUID) (
 			&i.Label,
 			&i.AllowPublish,
 			&i.DraftPermissions,
+			&i.ReadAll,
 			&i.PermissionRevision,
 			&i.Revoked,
 			&i.CreatedAt,
@@ -258,19 +271,25 @@ func (q *Queries) ListMCPConnections(ctx context.Context, ownerID pgtype.UUID) (
 }
 
 const lockMCPConnection = `-- name: LockMCPConnection :one
-select owner_id,allow_publish,draft_permissions from article_mcp_connections where id=$1 and not revoked for update
+select owner_id,allow_publish,draft_permissions,read_all from article_mcp_connections where id=$1 and not revoked for update
 `
 
 type LockMCPConnectionRow struct {
 	OwnerID          pgtype.UUID
 	AllowPublish     bool
 	DraftPermissions []string
+	ReadAll          bool
 }
 
 func (q *Queries) LockMCPConnection(ctx context.Context, id pgtype.UUID) (LockMCPConnectionRow, error) {
 	row := q.db.QueryRow(ctx, lockMCPConnection, id)
 	var i LockMCPConnectionRow
-	err := row.Scan(&i.OwnerID, &i.AllowPublish, &i.DraftPermissions)
+	err := row.Scan(
+		&i.OwnerID,
+		&i.AllowPublish,
+		&i.DraftPermissions,
+		&i.ReadAll,
+	)
 	return i, err
 }
 

@@ -16,9 +16,9 @@ func (s *Server) registerAlbumTools(server *mcp.Server, permissions []string) {
 		case createAlbumTool:
 			registerTool(server, tool, "创建本连接的草稿相册，重试使用同一 requestKey。", s.createAlbum)
 		case listAlbumsTool:
-			registerTool(server, tool, "分页列出本连接创建的相册。", s.listAlbums)
+			registerTool(server, tool, "分页列出授权范围内的相册。", s.listAlbums)
 		case getAlbumTool:
-			registerTool(server, tool, "查看本连接相册的基本信息、封面和照片数。", s.getAlbum)
+			registerTool(server, tool, "查看授权范围内的相册信息、封面和照片数。", s.getAlbum)
 		case updateAlbumTool:
 			registerTool(server, tool, "替换草稿相册的基本信息。首次发布后 slug 固定。", s.updateAlbum)
 		case publishAlbumTool:
@@ -26,7 +26,7 @@ func (s *Server) registerAlbumTools(server *mcp.Server, permissions []string) {
 		case unpublishAlbumTool:
 			registerTool(server, tool, "将本连接已发布相册下架为草稿。", s.albumState(tool))
 		case listPhotosTool:
-			registerTool(server, tool, "分页列出本连接相册中的照片、顺序和图片地址。", s.listPhotos)
+			registerTool(server, tool, "分页列出授权范围内的相册照片、顺序和图片地址。", s.listPhotos)
 		case uploadPhotoTool:
 			registerTool(server, tool, "上传照片到草稿相册。1 MiB 内可传 dataBase64 和 alt。省略数据可获取 50 MiB 文件上传地址及用法。", s.uploadPhoto)
 		case updatePhotoTool:
@@ -72,7 +72,7 @@ func (s *Server) listAlbums(ctx context.Context, p principal, in AlbumPage) (out
 		return out, err
 	}
 	err = s.withAlbum(ctx, p, listAlbumsTool, "", func(a albumTx) error {
-		rows, err := a.q.ListMCPAlbums(ctx, dbgen.ListMCPAlbumsParams{ConnectionID: p.id, Offset: in.Offset, Limit: limit})
+		rows, err := a.q.ListMCPAlbums(ctx, dbgen.ListMCPAlbumsParams{ConnectionID: p.id, Offset: in.Offset, Limit: limit, ReadAll: a.readAll})
 		if err != nil {
 			return err
 		}

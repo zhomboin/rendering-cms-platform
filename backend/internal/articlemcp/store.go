@@ -108,7 +108,8 @@ func (s store) run(ctx context.Context, p principal, tool string, op action) (Ar
 	if err != nil {
 		return Article{}, err
 	}
-	row, err := owned(ctx, q, p, id)
+	readAll := conn.ReadAll && (tool == readTool || tool == statusTool)
+	row, err := accessibleArticle(ctx, q, p, id, readAll)
 	if err != nil {
 		return Article{}, err
 	}
@@ -133,8 +134,8 @@ func (s store) run(ctx context.Context, p principal, tool string, op action) (Ar
 	}
 	return a, tx.Commit(ctx)
 }
-func owned(ctx context.Context, q *dbgen.Queries, p principal, id pgtype.UUID) (dbgen.GetMCPArticleRow, error) {
-	a, err := q.GetMCPArticle(ctx, dbgen.GetMCPArticleParams{ConnectionID: p.id, ArticleID: id})
+func accessibleArticle(ctx context.Context, q *dbgen.Queries, p principal, id pgtype.UUID, readAll bool) (dbgen.GetMCPArticleRow, error) {
+	a, err := q.GetMCPArticle(ctx, dbgen.GetMCPArticleParams{ConnectionID: p.id, ArticleID: id, ReadAll: readAll})
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = errMissing
 	}
@@ -211,7 +212,7 @@ func (s store) change(ctx context.Context, p principal, in VersionInput, content
 		tool = publishTool
 	}
 	return s.run(ctx, p, tool, func(q *dbgen.Queries, _ dbgen.LockMCPConnectionRow) (pgtype.UUID, error) {
-		current, err := owned(ctx, q, p, id)
+		current, err := accessibleArticle(ctx, q, p, id, false)
 		if err != nil {
 			return id, err
 		}

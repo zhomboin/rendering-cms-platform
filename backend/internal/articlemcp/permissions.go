@@ -33,6 +33,29 @@ var albumTools = []string{createAlbumTool, listAlbumsTool, getAlbumTool, updateA
 
 var draftTools = []string{createTool, readTool, editTool, statusTool}
 
+type readScope string
+
+const (
+	scopeOwn readScope = "own"
+	scopeAll readScope = "all"
+)
+
+func (s *readScope) UnmarshalJSON(raw []byte) error {
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil || (readScope(value) != scopeOwn && readScope(value) != scopeAll) {
+		return errors.New("数据范围必须为 own 或 all")
+	}
+	*s = readScope(value)
+	return nil
+}
+
+func connectionScope(all bool) readScope {
+	if all {
+		return scopeAll
+	}
+	return scopeOwn
+}
+
 // nil 是省略字段，空列表是明确收回全部工具。
 type permissionList []string
 

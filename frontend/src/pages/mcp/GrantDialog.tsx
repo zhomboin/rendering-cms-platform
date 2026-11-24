@@ -2,6 +2,7 @@ import { Alert, Button, Form, Input, Modal, Select, Space, Typography } from 'an
 import { useState } from 'react';
 import { createConnection, defaultPermissions } from '../../api/mcp';
 import { PermissionPicker } from './PermissionPicker';
+import { ReadScopePicker } from './ReadScopePicker';
 import type { GrantInput, GrantResult } from '../../api/mcp';
 
 export function GrantDialog({
@@ -22,7 +23,9 @@ export function GrantDialog({
     setError('');
     try {
       const grant = await createConnection(
-        mode === 'oauth' ? input : { label: input.label, permissions: input.permissions },
+        mode === 'oauth'
+          ? input
+          : { label: input.label, permissions: input.permissions, readScope: input.readScope },
       );
       setResult(grant);
       created();
@@ -74,7 +77,7 @@ export function GrantDialog({
           id="mcp-grant"
           layout="vertical"
           onFinish={submit}
-          initialValues={{ permissions: defaultPermissions }}
+          initialValues={{ permissions: defaultPermissions, readScope: 'own' }}
         >
           <Form.Item
             name="label"
@@ -103,6 +106,9 @@ export function GrantDialog({
               </Form.Item>
             </>
           )}
+          <Form.Item name="readScope" label="数据可见范围">
+            <ReadScopePicker />
+          </Form.Item>
           <Form.Item name="permissions" label="工具权限">
             <PermissionPicker />
           </Form.Item>
