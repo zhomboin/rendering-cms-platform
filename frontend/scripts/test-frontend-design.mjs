@@ -228,16 +228,26 @@ test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) 
     route.fulfill({ json: { enabled: true, endpoint, issuer: '' } }),
   );
   const connections = [];
+  await page.route('**/api/v1/admin/albums', (route) =>
+    route.fulfill({
+      json: [
+        { albumId: 'gallery', title: '示例相册', status: 'published' },
+        { albumId: 'draft', title: '未发布示例', status: 'draft' },
+      ],
+    }),
+  );
   await page.route('**/api/v1/admin/mcp/connections', async (route) => {
     if (route.request().method() === 'POST') {
       const input = route.request().postDataJSON();
       assert.deepEqual(input.permissions, ['get_article', 'upload_album_photo']);
       assert.equal(input.readScope, 'all');
+      assert.deepEqual(input.publishedUploadAlbumIds, ['gallery']);
       connections.push({
         id: 'writer',
         label: input.label,
         permissions: input.permissions,
         readScope: input.readScope,
+        publishedUploadAlbumIds: input.publishedUploadAlbumIds,
         permissionRevision: 1,
         revoked: false,
       });
@@ -251,10 +261,12 @@ test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) 
   await page.route('**/api/v1/admin/mcp/connections/writer', async (route) => {
     assert.deepEqual(route.request().postDataJSON(), {
       permissions: [],
+      publishedUploadAlbumIds: [],
       expectedRevision: 1,
       readScope: 'own',
     });
     connections[0].permissions = [];
+    connections[0].publishedUploadAlbumIds = [];
     connections[0].readScope = 'own';
     connections[0].permissionRevision++;
     return route.fulfill({ status: 204 });
@@ -273,11 +285,15 @@ test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) 
   const album = dialog.getByRole('group', { name: '相册', exact: true });
   assert.equal(await album.getByRole('checkbox', { checked: true }).count(), 0);
   await photos.getByRole('checkbox', { name: '上传照片' }).check();
+  await dialog.getByRole('combobox', { name: '可追加照片的已发布相册' }).click();
+  await page.getByText('示例相册', { exact: true }).click();
+  await page.keyboard.press('Escape');
   await dialog.getByRole('button', { name: '创建连接' }).click();
   await dialog.getByRole('button', { name: /完\s*成/ }).click();
   const row = page.getByRole('row').filter({ hasText: '阅读助手' });
   await row.getByText('读取文章', { exact: true }).waitFor();
   await row.getByText('上传照片', { exact: true }).waitFor();
+  await row.getByText('可追加照片 · 1 个相册').waitFor();
   await row.getByText('全部可读内容', { exact: true }).waitFor();
   assert.equal(await row.getByText('发布文章', { exact: true }).count(), 0);
   await row.getByRole('button', { name: '配置权限' }).click();

@@ -28,7 +28,7 @@ func (s *Server) registerAlbumTools(server *mcp.Server, permissions []string) {
 		case listPhotosTool:
 			registerTool(server, tool, "分页列出授权范围内的相册照片、顺序和图片地址。", s.listPhotos)
 		case uploadPhotoTool:
-			registerTool(server, tool, "上传照片到草稿相册。1 MiB 内可传 dataBase64 和 alt。省略数据可获取 50 MiB 文件上传地址及用法。", s.uploadPhoto)
+			registerTool(server, tool, "上传照片到本连接的草稿相册，或向管理员指定的已发布相册追加照片。1 MiB 内可传 dataBase64 和 alt。省略数据可获取 50 MiB 文件上传地址及用法。", s.uploadPhoto)
 		case updatePhotoTool:
 			registerTool(server, tool, "替换照片的 alt、说明和拍摄时间。", s.updatePhoto)
 		case orderPhotosTool:

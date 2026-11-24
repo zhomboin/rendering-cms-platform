@@ -72,7 +72,7 @@ func TestAlbumToolsThroughMCP(t *testing.T) {
 		return session, id, token
 	}
 	session, id, token := connect("albums", albumTools)
-	other, otherID, _ := connect("other", albumTools)
+	other, otherID, otherToken := connect("other", albumTools)
 	call := func(client *mcp.ClientSession, name string, in any, fail bool, out any) {
 		t.Helper()
 		res, err := client.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: in})
@@ -149,7 +149,7 @@ func TestAlbumToolsThroughMCP(t *testing.T) {
 	if !strings.HasSuffix(dest.UploadURL, "/"+album.AlbumID+"/photos") {
 		t.Fatal(dest)
 	}
-	sendFile := func(key string, want int) UploadResult {
+	sendFileAs := func(token, uploadURL, key string, want int) UploadResult {
 		t.Helper()
 		var buf bytes.Buffer
 		form := multipart.NewWriter(&buf)
@@ -160,7 +160,7 @@ func TestAlbumToolsThroughMCP(t *testing.T) {
 		part.Write(data.Bytes())
 		form.WriteField("alt", "第二张")
 		form.Close()
-		req, err := http.NewRequest("POST", host.URL+strings.TrimPrefix(dest.UploadURL, s.cfg.Origin), &buf)
+		req, err := http.NewRequest("POST", host.URL+strings.TrimPrefix(uploadURL, s.cfg.Origin), &buf)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -182,6 +182,7 @@ func TestAlbumToolsThroughMCP(t *testing.T) {
 		}
 		return result
 	}
+	sendFile := func(key string, want int) UploadResult { return sendFileAs(token, dest.UploadURL, key, want) }
 	// 在 IEND 前插入带正确 CRC 的可剥离文本块，覆盖恰好 50 MiB 的有效 PNG。
 	small := slices.Clone(data.Bytes())
 	data.Reset()
@@ -292,6 +293,85 @@ func TestAlbumToolsThroughMCP(t *testing.T) {
 	if !success || !failed {
 		t.Fatal("相册上传审计不完整")
 	}
+	t.Run("按相册追加与撤销", func(t *testing.T) {
+		objects.afterPut = nil
+		target := AlbumRef{manual.AlbumID.String()}
+		preflight := PhotoUploadInput{AlbumRef: target, RequestKey: "shared"}
+		state := func(status string) {
+			testutil.Exec(t, pool, "update photo_albums set status=$2,published_at=now() where album_id=$1", manual.AlbumID, status)
+		}
+		state("published")
+		call(other, uploadPhotoTool, preflight, true, nil)
+		allow := func(connection pgtype.UUID) {
+			t.Helper()
+			if err := q.AddMCPUploadGrants(ctx, dbgen.AddMCPUploadGrantsParams{ConnectionID: connection, AlbumIds: []pgtype.UUID{manual.AlbumID}}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		allow(otherID)
+		var dest UploadResult
+		call(other, uploadPhotoTool, preflight, false, &dest)
+		first := sendFileAs(otherToken, dest.UploadURL, "shared", 201)
+		if first.PhotoID == "" || sendFileAs(otherToken, dest.UploadURL, "shared", 201).PhotoID != first.PhotoID {
+			t.Fatal("追加重试重复写入")
+		}
+		call(other, getAlbumTool, target, true, nil)
+		testutil.Exec(t, pool, "update photo_albums set status='published' where album_id=$1", album.AlbumID)
+		setScope(true)
+		if _, err := s.uploadPhoto(ctx, principal{id: otherID, albumScope: true}, PhotoUploadInput{AlbumRef: album, RequestKey: "unselected"}); err != errPublishedUpload {
+			t.Fatal("可见但未授权的已发布相册应提示单独授权", err)
+		}
+		setScope(false)
+		call(other, uploadPhotoTool, PhotoUploadInput{AlbumRef: album, RequestKey: "other"}, true, nil)
+		call(other, deletePhotoTool, PhotoRef{AlbumRef: target, PhotoID: first.PhotoID}, true, nil)
+		call(other, unpublishAlbumTool, target, true, nil)
+		set([]string{uploadPhotoTool})
+		allow(id)
+		input := upload
+		input.AlbumRef, input.RequestKey = target, "shared"
+		var second UploadResult
+		call(session, uploadPhotoTool, input, false, &second)
+		if second.PhotoID == "" || second.PhotoID == first.PhotoID {
+			t.Fatal("不同连接的同键追加串用回执")
+		}
+		state("draft")
+		call(other, uploadPhotoTool, preflight, true, nil)
+		state("published")
+		revoke := func() {
+			testutil.Exec(t, pool, "delete from mcp_published_upload_grants where connection_id=$1", otherID)
+		}
+		objects.afterPut = revoke
+		deletes := objects.deletes
+		sendFileAs(otherToken, dest.UploadURL, "revoked-mid-upload", 404)
+		objects.afterPut = nil
+		if objects.deletes != deletes+1 {
+			t.Fatal("在途撤权后应清理暂存对象")
+		}
+		sendFileAs(otherToken, dest.UploadURL, "new", 404)
+		allow(otherID)
+		if sendFileAs(otherToken, dest.UploadURL, "shared", 201).PhotoID != first.PhotoID {
+			t.Fatal("重新授权后应返回原回执")
+		}
+		row, err := q.GetPhotoAlbumByID(ctx, manual.AlbumID)
+		if err != nil || row.PhotoCount != 2 || row.Status != dbgen.PhotoAlbumStatusPublished {
+			t.Fatal(row.PhotoCount, row.Status, err)
+		}
+		for _, direction := range []string{"down", "up"} {
+			raw, err := os.ReadFile("../../migrations/000024_mcp_published_uploads." + direction + ".sql")
+			if err != nil {
+				t.Fatal(err)
+			}
+			testutil.Exec(t, pool, string(raw))
+		}
+		count, err := q.CountMCPUploadGrants(ctx, otherID)
+		if err != nil || count != 0 {
+			t.Fatal("迁移往返应清空追加授权", count, err)
+		}
+		row, err = q.GetPhotoAlbumByID(ctx, manual.AlbumID)
+		if err != nil || row.PhotoCount != 2 {
+			t.Fatal("迁移往返必须保留照片", row.PhotoCount, err)
+		}
+	})
 	set([]string{readTool, uploadPhotoTool})
 	for _, direction := range []string{"down", "up"} {
 		raw, err := os.ReadFile("../../migrations/000022_mcp_albums." + direction + ".sql")

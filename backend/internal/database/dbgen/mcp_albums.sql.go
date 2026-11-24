@@ -11,6 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addMCPUploadGrants = `-- name: AddMCPUploadGrants :exec
+insert into mcp_published_upload_grants(connection_id, album_id)
+select $1, a.album_id from photo_albums a
+where a.status='published' and a.album_id=any($2::uuid[])
+on conflict do nothing
+`
+
+type AddMCPUploadGrantsParams struct {
+	ConnectionID pgtype.UUID
+	AlbumIds     []pgtype.UUID
+}
+
+func (q *Queries) AddMCPUploadGrants(ctx context.Context, arg AddMCPUploadGrantsParams) error {
+	_, err := q.db.Exec(ctx, addMCPUploadGrants, arg.ConnectionID, arg.AlbumIds)
+	return err
+}
+
 const bindMCPAlbum = `-- name: BindMCPAlbum :exec
 insert into mcp_albums (album_id, connection_id, request_key, payload_hash) values ($1,$2,$3,$4)
 `
@@ -28,6 +45,30 @@ func (q *Queries) BindMCPAlbum(ctx context.Context, arg BindMCPAlbumParams) erro
 		arg.ConnectionID,
 		arg.RequestKey,
 		arg.PayloadHash,
+	)
+	return err
+}
+
+const bindMCPDelegatedUpload = `-- name: BindMCPDelegatedUpload :exec
+insert into mcp_delegated_photo_uploads (album_id, request_key, payload_hash, photo_id, connection_id)
+values ($1,$2,$3,$4,$5)
+`
+
+type BindMCPDelegatedUploadParams struct {
+	AlbumID      pgtype.UUID
+	RequestKey   string
+	PayloadHash  []byte
+	PhotoID      pgtype.UUID
+	ConnectionID pgtype.UUID
+}
+
+func (q *Queries) BindMCPDelegatedUpload(ctx context.Context, arg BindMCPDelegatedUploadParams) error {
+	_, err := q.db.Exec(ctx, bindMCPDelegatedUpload,
+		arg.AlbumID,
+		arg.RequestKey,
+		arg.PayloadHash,
+		arg.PhotoID,
+		arg.ConnectionID,
 	)
 	return err
 }
@@ -53,6 +94,17 @@ func (q *Queries) BindMCPUpload(ctx context.Context, arg BindMCPUploadParams) er
 	return err
 }
 
+const countMCPUploadGrants = `-- name: CountMCPUploadGrants :one
+select count(*) from mcp_published_upload_grants where connection_id=$1
+`
+
+func (q *Queries) CountMCPUploadGrants(ctx context.Context, connectionID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countMCPUploadGrants, connectionID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const findMCPAlbumRequest = `-- name: FindMCPAlbumRequest :one
 select album_id,payload_hash from mcp_albums where connection_id=$1 and request_key=$2
 `
@@ -75,12 +127,17 @@ func (q *Queries) FindMCPAlbumRequest(ctx context.Context, arg FindMCPAlbumReque
 }
 
 const findMCPUpload = `-- name: FindMCPUpload :one
-select photo_id,payload_hash from mcp_album_uploads where album_id=$1 and request_key=$2
+select u.photo_id,u.payload_hash from mcp_album_uploads u join mcp_albums m using(album_id)
+where u.album_id=$1 and u.request_key=$2 and m.connection_id=$3
+union all
+select photo_id,payload_hash from mcp_delegated_photo_uploads
+where album_id=$1 and request_key=$2 and connection_id=$3
 `
 
 type FindMCPUploadParams struct {
-	AlbumID    pgtype.UUID
-	RequestKey string
+	AlbumID      pgtype.UUID
+	RequestKey   string
+	ConnectionID pgtype.UUID
 }
 
 type FindMCPUploadRow struct {
@@ -89,33 +146,50 @@ type FindMCPUploadRow struct {
 }
 
 func (q *Queries) FindMCPUpload(ctx context.Context, arg FindMCPUploadParams) (FindMCPUploadRow, error) {
-	row := q.db.QueryRow(ctx, findMCPUpload, arg.AlbumID, arg.RequestKey)
+	row := q.db.QueryRow(ctx, findMCPUpload, arg.AlbumID, arg.RequestKey, arg.ConnectionID)
 	var i FindMCPUploadRow
 	err := row.Scan(&i.PhotoID, &i.PayloadHash)
 	return i, err
 }
 
 const getAccessibleMCPAlbum = `-- name: GetAccessibleMCPAlbum :one
-select a.album_id,a.status from photo_albums a left join mcp_albums m using (album_id)
-where ($1::boolean or m.connection_id=$2)
-    and a.album_id=$3 for update of a
+select a.album_id, a.status, coalesce(m.connection_id=$1,false)::boolean as owned,
+       (g.album_id is not null)::boolean as can_append
+from photo_albums a left join mcp_albums m using (album_id)
+left join mcp_published_upload_grants g on g.album_id=a.album_id and g.connection_id=$1
+where ($2::boolean or m.connection_id=$1
+    or ($3::boolean and a.status='published' and g.album_id is not null))
+    and a.album_id=$4 for update of a
 `
 
 type GetAccessibleMCPAlbumParams struct {
-	ReadAll      bool
 	ConnectionID pgtype.UUID
+	ReadAll      bool
+	ForUpload    bool
 	AlbumID      pgtype.UUID
 }
 
 type GetAccessibleMCPAlbumRow struct {
-	AlbumID pgtype.UUID
-	Status  PhotoAlbumStatus
+	AlbumID   pgtype.UUID
+	Status    PhotoAlbumStatus
+	Owned     bool
+	CanAppend bool
 }
 
 func (q *Queries) GetAccessibleMCPAlbum(ctx context.Context, arg GetAccessibleMCPAlbumParams) (GetAccessibleMCPAlbumRow, error) {
-	row := q.db.QueryRow(ctx, getAccessibleMCPAlbum, arg.ReadAll, arg.ConnectionID, arg.AlbumID)
+	row := q.db.QueryRow(ctx, getAccessibleMCPAlbum,
+		arg.ConnectionID,
+		arg.ReadAll,
+		arg.ForUpload,
+		arg.AlbumID,
+	)
 	var i GetAccessibleMCPAlbumRow
-	err := row.Scan(&i.AlbumID, &i.Status)
+	err := row.Scan(
+		&i.AlbumID,
+		&i.Status,
+		&i.Owned,
+		&i.CanAppend,
+	)
 	return i, err
 }
 
@@ -219,4 +293,18 @@ func (q *Queries) ListMCPPhotos(ctx context.Context, arg ListMCPPhotosParams) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const removeMCPUploadGrantsExcept = `-- name: RemoveMCPUploadGrantsExcept :exec
+delete from mcp_published_upload_grants where connection_id=$1 and not (album_id=any($2::uuid[]))
+`
+
+type RemoveMCPUploadGrantsExceptParams struct {
+	ConnectionID pgtype.UUID
+	AlbumIds     []pgtype.UUID
+}
+
+func (q *Queries) RemoveMCPUploadGrantsExcept(ctx context.Context, arg RemoveMCPUploadGrantsExceptParams) error {
+	_, err := q.db.Exec(ctx, removeMCPUploadGrantsExcept, arg.ConnectionID, arg.AlbumIds)
+	return err
 }

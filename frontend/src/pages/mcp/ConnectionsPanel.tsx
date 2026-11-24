@@ -13,6 +13,7 @@ import type { McpConnection, McpSettings, McpPermission, McpReadScope } from '..
 import { PermissionPicker } from './PermissionPicker';
 import { ReadScopePicker } from './ReadScopePicker';
 import { GrantDialog } from './GrantDialog';
+import { PublishedUploadPicker } from './PublishedUploadPicker';
 
 type Action = { row: McpConnection; type: 'permissions' | 'revoke' };
 const actions = { permissions: '配置权限', revoke: '撤销连接' };
@@ -28,10 +29,12 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<McpPermission[]>([]);
   const [scope, setScope] = useState<McpReadScope>('own');
+  const [uploadAlbums, setUploadAlbums] = useState<string[]>([]);
   function choose(row: McpConnection, type: Action['type']) {
     setError('');
     setSelected(row.permissions);
     setScope(row.readScope);
+    setUploadAlbums(row.publishedUploadAlbumIds ?? []);
     setAction({ row, type });
   }
   async function confirm() {
@@ -39,7 +42,7 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
     setBusy(true);
     try {
       if (action.type === 'revoke') await revokeConnection(action.row.id);
-      else await setPermissions(action.row.id, selected, scope, action.row.permissionRevision);
+      else await setPermissions(action.row.id, selected, scope, action.row.permissionRevision, uploadAlbums);
       await connections.refetch();
       setAction(undefined);
     } catch (err) {
@@ -113,6 +116,9 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
                         {p.label}
                       </Tag>
                     ))}
+                  {!!r.publishedUploadAlbumIds?.length && (
+                    <Tag color="gold">可追加照片 · {r.publishedUploadAlbumIds.length} 个相册</Tag>
+                  )}
                 </Space>
               ),
           },
@@ -161,7 +167,18 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
               <Form.Item label="数据可见范围">
                 <ReadScopePicker value={scope} onChange={setScope} />
               </Form.Item>
-              <PermissionPicker value={selected} onChange={setSelected} />
+              <PermissionPicker
+                value={selected}
+                onChange={(permissions) => {
+                  setSelected(permissions);
+                  if (!permissions.includes('upload_album_photo')) setUploadAlbums([]);
+                }}
+              />
+              {selected.includes('upload_album_photo') && (
+                <Form.Item label="可追加照片的已发布相册" extra="追加的照片立即公开。">
+                  <PublishedUploadPicker value={uploadAlbums} onChange={setUploadAlbums} />
+                </Form.Item>
+              )}
             </>
           )}
           {error && <Alert type="error" showIcon title={error} />}

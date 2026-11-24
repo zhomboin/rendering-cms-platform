@@ -441,6 +441,19 @@ type McpAlbumUpload struct {
 	PhotoID     pgtype.UUID
 }
 
+type McpDelegatedPhotoUpload struct {
+	ConnectionID pgtype.UUID
+	AlbumID      pgtype.UUID
+	RequestKey   string
+	PayloadHash  []byte
+	PhotoID      pgtype.UUID
+}
+
+type McpPublishedUploadGrant struct {
+	ConnectionID pgtype.UUID
+	AlbumID      pgtype.UUID
+}
+
 type PhotoAlbum struct {
 	AlbumID       pgtype.UUID
 	Slug          string

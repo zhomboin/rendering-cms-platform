@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"rendering-cms-platform/backend/internal/database/dbgen"
@@ -65,16 +66,17 @@ func owner(r *http.Request) pgtype.UUID {
 }
 
 type grantInfo struct {
-	ID                 string     `json:"id"`
-	Label              string     `json:"label"`
-	AllowPublish       bool       `json:"allowPublish"`
-	Permissions        []string   `json:"permissions"`
-	ReadScope          readScope  `json:"readScope"`
-	PermissionRevision int32      `json:"permissionRevision"`
-	Revoked            bool       `json:"revoked"`
-	OAuth              bool       `json:"oauth"`
-	ClientName         string     `json:"clientName"`
-	LastSeenAt         *time.Time `json:"lastSeenAt"`
+	PublishedUploadAlbumIDs []string   `json:"publishedUploadAlbumIds"`
+	ID                      string     `json:"id"`
+	Label                   string     `json:"label"`
+	AllowPublish            bool       `json:"allowPublish"`
+	Permissions             []string   `json:"permissions"`
+	ReadScope               readScope  `json:"readScope"`
+	PermissionRevision      int32      `json:"permissionRevision"`
+	Revoked                 bool       `json:"revoked"`
+	OAuth                   bool       `json:"oauth"`
+	ClientName              string     `json:"clientName"`
+	LastSeenAt              *time.Time `json:"lastSeenAt"`
 }
 
 func (s *Server) list(w http.ResponseWriter, r *http.Request) {
@@ -87,6 +89,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	for _, row := range rows {
 		g := grantInfo{ID: row.ID.String(), Label: row.Label, AllowPublish: row.AllowPublish, Revoked: row.Revoked, OAuth: row.Oauth, ClientName: row.ClientName}
 		g.Permissions = allPermissions(row.DraftPermissions, row.AllowPublish)
+		g.PublishedUploadAlbumIDs = row.PublishedUploadAlbumIds
 		g.ReadScope = connectionScope(row.ReadAll)
 		g.PermissionRevision = row.PermissionRevision
 		if row.LastSeenAt.Valid {
@@ -98,12 +101,13 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Label        string         `json:"label"`
-		AllowPublish *bool          `json:"allowPublish"`
-		Permissions  permissionList `json:"permissions"`
-		ReadScope    readScope      `json:"readScope"`
-		OAuthClient  string         `json:"oauthClient"`
-		OAuthSubject string         `json:"oauthSubject"`
+		Label                   string         `json:"label"`
+		AllowPublish            *bool          `json:"allowPublish"`
+		Permissions             permissionList `json:"permissions"`
+		ReadScope               readScope      `json:"readScope"`
+		OAuthClient             string         `json:"oauthClient"`
+		PublishedUploadAlbumIDs uploadAlbumIDs `json:"publishedUploadAlbumIds"`
+		OAuthSubject            string         `json:"oauthSubject"`
 	}
 	if !decode(w, r, &in) {
 		return
@@ -137,8 +141,22 @@ func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 		}
 		args.OauthIssuer, args.OauthClient, args.OauthSubject = textValue(s.cfg.Issuer), textValue(in.OAuthClient), textValue(in.OAuthSubject)
 	}
-	id, err := dbgen.New(s.store.pool).CreateMCPConnection(r.Context(), args)
+	ctx := r.Context()
+	var id pgtype.UUID
+	err := pgx.BeginFunc(ctx, s.store.pool, func(tx pgx.Tx) error {
+		q := dbgen.New(tx)
+		created, err := q.CreateMCPConnection(ctx, args)
+		if err != nil {
+			return err
+		}
+		id = created
+		return replaceUploadGrants(ctx, q, id, in.PublishedUploadAlbumIDs, args.DraftPermissions)
+	})
 	if err != nil {
+		if errors.Is(err, errUploadTargets) {
+			respond(w, 400, map[string]string{"error": err.Error()})
+			return
+		}
 		var pe *pgconn.PgError
 		if errors.As(err, &pe) && pe.Code == "23505" {
 			respond(w, 409, map[string]string{"error": "此 OAuth 身份已有有效连接"})
@@ -152,6 +170,7 @@ func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 		result["token"] = token
 	}
 	result["readScope"] = connectionScope(args.ReadAll)
+	result["publishedUploadAlbumIds"] = append(uploadAlbumIDs{}, in.PublishedUploadAlbumIDs...)
 	respond(w, 201, result)
 }
 func (s *Server) modify(w http.ResponseWriter, r *http.Request) {
@@ -166,23 +185,25 @@ func (s *Server) modify(w http.ResponseWriter, r *http.Request) {
 		count, err = q.RevokeMCPConnection(r.Context(), dbgen.RevokeMCPConnectionParams{OwnerID: owner(r), ID: id})
 	} else {
 		var in struct {
-			AllowPublish     *bool          `json:"allowPublish"`
-			Permissions      permissionList `json:"permissions"`
-			ReadScope        readScope      `json:"readScope"`
-			ExpectedRevision *int32         `json:"expectedRevision"`
+			AllowPublish            *bool          `json:"allowPublish"`
+			Permissions             permissionList `json:"permissions"`
+			ReadScope               readScope      `json:"readScope"`
+			ExpectedRevision        *int32         `json:"expectedRevision"`
+			PublishedUploadAlbumIDs uploadAlbumIDs `json:"publishedUploadAlbumIds"`
 		}
 		if !decode(w, r, &in) {
 			return
 		}
-		if (in.AllowPublish != nil && in.Permissions != nil) || (in.AllowPublish == nil && in.Permissions == nil && in.ReadScope == "") {
+		editPermissions := in.Permissions != nil || in.ReadScope != "" || in.PublishedUploadAlbumIDs != nil
+		if (in.AllowPublish != nil && in.Permissions != nil) || (!editPermissions && in.AllowPublish == nil) {
 			respond(w, 400, map[string]string{"error": "请指定数据范围或一种工具授权方式"})
 			return
 		}
-		if in.ExpectedRevision != nil && ((in.Permissions == nil && in.ReadScope == "") || *in.ExpectedRevision < 1) {
+		if in.ExpectedRevision != nil && (!editPermissions || *in.ExpectedRevision < 1) {
 			respond(w, 400, map[string]string{"error": "无效的权限版本"})
 			return
 		}
-		if in.Permissions != nil || in.ReadScope != "" {
+		if editPermissions {
 			args := dbgen.ChangeMCPPermissionsParams{OwnerID: owner(r), ID: id, ReadAll: pgtype.Bool{Bool: in.ReadScope == scopeAll, Valid: in.ReadScope != ""}}
 			if in.Permissions != nil {
 				drafts, publish := in.Permissions.split()
@@ -194,7 +215,27 @@ func (s *Server) modify(w http.ResponseWriter, r *http.Request) {
 			if in.ExpectedRevision != nil {
 				args.ExpectedRevision = *in.ExpectedRevision
 			}
-			count, err = q.ChangeMCPPermissions(r.Context(), args)
+			ctx := r.Context()
+			err = pgx.BeginFunc(ctx, s.store.pool, func(tx pgx.Tx) error {
+				q := dbgen.New(tx)
+				var changeErr error
+				count, changeErr = q.ChangeMCPPermissions(ctx, args)
+				if count == 0 || changeErr != nil {
+					return changeErr
+				}
+				if in.Permissions == nil && in.PublishedUploadAlbumIDs == nil {
+					return nil
+				}
+				grant, err := q.LockMCPConnection(ctx, id)
+				if err != nil {
+					return err
+				}
+				return replaceUploadGrants(ctx, q, id, in.PublishedUploadAlbumIDs, grant.DraftPermissions)
+			})
+			if errors.Is(err, errUploadTargets) {
+				respond(w, 400, map[string]string{"error": err.Error()})
+				return
+			}
 			if count == 0 && err == nil && in.ExpectedRevision != nil {
 				respond(w, 409, map[string]string{"error": "连接或权限已变更，请刷新后重新编辑"})
 				return

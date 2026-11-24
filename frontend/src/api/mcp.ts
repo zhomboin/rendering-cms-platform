@@ -50,6 +50,7 @@ export interface McpSettings extends SettingsInput {
   issuer: string;
 }
 export interface McpConnection {
+  publishedUploadAlbumIds: string[];
   id: string;
   label: string;
   allowPublish: boolean;
@@ -62,6 +63,7 @@ export interface McpConnection {
   lastSeenAt: string | null;
 }
 export interface GrantInput {
+  publishedUploadAlbumIds?: string[];
   label: string;
   readScope: McpReadScope;
   permissions: McpPermission[];
@@ -92,11 +94,13 @@ export const setPermissions = (
   permissions: McpPermission[],
   readScope: McpReadScope,
   expectedRevision: number,
+  publishedUploadAlbumIds: string[],
 ) =>
   apiPatch<void>(base + '/connections/' + id, {
     permissions,
     readScope,
     expectedRevision,
+    publishedUploadAlbumIds,
   });
 export const revokeConnection = (id: string) => apiDelete<void>(base + '/connections/' + id);
 export const getOperations = (before: string) =>

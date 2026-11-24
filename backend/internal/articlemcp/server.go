@@ -53,7 +53,7 @@ func registerTool[I, O any](server *mcp.Server, name, description string, call f
 		}
 		out, err := call(ctx, principal{id: id, publishScope: slices.Contains(info.Scopes, publishScope), albumScope: slices.Contains(info.Scopes, albumScope)}, input)
 		if err != nil {
-			for _, allowed := range []error{errDenied, errMissing, errVersion, errKey, errInput, errName, errAlbumMissing, errAlbumInput, errAlbumState, albums.ErrAlbumEmpty, albums.ErrPhotoOrder} {
+			for _, allowed := range []error{errDenied, errMissing, errVersion, errKey, errInput, errName, errAlbumMissing, errAlbumInput, errAlbumState, errPublishedUpload, albums.ErrAlbumEmpty, albums.ErrPhotoOrder} {
 				if errors.Is(err, allowed) {
 					return nil, empty, allowed
 				}

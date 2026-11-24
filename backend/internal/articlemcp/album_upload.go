@@ -67,7 +67,7 @@ func (s *Server) savePhoto(ctx context.Context, p principal, id, key string, in 
 	meta, _ := json.Marshal([]string{in.Filename, in.Alt, in.Caption, in.TakenAt})
 	hash := sha256.Sum256(append(meta, dataHash[:]...))
 	lookup := func(a albumTx) error {
-		prev, err := a.q.FindMCPUpload(ctx, dbgen.FindMCPUploadParams{AlbumID: a.id, RequestKey: key})
+		prev, err := a.q.FindMCPUpload(ctx, dbgen.FindMCPUploadParams{AlbumID: a.id, ConnectionID: p.id, RequestKey: key})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -101,7 +101,12 @@ func (s *Server) savePhoto(ctx context.Context, p principal, id, key string, in 
 			return err
 		}
 		photo := saved.Photo.PhotoID
-		if err := a.q.BindMCPUpload(ctx, dbgen.BindMCPUploadParams{AlbumID: a.id, RequestKey: key, PayloadHash: hash[:], PhotoID: photo}); err != nil {
+		if a.delegatedUpload {
+			err = a.q.BindMCPDelegatedUpload(ctx, dbgen.BindMCPDelegatedUploadParams{AlbumID: a.id, ConnectionID: p.id, RequestKey: key, PayloadHash: hash[:], PhotoID: photo})
+		} else {
+			err = a.q.BindMCPUpload(ctx, dbgen.BindMCPUploadParams{AlbumID: a.id, RequestKey: key, PayloadHash: hash[:], PhotoID: photo})
+		}
+		if err != nil {
 			return err
 		}
 		out.PhotoID = photo.String()
@@ -167,6 +172,8 @@ func uploadError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, errDenied):
 		http.Error(w, errDenied.Error(), 403)
+	case errors.Is(err, errPublishedUpload):
+		http.Error(w, errPublishedUpload.Error(), http.StatusForbidden)
 	case errors.Is(err, errAlbumMissing):
 		http.Error(w, errAlbumMissing.Error(), 404)
 	case errors.Is(err, errKey), errors.Is(err, errAlbumState):
