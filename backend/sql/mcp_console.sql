@@ -14,10 +14,10 @@ where id=$1 and not revoked;
 insert into article_mcp_operations(connection_id,operation) values ($1,$2) returning id;
 
 -- name: FinishMCPOperation :exec
-update article_mcp_operations set outcome=$2,article_id=$3 where id=$1;
+update article_mcp_operations set outcome=$2,article_id=$3,album_id=$4 where id=$1;
 
 -- name: ListMCPOperations :many
-select o.id,c.label,o.operation,o.outcome,o.created_at,o.article_id
+select o.id,c.label,o.operation,o.outcome,o.created_at,o.article_id,o.album_id
 from article_mcp_operations o join article_mcp_connections c on c.id=o.connection_id
 where c.owner_id=$1 and (sqlc.arg(before_id)::bigint=0 or o.id<sqlc.arg(before_id))
 order by o.id desc limit 51;

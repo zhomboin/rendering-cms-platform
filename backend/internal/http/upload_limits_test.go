@@ -23,6 +23,8 @@ func TestRouterUploadBodyLimits(t *testing.T) {
 		{"photo chunked exact", "/api/v1/admin/albums/123/photos", "POST", 0, 51 << 20, true, 204},
 		{"photo over", "/api/v1/admin/albums/123/photos", "POST", 0, (51 << 20) + 1, false, 413},
 		{"photo chunked over", "/api/v1/admin/albums/123/photos", "POST", 0, (51 << 20) + 1, true, 413},
+		{"mcp photo exact", "/api/v1/mcp/albums/123/photos", "POST", 0, 51 << 20, false, 204},
+		{"mcp photo over", "/api/v1/mcp/albums/123/photos", "POST", 0, (51 << 20) + 1, true, 413},
 		{"suffix not exempt", "/api/v1/admin/albums/123/photos/order", "POST", 0, 26 << 20, false, 413},
 		{"method not exempt", "/api/v1/admin/albums/123/photos", "PUT", 0, 26 << 20, false, 413},
 		{"empty id not exempt", "/api/v1/admin/albums//photos", "POST", 0, 26 << 20, false, 413},

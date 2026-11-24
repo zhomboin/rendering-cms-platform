@@ -231,7 +231,7 @@ test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) 
   await page.route('**/api/v1/admin/mcp/connections', async (route) => {
     if (route.request().method() === 'POST') {
       const input = route.request().postDataJSON();
-      assert.deepEqual(input.permissions, ['get_article']);
+      assert.deepEqual(input.permissions, ['get_article', 'upload_album_photo']);
       connections.push({
         id: 'writer',
         label: input.label,
@@ -247,7 +247,10 @@ test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) 
     return route.fulfill({ json: connections });
   });
   await page.route('**/api/v1/admin/mcp/connections/writer', async (route) => {
-    assert.deepEqual(route.request().postDataJSON(), { permissions: [], expectedRevision: 1 });
+    assert.deepEqual(route.request().postDataJSON(), {
+      permissions: [],
+      expectedRevision: 1,
+    });
     connections[0].permissions = [];
     connections[0].permissionRevision++;
     return route.fulfill({ status: 204 });
@@ -259,13 +262,20 @@ test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) 
   assert.equal(await dialog.getByRole('checkbox', { name: '发布文章' }).isChecked(), false);
   for (const name of ['创建草稿', '修改草稿', '查询文章状态'])
     await dialog.getByRole('checkbox', { name }).uncheck();
+  const photos = dialog.getByRole('group', { name: '照片', exact: true });
+  assert.equal(await photos.getByRole('checkbox', { checked: true }).count(), 0);
+  const album = dialog.getByRole('group', { name: '相册', exact: true });
+  assert.equal(await album.getByRole('checkbox', { checked: true }).count(), 0);
+  await photos.getByRole('checkbox', { name: '上传照片' }).check();
   await dialog.getByRole('button', { name: '创建连接' }).click();
   await dialog.getByRole('button', { name: /完\s*成/ }).click();
   const row = page.getByRole('row').filter({ hasText: '阅读助手' });
   await row.getByText('读取文章', { exact: true }).waitFor();
+  await row.getByText('上传照片', { exact: true }).waitFor();
   assert.equal(await row.getByText('发布文章', { exact: true }).count(), 0);
   await row.getByRole('button', { name: '配置权限' }).click();
   await dialog.getByRole('checkbox', { name: '读取文章' }).uncheck();
+  await dialog.getByRole('checkbox', { name: '上传照片' }).uncheck();
   await dialog.getByRole('button', { name: '保存权限' }).click();
   await row.getByText('无工具权限').waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320);

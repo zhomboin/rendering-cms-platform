@@ -65,7 +65,10 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
         columns={[
           { title: '连接名称', dataIndex: 'label', width: 150 },
           { title: '认证', render: (_, r) => (r.oauth ? 'OAuth' : 'Bearer') },
-          { title: '客户端', render: (_, r) => r.clientName || (r.lastSeenAt ? '未上报名称' : '—') },
+          {
+            title: '客户端',
+            render: (_, r) => r.clientName || (r.lastSeenAt ? '未上报名称' : '—'),
+          },
           {
             title: '最近访问',
             render: (_, r) =>
@@ -84,7 +87,16 @@ export function ConnectionsPanel({ owner, settings }: { owner: string; settings:
                   {permissionOptions
                     .filter((p) => r.permissions.includes(p.value))
                     .map((p) => (
-                      <Tag key={p.value} color={p.value === 'publish_article' ? 'gold' : 'blue'}>
+                      <Tag
+                        key={p.value}
+                        color={
+                          p.value === 'delete_album_photo'
+                            ? 'red'
+                            : p.value.startsWith('publish_')
+                              ? 'gold'
+                              : 'blue'
+                        }
+                      >
                         {p.label}
                       </Tag>
                     ))}

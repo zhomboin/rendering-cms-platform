@@ -47,7 +47,10 @@ export function OperationsPanel({ owner }: { owner: string }) {
             render: (v: string) => new Date(v).toLocaleString('zh-CN'),
           },
           { title: '连接', dataIndex: 'connection' },
-          { title: '操作', render: (_, row) => operationNames[row.operation] ?? row.operation },
+          {
+            title: '操作',
+            render: (_, row) => operationNames[row.operation] ?? row.operation,
+          },
           {
             title: '结果',
             render: (_, row) => (
@@ -57,9 +60,15 @@ export function OperationsPanel({ owner }: { owner: string }) {
             ),
           },
           {
-            title: '文章',
+            title: '关联内容',
             render: (_, row) =>
-              row.articleId ? <Link to={'/admin/articles/' + row.articleId + '/read'}>查看文章</Link> : '—',
+              row.albumId ? (
+                <Link to={'/admin/albums/' + row.albumId + '/edit'}>查看相册</Link>
+              ) : row.articleId ? (
+                <Link to={'/admin/articles/' + row.articleId + '/read'}>查看文章</Link>
+              ) : (
+                '—'
+              ),
           },
         ]}
       />

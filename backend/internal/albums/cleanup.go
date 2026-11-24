@@ -37,7 +37,7 @@ func (h Handler) cleanupObject(ctx context.Context, key string) error {
 	})
 }
 
-func (h Handler) cleanupObjectsAfterWrite(ctx context.Context, keys ...string) {
+func (h Handler) CleanupObjectsAfterWrite(ctx context.Context, keys ...string) {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
 	for _, key := range keys {

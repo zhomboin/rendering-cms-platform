@@ -168,6 +168,9 @@ func TestMCPThroughHTTP(t *testing.T) {
 	if _, err := service.store.create(ctx, grantPrincipal, in); !errors.Is(err, errDenied) {
 		t.Fatal("建稿缺少事务内校验", err)
 	}
+	request("PATCH", path, admin, `{"permissions":["list_albums","upload_album_photo"],"expectedRevision":2}`, 204)
+	expectTools(listAlbumsTool, uploadPhotoTool)
+	call(session, listAlbumsTool, AlbumPage{}, false, nil)
 	request("PATCH", path, admin, `{"permissions":[]}`, 204)
 	expectTools()
 	call(session, statusTool, lookup, true, nil)
