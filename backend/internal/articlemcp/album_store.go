@@ -17,18 +17,20 @@ import (
 )
 
 var (
-	errAlbumMissing = errors.New("相册或照片不可访问")
-	errAlbumInput   = errors.New("相册参数无效，或相册标识已被占用")
-	errAlbumState   = errors.New("相册状态不允许此操作，请先核对发布状态")
+	errAlbumMissing    = errors.New("相册或照片不可访问")
+	errAlbumInput      = errors.New("相册参数无效，或相册标识已被占用")
+	errAlbumState      = errors.New("相册状态不允许此操作，请先核对发布状态")
+	errPublishedUpload = errors.New("当前连接未获准向此已发布相册追加照片")
 )
 
 type AlbumRef struct {
 	AlbumID string `json:"albumId"`
 }
 type albumTx struct {
-	q         *dbgen.Queries
-	owner, id pgtype.UUID
-	readAll   bool
+	q               *dbgen.Queries
+	owner, id       pgtype.UUID
+	readAll         bool
+	delegatedUpload bool
 }
 
 func (s *Server) withAlbum(ctx context.Context, p principal, tool, rawID string, fn func(albumTx) error) error {
@@ -63,14 +65,26 @@ func (s *Server) withAlbum(ctx context.Context, p principal, tool, rawID string,
 				return err
 			}
 		}
-		current, err := q.GetAccessibleMCPAlbum(ctx, dbgen.GetAccessibleMCPAlbumParams{AlbumID: id, ConnectionID: p.id, ReadAll: a.readAll})
+		upload := tool == uploadPhotoTool
+		visibleUpload := upload && grant.ReadAll && (slices.Contains(grant.DraftPermissions, listAlbumsTool) || slices.Contains(grant.DraftPermissions, getAlbumTool))
+		current, err := q.GetAccessibleMCPAlbum(ctx, dbgen.GetAccessibleMCPAlbumParams{
+			AlbumID: id, ConnectionID: p.id, ReadAll: a.readAll || visibleUpload, ForUpload: upload,
+		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return errAlbumMissing
 		}
 		if err != nil {
 			return err
 		}
-		if !readOnly {
+		if upload && current.Status == dbgen.PhotoAlbumStatusPublished {
+			if !current.CanAppend {
+				return errPublishedUpload
+			}
+			a.delegatedUpload = !current.Owned
+		} else if !readOnly {
+			if !current.Owned {
+				return errAlbumMissing
+			}
 			required := dbgen.PhotoAlbumStatusDraft
 			if tool == unpublishAlbumTool {
 				required = dbgen.PhotoAlbumStatusPublished

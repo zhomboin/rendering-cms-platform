@@ -220,22 +220,25 @@ func (q *Queries) GetMCPArticle(ctx context.Context, arg GetMCPArticleParams) (G
 }
 
 const listMCPConnections = `-- name: ListMCPConnections :many
-select id,label,allow_publish,draft_permissions,read_all,permission_revision,revoked,created_at,client_name,last_seen_at,(token_hash is null)::boolean as oauth from article_mcp_connections
+select id,label,allow_publish,draft_permissions,read_all,permission_revision,revoked,created_at,client_name,last_seen_at,(token_hash is null)::boolean as oauth,
+       array(select g.album_id::text from mcp_published_upload_grants g where g.connection_id=c.id order by g.album_id)::text[] as published_upload_album_ids
+from article_mcp_connections c
 where owner_id=$1 order by created_at desc
 `
 
 type ListMCPConnectionsRow struct {
-	ID                 pgtype.UUID
-	Label              string
-	AllowPublish       bool
-	DraftPermissions   []string
-	ReadAll            bool
-	PermissionRevision int32
-	Revoked            bool
-	CreatedAt          pgtype.Timestamptz
-	ClientName         string
-	LastSeenAt         pgtype.Timestamptz
-	Oauth              bool
+	ID                      pgtype.UUID
+	Label                   string
+	AllowPublish            bool
+	DraftPermissions        []string
+	ReadAll                 bool
+	PermissionRevision      int32
+	Revoked                 bool
+	CreatedAt               pgtype.Timestamptz
+	ClientName              string
+	LastSeenAt              pgtype.Timestamptz
+	Oauth                   bool
+	PublishedUploadAlbumIds []string
 }
 
 func (q *Queries) ListMCPConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListMCPConnectionsRow, error) {
@@ -259,6 +262,7 @@ func (q *Queries) ListMCPConnections(ctx context.Context, ownerID pgtype.UUID) (
 			&i.ClientName,
 			&i.LastSeenAt,
 			&i.Oauth,
+			&i.PublishedUploadAlbumIds,
 		); err != nil {
 			return nil, err
 		}

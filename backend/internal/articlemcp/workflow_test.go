@@ -303,6 +303,9 @@ func TestMCPThroughHTTP(t *testing.T) {
 		}
 	}
 	anotherAdmin, _ := auth.IssueToken(secret, "00000000-0000-0000-0000-000000000002", "admin")
+	t.Run("已发布相册追加授权", func(t *testing.T) {
+		checkUploadGrantAPI(t, pool, owner, request, admin, anotherAdmin)
+	})
 	if bytes.Contains(request("GET", operationsPath, anotherAdmin, "", 200), []byte("create_draft")) {
 		t.Fatal("泄漏其他管理员的记录")
 	}

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { createConnection, defaultPermissions } from '../../api/mcp';
 import { PermissionPicker } from './PermissionPicker';
 import { ReadScopePicker } from './ReadScopePicker';
+import { PublishedUploadPicker } from './PublishedUploadPicker';
 import type { GrantInput, GrantResult } from '../../api/mcp';
 
 export function GrantDialog({
@@ -15,6 +16,8 @@ export function GrantDialog({
   created: () => void;
 }) {
   const [mode, setMode] = useState('token');
+  const [form] = Form.useForm<GrantInput>();
+  const permissions = Form.useWatch('permissions', form);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<GrantResult>();
   const [error, setError] = useState('');
@@ -25,7 +28,12 @@ export function GrantDialog({
       const grant = await createConnection(
         mode === 'oauth'
           ? input
-          : { label: input.label, permissions: input.permissions, readScope: input.readScope },
+          : {
+              label: input.label,
+              permissions: input.permissions,
+              readScope: input.readScope,
+              publishedUploadAlbumIds: input.publishedUploadAlbumIds,
+            },
       );
       setResult(grant);
       created();
@@ -75,6 +83,7 @@ export function GrantDialog({
       ) : (
         <Form<GrantInput>
           id="mcp-grant"
+          form={form}
           layout="vertical"
           onFinish={submit}
           initialValues={{ permissions: defaultPermissions, readScope: 'own' }}
@@ -112,6 +121,16 @@ export function GrantDialog({
           <Form.Item name="permissions" label="工具权限">
             <PermissionPicker />
           </Form.Item>
+          {permissions?.includes('upload_album_photo') && (
+            <Form.Item
+              name="publishedUploadAlbumIds"
+              label="可追加照片的已发布相册"
+              extra="追加的照片立即公开。"
+              preserve={false}
+            >
+              <PublishedUploadPicker />
+            </Form.Item>
+          )}
           {error && <Alert type="error" showIcon title={error} />}
         </Form>
       )}
