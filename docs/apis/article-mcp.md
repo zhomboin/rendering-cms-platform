@@ -24,16 +24,16 @@ AI 客户端连接 `/api/v1/mcp`，选择 Streamable HTTP。服务使用官方 G
 
 ### 授权边界
 
-每个连接归属一个后台管理员。默认只允许草稿协作。作者可单独开启发布、降回草稿权限或撤销整条连接。每次请求校验凭据，每次写入在事务中再次校验授权。普通后台草稿和其他连接的稿件对工具不可见。将 AI 稿转私有会永久解除该连接对该稿的访问，即使以后转回草稿。
+每个连接归属一个后台管理员。管理员可逐项授予上表五个工具。默认勾选建稿、读取、修改和状态查询。工具列表只返回本连接获准的工具；每次文章操作均在事务中复核权限。未获读取权的写入和幂等重试回执保留 ID、状态、版本和链接，标题和正文字段为空。空授权仍可认证并获取空工具列表；撤销整条连接会使凭据失效。OAuth 发布还需令牌具有发布范围。普通后台草稿和其他连接的稿件对工具不可见。将 AI 稿转私有会永久解除该连接对该稿的访问，即使以后转回草稿。
 
 | 后台接口（前缀 `/api/v1/admin/mcp`） | 用途 |
 | --- | --- |
 | `GET /settings` | 返回全站开关、三个来源、客户端接入地址、OAuth 发行方和配置版本。 |
 | `PATCH /settings` | 提交完整的 `enabled`、`origin`、`adminOrigin`、`blogOrigin` 和 `revision`。并发修改返回 409。关闭后 MCP 入口和资源发现返回 404，管理员仍可管理连接、查询记录。 |
 | `GET /operations` | 按时间倒序列出本人连接的工具调用，每页 50 条。返回 `items` 和下一页游标 `next`，续页使用 `?before=<next>`。`pending` 表示结果待确认。日志仅保存连接、工具、结果、时间和成功访问的文章 ID。 |
-| `POST /connections` | 必填 `label`，`allowPublish` 默认为 false。个人连接令牌仅在创建时返回一次。指定 `oauthClient` 和 `oauthSubject` 时绑定配置好的 OAuth 发行方。 |
-| `GET /connections` | 列出本人签发的连接、认证方式、发布权、撤销状态、客户端自报名称和最近活动时间。首次观测前 `lastSeenAt` 为空。 |
-| `PATCH /connections/{id}` | 用 `allowPublish` 启用或收回发布权限。 |
+| `POST /connections` | 必填 `label`，可传工具名数组 `permissions`；省略时授予默认四项。未知、重复或 null 返回 400。个人连接令牌仅在创建时返回一次。指定 `oauthClient` 和 `oauthSubject` 时绑定配置好的 OAuth 发行方。 |
+| `GET /connections` | 列出本人签发的连接、认证方式、已配置的 `permissions`、权限版本 `permissionRevision`、撤销状态、客户端自报名称和最近活动时间。首次观测前 `lastSeenAt` 为空。 |
+| `PATCH /connections/{id}` | 提交完整 `permissions`（允许空数组）。后台同时传 `expectedRevision`；连接变更或权限版本过期返回 409，请刷新重选。创建或修改时也可单独传 `allowPublish`；修改时只切换发布权限。 |
 | `DELETE /connections/{id}` | 撤销连接，文章和修订保留。 |
 | `GET /articles/{id}/search-check` | 为连接所有者返回已发布稿件的标题、公开链接和版本。 |
 | `POST /articles/{id}/search-check` | 所有者提交该版本的 Pagefind 核验结果。版本变化时返回 409。 |

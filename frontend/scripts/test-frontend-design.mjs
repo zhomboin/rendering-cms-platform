@@ -217,3 +217,56 @@ test('管理员可在手机配置 MCP，编辑不能直接进入管理页', asyn
   await editor.goto(origin + '/admin/mcp');
   await editor.waitForURL('**/admin/articles');
 });
+
+test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) => {
+  const page = await newPage(t);
+  await page.addInitScript(() =>
+    localStorage.setItem('rendering-cms-user', JSON.stringify({ userId: 'test', role: 'admin' })),
+  );
+  const endpoint = 'https://cms.example.invalid/api/v1/mcp';
+  await page.route('**/api/v1/admin/mcp/settings', (route) =>
+    route.fulfill({ json: { enabled: true, endpoint, issuer: '' } }),
+  );
+  const connections = [];
+  await page.route('**/api/v1/admin/mcp/connections', async (route) => {
+    if (route.request().method() === 'POST') {
+      const input = route.request().postDataJSON();
+      assert.deepEqual(input.permissions, ['get_article']);
+      connections.push({
+        id: 'writer',
+        label: input.label,
+        permissions: input.permissions,
+        permissionRevision: 1,
+        revoked: false,
+      });
+      return route.fulfill({
+        status: 201,
+        json: { id: 'writer', endpoint, token: 'synthetic-token' },
+      });
+    }
+    return route.fulfill({ json: connections });
+  });
+  await page.route('**/api/v1/admin/mcp/connections/writer', async (route) => {
+    assert.deepEqual(route.request().postDataJSON(), { permissions: [], expectedRevision: 1 });
+    connections[0].permissions = [];
+    connections[0].permissionRevision++;
+    return route.fulfill({ status: 204 });
+  });
+  await page.goto(origin + '/admin/mcp');
+  await page.getByRole('button', { name: '新建连接' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('连接名称').fill('阅读助手');
+  assert.equal(await dialog.getByRole('checkbox', { name: '发布文章' }).isChecked(), false);
+  for (const name of ['创建草稿', '修改草稿', '查询文章状态'])
+    await dialog.getByRole('checkbox', { name }).uncheck();
+  await dialog.getByRole('button', { name: '创建连接' }).click();
+  await dialog.getByRole('button', { name: /完\s*成/ }).click();
+  const row = page.getByRole('row').filter({ hasText: '阅读助手' });
+  await row.getByText('读取文章', { exact: true }).waitFor();
+  assert.equal(await row.getByText('发布文章', { exact: true }).count(), 0);
+  await row.getByRole('button', { name: '配置权限' }).click();
+  await dialog.getByRole('checkbox', { name: '读取文章' }).uncheck();
+  await dialog.getByRole('button', { name: '保存权限' }).click();
+  await row.getByText('无工具权限').waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320);
+});

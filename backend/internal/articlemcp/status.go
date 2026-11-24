@@ -24,7 +24,7 @@ type Visibility struct {
 }
 
 func (s *Server) status(ctx context.Context, p principal, in ArticleInput) (Visibility, error) {
-	a, err := s.store.read(ctx, p, in.ArticleID)
+	a, err := s.store.read(ctx, p, in.ArticleID, statusTool)
 	if err != nil {
 		return Visibility{}, err
 	}

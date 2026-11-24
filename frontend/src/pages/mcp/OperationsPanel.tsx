@@ -3,15 +3,11 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { getOperations } from '../../api/mcp';
+import { getOperations, permissionOptions } from '../../api/mcp';
 import type { McpOperation } from '../../api/mcp';
 
 const operationNames: Record<string, string> = {
-  create_draft: '创建草稿',
-  get_article: '读取文章',
-  update_draft: '修改草稿',
-  publish_article: '发布文章',
-  article_status: '查询文章状态',
+  ...Object.fromEntries(permissionOptions.map(({ value, label }) => [value, label])),
   unknown: '未知工具',
 };
 const outcomes = { success: '成功', failed: '失败', pending: '结果待确认' };

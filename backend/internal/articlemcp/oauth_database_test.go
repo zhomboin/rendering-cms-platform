@@ -31,7 +31,7 @@ func TestOAuthGrantAndMigration(t *testing.T) {
 	c := config.ArticleMCPConfig{Origin: "https://cms.example.invalid", Issuer: "https://id.example.invalid", Key: &key.PublicKey}
 	svc := New(pool, c)
 	q := dbgen.New(pool)
-	id, err := q.CreateMCPConnection(ctx, dbgen.CreateMCPConnectionParams{OwnerID: owner, Label: "OAuth", OauthIssuer: textValue(c.Issuer), OauthClient: textValue("client"), OauthSubject: textValue("subject")})
+	id, err := q.CreateMCPConnection(ctx, dbgen.CreateMCPConnectionParams{OwnerID: owner, Label: "OAuth", OauthIssuer: textValue(c.Issuer), OauthClient: textValue("client"), OauthSubject: textValue("subject"), DraftPermissions: draftTools})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,6 +54,10 @@ func TestOAuthGrantAndMigration(t *testing.T) {
 		if err != nil || info.UserID != id.String() || slices.Contains(info.Scopes, publishScope) != publish {
 			t.Fatalf("授权范围 %v %v", info, err)
 		}
+		permissions, _ := info.Extra["permissions"].([]string)
+		if !slices.Equal(permissions, allPermissions(draftTools, publish)) {
+			t.Fatal("OAuth 有效工具与授权范围不一致", permissions)
+		}
 	}
 	check(all, false)
 	if _, err = q.ChangeMCPPublish(ctx, dbgen.ChangeMCPPublishParams{OwnerID: owner, ID: id, AllowPublish: true}); err != nil {
@@ -65,7 +69,7 @@ func TestOAuthGrantAndMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, migration := range []string{"000020_mcp_console.down", "000019_article_mcp.down", "000019_article_mcp.up", "000020_mcp_console.up"} {
+	for _, migration := range []string{"000021_mcp_permissions.down", "000020_mcp_console.down", "000019_article_mcp.down", "000019_article_mcp.up", "000020_mcp_console.up", "000021_mcp_permissions.up"} {
 		raw, err := os.ReadFile("../../migrations/" + migration + ".sql")
 		if err != nil {
 			t.Fatal(err)

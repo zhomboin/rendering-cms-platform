@@ -1,26 +1,32 @@
 -- name: CreateMCPConnection :one
-insert into article_mcp_connections(owner_id,label,token_hash,oauth_issuer,oauth_client,oauth_subject,allow_publish)
-values ($1,$2,$3,$4,$5,$6,$7) returning id;
+insert into article_mcp_connections(owner_id,label,token_hash,oauth_issuer,oauth_client,oauth_subject,allow_publish,draft_permissions)
+values ($1,$2,$3,$4,$5,$6,$7,$8) returning id;
 
 -- name: ListMCPConnections :many
-select id,label,allow_publish,revoked,created_at,client_name,last_seen_at,(token_hash is null)::boolean as oauth from article_mcp_connections
+select id,label,allow_publish,draft_permissions,permission_revision,revoked,created_at,client_name,last_seen_at,(token_hash is null)::boolean as oauth from article_mcp_connections
 where owner_id=$1 order by created_at desc;
 
 -- name: ChangeMCPPublish :execrows
-update article_mcp_connections set allow_publish=$3 where owner_id=$1 and id=$2 and not revoked;
+update article_mcp_connections set allow_publish=$3,permission_revision=permission_revision+1 where owner_id=$1 and id=$2 and not revoked;
+
+-- name: ChangeMCPPermissions :execrows
+update article_mcp_connections
+set draft_permissions=$3,allow_publish=$4,permission_revision=permission_revision+1
+where owner_id=$1 and id=$2 and not revoked
+    and (sqlc.arg(expected_revision)::integer=0 or permission_revision=sqlc.arg(expected_revision));
 
 -- name: RevokeMCPConnection :execrows
 update article_mcp_connections set revoked=true where owner_id=$1 and id=$2;
 
 -- name: LookupMCPToken :one
-select id,allow_publish from article_mcp_connections where token_hash=$1 and not revoked;
+select id,allow_publish,draft_permissions from article_mcp_connections where token_hash=$1 and not revoked;
 
 -- name: LookupMCPOAuth :one
-select id,allow_publish from article_mcp_connections
+select id,allow_publish,draft_permissions from article_mcp_connections
 where oauth_issuer=$1 and oauth_client=$2 and oauth_subject=$3 and not revoked;
 
 -- name: LockMCPConnection :one
-select owner_id,allow_publish from article_mcp_connections where id=$1 and not revoked for update;
+select owner_id,allow_publish,draft_permissions from article_mcp_connections where id=$1 and not revoked for update;
 
 -- name: FindMCPRequest :one
 select article_id,payload_hash from article_mcp_drafts where connection_id=$1 and request_key=$2;

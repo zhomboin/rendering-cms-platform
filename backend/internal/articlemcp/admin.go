@@ -65,13 +65,15 @@ func owner(r *http.Request) pgtype.UUID {
 }
 
 type grantInfo struct {
-	ID           string     `json:"id"`
-	Label        string     `json:"label"`
-	AllowPublish bool       `json:"allowPublish"`
-	Revoked      bool       `json:"revoked"`
-	OAuth        bool       `json:"oauth"`
-	ClientName   string     `json:"clientName"`
-	LastSeenAt   *time.Time `json:"lastSeenAt"`
+	ID                 string     `json:"id"`
+	Label              string     `json:"label"`
+	AllowPublish       bool       `json:"allowPublish"`
+	Permissions        []string   `json:"permissions"`
+	PermissionRevision int32      `json:"permissionRevision"`
+	Revoked            bool       `json:"revoked"`
+	OAuth              bool       `json:"oauth"`
+	ClientName         string     `json:"clientName"`
+	LastSeenAt         *time.Time `json:"lastSeenAt"`
 }
 
 func (s *Server) list(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +85,8 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	result := make([]grantInfo, 0, len(rows))
 	for _, row := range rows {
 		g := grantInfo{ID: row.ID.String(), Label: row.Label, AllowPublish: row.AllowPublish, Revoked: row.Revoked, OAuth: row.Oauth, ClientName: row.ClientName}
+		g.Permissions = allPermissions(row.DraftPermissions, row.AllowPublish)
+		g.PermissionRevision = row.PermissionRevision
 		if row.LastSeenAt.Valid {
 			g.LastSeenAt = &row.LastSeenAt.Time
 		}
@@ -92,10 +96,11 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Label        string `json:"label"`
-		AllowPublish bool   `json:"allowPublish"`
-		OAuthClient  string `json:"oauthClient"`
-		OAuthSubject string `json:"oauthSubject"`
+		Label        string         `json:"label"`
+		AllowPublish *bool          `json:"allowPublish"`
+		Permissions  permissionList `json:"permissions"`
+		OAuthClient  string         `json:"oauthClient"`
+		OAuthSubject string         `json:"oauthSubject"`
 	}
 	if !decode(w, r, &in) {
 		return
@@ -105,7 +110,16 @@ func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 		respond(w, 400, map[string]string{"error": "请填写 160 字节以内的连接名称"})
 		return
 	}
-	args := dbgen.CreateMCPConnectionParams{OwnerID: owner(r), Label: in.Label, AllowPublish: in.AllowPublish}
+	args := dbgen.CreateMCPConnectionParams{OwnerID: owner(r), Label: in.Label, DraftPermissions: draftTools}
+	if in.Permissions != nil && in.AllowPublish != nil {
+		respond(w, 400, map[string]string{"error": "请使用单一授权方式"})
+		return
+	}
+	if in.Permissions != nil {
+		args.DraftPermissions, args.AllowPublish = in.Permissions.split()
+	} else if in.AllowPublish != nil {
+		args.AllowPublish = *in.AllowPublish
+	}
 	var token string
 	if in.OAuthClient == "" && in.OAuthSubject == "" {
 		var key [32]byte
@@ -130,7 +144,7 @@ func (s *Server) issue(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "创建连接失败", 500)
 		return
 	}
-	result := map[string]any{"id": id.String(), "allowPublish": in.AllowPublish, "endpoint": s.cfg.Origin + endpoint}
+	result := map[string]any{"id": id.String(), "allowPublish": args.AllowPublish, "permissions": allPermissions(args.DraftPermissions, args.AllowPublish), "permissionRevision": 1, "endpoint": s.cfg.Origin + endpoint}
 	if token != "" {
 		result["token"] = token
 	}
@@ -148,16 +162,35 @@ func (s *Server) modify(w http.ResponseWriter, r *http.Request) {
 		count, err = q.RevokeMCPConnection(r.Context(), dbgen.RevokeMCPConnectionParams{OwnerID: owner(r), ID: id})
 	} else {
 		var in struct {
-			AllowPublish *bool `json:"allowPublish"`
+			AllowPublish     *bool          `json:"allowPublish"`
+			Permissions      permissionList `json:"permissions"`
+			ExpectedRevision *int32         `json:"expectedRevision"`
 		}
 		if !decode(w, r, &in) {
 			return
 		}
-		if in.AllowPublish == nil {
-			http.Error(w, "请指定发布权限", 400)
+		if (in.AllowPublish == nil) == (in.Permissions == nil) {
+			respond(w, 400, map[string]string{"error": "请指定权限列表或发布开关"})
 			return
 		}
-		count, err = q.ChangeMCPPublish(r.Context(), dbgen.ChangeMCPPublishParams{OwnerID: owner(r), ID: id, AllowPublish: *in.AllowPublish})
+		if in.ExpectedRevision != nil && (in.Permissions == nil || *in.ExpectedRevision < 1) {
+			respond(w, 400, map[string]string{"error": "无效的权限版本"})
+			return
+		}
+		if in.Permissions != nil {
+			drafts, publish := in.Permissions.split()
+			args := dbgen.ChangeMCPPermissionsParams{OwnerID: owner(r), ID: id, DraftPermissions: drafts, AllowPublish: publish}
+			if in.ExpectedRevision != nil {
+				args.ExpectedRevision = *in.ExpectedRevision
+			}
+			count, err = q.ChangeMCPPermissions(r.Context(), args)
+			if count == 0 && err == nil && in.ExpectedRevision != nil {
+				respond(w, 409, map[string]string{"error": "连接或权限已变更，请刷新后重新编辑"})
+				return
+			}
+		} else {
+			count, err = q.ChangeMCPPublish(r.Context(), dbgen.ChangeMCPPublishParams{OwnerID: owner(r), ID: id, AllowPublish: *in.AllowPublish})
+		}
 	}
 	if err != nil {
 		http.Error(w, "保存连接失败", 500)
