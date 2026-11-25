@@ -305,3 +305,91 @@ test('MCP 连接逐项展示权限，创建与修改支持空授权', async (t) 
   await row.getByText('仅本连接创建', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320);
 });
+
+test('删除文章须重新确认变更的版本，失败可重试', async (t) => {
+  const page = await newPage(t);
+  const article = {
+    articleId: 'delete-example',
+    articleName: 'delete-example',
+    title: '待删除的文章',
+    slug: 'Abcd12',
+    status: 'published',
+    tags: [],
+    version: 2,
+  };
+  await page.addInitScript(() => {
+    localStorage.setItem('rendering-cms-user', JSON.stringify({ role: 'admin' }));
+    localStorage.setItem('rendering-cms-article-editor-draft:delete-example', '本地草稿');
+  });
+  let deleted = false;
+  const versions = [];
+  await page.route('**/api/v1/admin/articles', (route) => route.fulfill({ json: deleted ? [] : [article] }));
+  await page.route('**/api/v1/admin/articles/delete-example?*', (route) => {
+    assert.equal(route.request().method(), 'DELETE');
+    versions.push(new URL(route.request().url()).searchParams.get('expectedVersion'));
+    if (versions.length === 1) {
+      article.version++;
+      article.title = '已修改的文章';
+      return route.fulfill({ status: 409, json: { error: '版本冲突' } });
+    }
+    if (versions.length === 2) {
+      return route.fulfill({ status: 503, json: { error: '暂时无法删除' } });
+    }
+    deleted = true;
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto(origin + '/admin/articles');
+  const dialog = page.getByRole('dialog');
+  async function openDelete() {
+    await page.getByRole('button', { name: '更多操作：' + article.title }).click();
+    await page.getByRole('menuitem', { name: '删除文章' }).click();
+    await dialog.getByText('《' + article.title + '》', { exact: false }).waitFor();
+  }
+  const confirm = dialog.getByRole('button', { name: '删除文章' });
+  await openDelete();
+  await page.keyboard.press('Escape');
+  await dialog.waitFor({ state: 'hidden' });
+  assert.deepEqual(versions, []);
+  await openDelete();
+  await confirm.click();
+  await page.getByText('文章已变更，请核对最新内容后再删除').waitFor();
+  await dialog.waitFor({ state: 'hidden' });
+  await openDelete();
+  await confirm.click();
+  await dialog.getByText('暂时无法删除').waitFor();
+  await confirm.click();
+  await page.getByText('文章已删除', { exact: true }).waitFor();
+  assert.deepEqual(versions, ['2', '3', '3']);
+  assert.equal(await page.getByRole('link', { name: article.title }).count(), 0);
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem('rendering-cms-article-editor-draft:delete-example')),
+    null,
+  );
+});
+
+test('编辑角色的文章菜单隐藏删除入口', async (t) => {
+  const page = await newPage(t);
+  await page.addInitScript(() => {
+    localStorage.setItem('rendering-cms-user', JSON.stringify({ role: 'editor' }));
+  });
+  await page.route('**/api/v1/admin/articles', (route) =>
+    route.fulfill({
+      json: [
+        {
+          articleId: 'sample',
+          articleName: 'sample',
+          title: '草稿',
+          slug: 'Sample',
+          status: 'draft',
+          tags: [],
+          version: 1,
+        },
+      ],
+    }),
+  );
+  await page.goto(origin + '/admin/articles');
+  await page.getByRole('button', { name: '更多操作：草稿' }).click();
+  await page.getByRole('menuitem', { name: '设为私有' }).waitFor();
+  assert.equal(await page.getByRole('menuitem', { name: '删除文章' }).count(), 0);
+});

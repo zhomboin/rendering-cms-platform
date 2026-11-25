@@ -42,6 +42,7 @@ type ArticlePayload struct {
 }
 
 type articleStore interface {
+	DeleteArticle(ctx context.Context, arg dbgen.DeleteArticleParams) (int64, error)
 	ListPublishedArticles(ctx context.Context) ([]dbgen.ListPublishedArticlesRow, error)
 	GetArticleBySlug(ctx context.Context, slug string) (dbgen.GetArticleBySlugRow, error)
 	GetArticleByArticleName(ctx context.Context, articleName string) (dbgen.GetArticleByArticleNameRow, error)
@@ -85,6 +86,7 @@ func (h Handler) RegisterAdminRoutes(router chi.Router) {
 	router.Get("/articles", h.listAdminArticles)
 	router.Post("/articles", h.createDraftArticle)
 	router.Patch("/articles/{id}", h.updateDraftArticle)
+	router.Delete("/articles/{id}", h.deleteArticle)
 	router.Post("/articles/{id}/publish", h.publishArticle)
 	router.Post("/articles/{id}/unpublish", h.unpublishArticle)
 	router.Post("/articles/{id}/private", h.markArticlePrivate)

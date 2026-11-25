@@ -43,6 +43,7 @@ PostgreSQL 是 CMS 唯一的运行时数据源。文章、评论、统计、文�
 - `articles.author_id` 引用 `users.user_id`。
 - `login_email_codes.user_id` 引用 `users.user_id`。
 - `article_logs.article_id` 引用 `articles.article_id`，文章删除时级联删除版本日志。
+- 迁移 `000025_article_delete_request_keys` 以连接和请求键唯一标识 MCP 建稿请求。删除文章会将 `article_mcp_drafts.article_id` 置空，保留请求键和摘要以拦截旧请求。
 - `comments.article_id` 引用 `articles.article_id`，文章删除时级联删除评论。
 - `article_view_daily.article_id` 引用 `articles.article_id`，文章删除时级联删除统计聚合。
 - `article_view_history.article_id` 引用 `articles.article_id`，文章删除时级联删除历史统计。
@@ -94,7 +95,7 @@ PostgreSQL 是 CMS 唯一的运行时数据源。文章、评论、统计、文�
 - `draft` 与 `private` 是可编辑状态，后台更新接口允许直接修改；`published`、`archived` 不可直接编辑。
 - 设为私有和转回草稿都保留 `published_at`。从未发布的文章为空，曾发布的文章保留最后一次发布时间。
 - 发布接口每次执行都会把 `published_at` 设置为当前时间；下架接口不修改 `published_at`，保留最后一次发布时间供后台查看。
-- 修订快照保留策略：每篇文章保留最近 `ARTICLE_LOG_RETENTION_LIMIT`（默认 `20`）个快照和首版（`version = 1`），更早的快照由后端每日定时任务（本地时间 `00:15`）通过单条集合删除清理；清理不依赖应用层逐行判断，且任何情况下都不删除首版快照。
+- 修订快照保留策略：每篇文章保留最近 `ARTICLE_LOG_RETENTION_LIMIT`（默认 `20`）个快照和首版（`version = 1`），更早的快照由后端每日定时任务（本地时间 `00:15`）通过单条集合删除清理；永久删除文章时全部快照随文章清理。
 
 ## 文章搜索规则
 

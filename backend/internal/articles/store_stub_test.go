@@ -15,6 +15,9 @@ import (
 )
 
 type articleStoreStub struct {
+	deleteArgs             []dbgen.DeleteArticleParams
+	deleteRows             int64
+	deleteErr              error
 	searchRows             []dbgen.SearchPublishedArticlesRow
 	publishedRows          []dbgen.ListPublishedArticlesRow
 	lastSearchQuery        string
@@ -41,6 +44,11 @@ type articleStoreStub struct {
 	slugLookupCalls        int
 	articleNameLookupCalls int
 	listError              error
+}
+
+func (s *articleStoreStub) DeleteArticle(_ context.Context, arg dbgen.DeleteArticleParams) (int64, error) {
+	s.deleteArgs = append(s.deleteArgs, arg)
+	return s.deleteRows, s.deleteErr
 }
 
 func (s *articleStoreStub) SearchPublishedArticles(ctx context.Context, query string) ([]dbgen.SearchPublishedArticlesRow, error) {

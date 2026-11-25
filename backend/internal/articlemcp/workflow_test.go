@@ -305,6 +305,21 @@ func TestMCPThroughHTTP(t *testing.T) {
 		}
 	}
 	anotherAdmin, _ := auth.IssueToken(secret, "00000000-0000-0000-0000-000000000002", "admin")
+	t.Run("删除后建稿重试不能重新创建文章", func(t *testing.T) {
+		client := connect(issue().Token)
+		input := CreateInput{RequestKey: "delete-retry", ArticleName: "delete-retry", Content: in.Content}
+		var draft Article
+		call(client, createTool, input, false, &draft)
+		request("DELETE", "/api/v1/admin/articles/"+draft.ArticleID+"?expectedVersion=1", admin, "", 204)
+		call(client, readTool, ArticleInput{draft.ArticleID}, true, nil)
+		call(client, createTool, input, true, nil)
+		input.RequestKey = "new-request"
+		var fresh Article
+		call(client, createTool, input, false, &fresh)
+		if fresh.ArticleID == draft.ArticleID {
+			t.Fatal("新建稿沿用了已删除文章的 ID")
+		}
+	})
 	t.Run("草稿封面与首页精选", func(t *testing.T) {
 		grant := issue()
 		grantPath := connections + "/" + grant.ID
