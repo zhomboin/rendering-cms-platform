@@ -141,12 +141,6 @@ func TestDashboardSQLIntegration(t *testing.T) {
  ('40000000-0000-0000-0000-000000000006','20000000-0000-0000-0000-000000000003','30000000-0000-0000-0000-000000000008','非法链接',1,1,1);
  update photo_albums set cover_photo_id='40000000-0000-0000-0000-000000000001' where album_id='20000000-0000-0000-0000-000000000001';
  update photo_albums set cover_photo_id='40000000-0000-0000-0000-000000000004' where album_id='20000000-0000-0000-0000-000000000002';
- insert into comments(article_id,author_name,author_email,body,status,ip_hash,user_agent,created_at)
- select '10000000-0000-0000-0000-000000000001','读者','private@example.invalid',repeat('评',160),'pending','sensitive-hash','sensitive-agent',current_date+interval '1 hour' from generate_series(1,5);
- insert into comments(article_id,author_name,body,status,ip_hash,created_at) values
- ('10000000-0000-0000-0000-000000000001','边界','内容','approved','hash',current_date-6),
- ('10000000-0000-0000-0000-000000000001','过期','内容','approved','hash',current_date-7),
- ('10000000-0000-0000-0000-000000000001','未来','内容','rejected','hash',current_date+1);
  `)
 	t.Run("日期归档与有效资源聚合", func(t *testing.T) {
 		r, err := q.GetDashboardOverview(ctx, 7)
@@ -156,7 +150,7 @@ func TestDashboardSQLIntegration(t *testing.T) {
 		if r.TodayViews != 3 || r.PeriodViews != 28 || r.ArticleViews != 4800000022 || r.AlbumViews != 12 {
 			t.Fatalf("访问聚合=%+v", r)
 		}
-		if r.NewComments != 6 || r.PendingComments != 5 || r.PublishedArticles != 6 || r.DraftArticles != 1 || r.PrivateArticles != 1 || r.ArchivedArticles != 1 || r.PublishedAlbums != 2 || r.DraftAlbums != 3 || r.PhotoCount != 4 || r.MissingCoverArticles != 6 {
+		if r.PublishedArticles != 6 || r.DraftArticles != 1 || r.PrivateArticles != 1 || r.ArchivedArticles != 1 || r.PublishedAlbums != 2 || r.DraftAlbums != 3 || r.PhotoCount != 4 || r.MissingCoverArticles != 6 {
 			t.Fatalf("内容聚合=%+v", r)
 		}
 		if r.AssetCount != 5 || r.ImageCount != 4 || r.TotalBytes != 5100000030 {
@@ -197,14 +191,7 @@ func TestDashboardSQLIntegration(t *testing.T) {
 			t.Fatalf("相册封面=%+v", rows)
 		}
 	})
-	t.Run("评论与图片有限摘要", func(t *testing.T) {
-		comments, err := q.ListDashboardPendingComments(ctx)
-		if err != nil || len(comments) != 3 {
-			t.Fatalf("待审核=%+v %v", comments, err)
-		}
-		if len([]rune(comments[0].Body)) != 120 {
-			t.Fatalf("正文未在数据库截断: %d", len([]rune(comments[0].Body)))
-		}
+	t.Run("图片有限摘要", func(t *testing.T) {
 		images, err := q.ListDashboardRecentImages(ctx)
 		if err != nil || len(images) != 2 {
 			t.Fatalf("公开有效图片=%+v %v", images, err)

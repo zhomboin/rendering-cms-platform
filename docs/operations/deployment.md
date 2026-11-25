@@ -324,7 +324,7 @@ sudo systemctl reload nginx
 
 Rendering location snippet 负责博客 HTTPS 站点的 `/pagefind/`、`/blog/`、`/en/blog/` 和默认路由，使用共享的 `rendering_article` 与 `rendering_general` 限流区。Rendering 仓库不得再安装声明相同 `listen` 或 `server_name` 的完整虚拟主机。安装后使用 `sudo nginx -T | grep -n 'server_name rendering.me'` 确认 HTTPS server 只有一个有效定义。
 
-公开文章缓存只覆盖无 Authorization/Cookie 的列表和详情 GET。搜索、登录、统计、评论、后台和写入请求不进入公共缓存。发布后可用以下命令检查缓存头与状态：
+公开文章缓存只覆盖无 Authorization/Cookie 的列表和详情 GET。搜索、登录、统计、后台和写入请求不进入公共缓存。发布后可用以下命令检查缓存头与状态：
 
 ```bash
 curl -fsS -D - -o /dev/null https://cms.zhomboin.com/api/v1/articles
@@ -389,12 +389,11 @@ curl -fsS http://127.0.0.1:3001/api/v1/health
 - 后台管理员可以登录。
 - 配置 SMTP 后，从新 IP（或换网络）登录后台会收到邮箱验证码邮件，输入 6 位验证码后可以完成登录；同 IP 再次登录不再要求验证码。
 - `LOGIN_MFA_DEV_LOG` 未开启，后端日志不出现验证码明文。
-- 仪表盘、文章列表、评论列表和文件列表可以打开。
+- 仪表盘、文章列表和文件列表可以打开。后台导航和首页均无评论审核入口。
+- 使用一篇已发布文章的短链核对：公开详情返回 200，访问其 `/api/v1/articles/{slug}/comments` 返回 404。
 - 创建文章草稿并保存成功。
 - 文章删除依赖迁移 `000025_article_delete_request_keys`。按[文章 API](../apis/articles.md#删除文章)使用获准删除的测试稿验收管理员确认、编辑角色限制和旧版本冲突。
 - 发布文章后，公开文章读取接口返回已发布内容。
-- 提交评论后默认进入待审核状态。
-- 审核评论后公开接口只返回已通过评论。
 - 上传允许类型文件后，对象进入 Cloudflare R2 bucket。
 - 预签名上传和下载 URL 指向 R2 S3 API 端点。
 - 在文章编辑器上传图片后，接口返回的 `publicUrl` 指向 `S3_PUBLIC_BASE_URL` 下的 `blog/YYYY/MM/<uuid>.<ext>`。

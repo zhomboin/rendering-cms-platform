@@ -7,7 +7,6 @@ import {
   FolderOutlined,
   LogoutOutlined,
   MenuOutlined,
-  MessageOutlined,
   PictureOutlined,
   ApiOutlined,
   SendOutlined,
@@ -26,7 +25,6 @@ const baseMenuItems = [
   { key: '/admin', icon: <DashboardOutlined />, label: '仪表盘' },
   { key: '/admin/articles', icon: <FileTextOutlined />, label: '文章管理' },
   { key: '/admin/albums', icon: <PictureOutlined />, label: '相册管理' },
-  { key: '/admin/comments', icon: <MessageOutlined />, label: '评论审核' },
   { key: '/admin/assets', icon: <FolderOutlined />, label: '资源管理' },
 ];
 
@@ -53,7 +51,8 @@ export default function AdminLayout() {
     return <Navigate to="/admin/login" replace state={{ from: location }} />;
   }
 
-  const menuItems = authUser?.role === 'admin' ? [...baseMenuItems, postBridgeItem, mcpItem] : baseMenuItems;
+  const menuItems =
+    authUser?.role === 'admin' ? [...baseMenuItems, postBridgeItem, mcpItem] : baseMenuItems;
   const activeItem =
     menuItems
       .filter(({ key }) => location.pathname === key || location.pathname.startsWith(key + '/'))

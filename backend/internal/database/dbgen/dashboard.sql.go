@@ -30,8 +30,6 @@ select
  (select coalesce(sum(views), 0)::bigint from site_views) as period_views,
  (select coalesce(sum(v.views), 0)::bigint from article_views v join articles a on a.article_id = v.article_id where a.status = 'published') as article_views,
  (select coalesce(sum(views), 0)::bigint from album_view_daily where view_date between bounds.start_date and bounds.end_date) as album_views,
- (select count(*) from comments where created_at >= bounds.start_date and created_at < bounds.end_date + 1) as new_comments,
- (select count(*) from comments where status = 'pending') as pending_comments,
  (select count(*) from articles where status = 'published') as published_articles,
  (select count(*) from articles where status = 'draft') as draft_articles,
  (select count(*) from articles where status = 'private') as private_articles,
@@ -54,8 +52,6 @@ type GetDashboardOverviewRow struct {
 	PeriodViews          int64
 	ArticleViews         int64
 	AlbumViews           int64
-	NewComments          int64
-	PendingComments      int64
 	PublishedArticles    int64
 	DraftArticles        int64
 	PrivateArticles      int64
@@ -81,8 +77,6 @@ func (q *Queries) GetDashboardOverview(ctx context.Context, days int32) (GetDash
 		&i.PeriodViews,
 		&i.ArticleViews,
 		&i.AlbumViews,
-		&i.NewComments,
-		&i.PendingComments,
 		&i.PublishedArticles,
 		&i.DraftArticles,
 		&i.PrivateArticles,
@@ -212,51 +206,6 @@ func (q *Queries) ListDashboardArticles(ctx context.Context, days int32) ([]List
 			&i.PeriodViews,
 			&i.TotalViews,
 			&i.PublishedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listDashboardPendingComments = `-- name: ListDashboardPendingComments :many
-select c.comment_id, c.article_id, a.title as article_title, c.author_name, left(c.body, 120)::text as body, c.created_at
-from comments c
-join articles a on a.article_id = c.article_id
-where c.status = 'pending'
-order by c.created_at desc, c.comment_id
-limit 3
-`
-
-type ListDashboardPendingCommentsRow struct {
-	CommentID    pgtype.UUID
-	ArticleID    pgtype.UUID
-	ArticleTitle string
-	AuthorName   string
-	Body         string
-	CreatedAt    pgtype.Timestamptz
-}
-
-func (q *Queries) ListDashboardPendingComments(ctx context.Context) ([]ListDashboardPendingCommentsRow, error) {
-	rows, err := q.db.Query(ctx, listDashboardPendingComments)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListDashboardPendingCommentsRow
-	for rows.Next() {
-		var i ListDashboardPendingCommentsRow
-		if err := rows.Scan(
-			&i.CommentID,
-			&i.ArticleID,
-			&i.ArticleTitle,
-			&i.AuthorName,
-			&i.Body,
-			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

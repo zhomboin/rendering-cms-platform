@@ -250,6 +250,6 @@ EOF
 
 log "==== 回滚完成：$TARGET_COMMIT ===="
 log "后续建议："
-log "  1. 登录后台抽查文章、评论、文件功能；"
+log "  1. 登录后台抽查文章和文件功能；"
 log "  2. 若刚才暂停了 timer，确认稳定后执行 systemctl start cms-rendering-deploy.timer；"
 log "  3. 若回滚原因是某次提交本身有问题，请先在远端修复并推送，再恢复自动部署。"

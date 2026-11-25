@@ -32,7 +32,6 @@ frontend/
       articles.ts
       analytics.ts
       dashboard.ts
-      comments.ts
       assets.ts
       uploadLimits.ts
       albums.ts
@@ -61,7 +60,6 @@ frontend/
       articles/revisionDiff.ts
       assets/AssetsPage.tsx
       auth/LoginPage.tsx
-      comments/CommentsPage.tsx
       dashboard/DashboardPage.tsx
     markdown/                 # 受控解析核心与契约摘要
     routes/
@@ -97,7 +95,7 @@ frontend/
 - 登录接口返回可辨识联合：直接成功返回 `token`/`refreshToken`/`user`，需要邮箱验证码时返回 `mfaRequired`/`challengeToken`；登录页为同页两步表单（密码 → 验证码），验证码通过 `verifyLoginCode` 完成登录后才写入 token。
 - 三个上传入口共用 uploadLimits.ts 的大小策略：图片 50MB、其它允许文件 20MB，超限或空文件在请求前拒绝。
 - 相册上传的进度与取消信号由 albums.ts 封装；资源和文章插图的直传进度由 assets.ts 封装。各入口维护逐文件状态，共用 UploadProgressList 展示传输、处理和结果。
-- 各页面用到的具体 API 必须按领域放在 `src/api/` 下，例如 `articles.ts`、`comments.ts`、`assets.ts`。
+- 各页面用到的具体 API 必须按领域放在 `src/api/` 下，例如 `articles.ts`、`assets.ts`。
 - 页面和组件不得直接调用 `apiGet`、`apiPost`、`apiPatch`、`apiClient`、`fetch` 或 `axios` 方法。
 - 资源预签名上传这类第三方直传也要封装在 `src/api/assets.ts`，页面只调用业务函数。
 

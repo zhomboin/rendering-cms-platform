@@ -87,62 +87,6 @@ test('验证码输满后只自动提交一次，失败后可手动重试', async
   assert.equal(attempts.length, 2);
 });
 
-test('评论按状态分页，批量审核部分成功后可重试失败项', async (t) => {
-  const page = await newPage(t);
-  const now = '2026-01-01T00:00:00Z';
-  const comments = Array.from({ length: 12 }, (_, i) => ({
-    commentId: String(i + 1),
-    articleTitle: '测试文章',
-    authorName: '访客 ' + (i + 1),
-    body: '测试评论 ' + (i + 1),
-    status: 'pending',
-    createdAt: now,
-  }));
-  let rejectOnce = true;
-  const reviewed = [];
-  await page.route('**/api/v1/admin/comments', (route) => route.fulfill({ json: comments }));
-  await page.route('**/api/v1/admin/comments/*', (route) => {
-    const id = route.request().url().split('/').at(-1);
-    const status = route.request().postDataJSON().status;
-    reviewed.push([id, status]);
-    if (id === '12' && rejectOnce) {
-      rejectOnce = false;
-      return route.fulfill({ status: 500, json: { error: '请求暂不可用' } });
-    }
-    const comment = comments.find((item) => item.commentId === id);
-    Object.assign(comment, { status, reviewedAt: now });
-    return route.fulfill({ json: { commentId: id, status, reviewedAt: now } });
-  });
-
-  await page.goto(origin + '/admin/comments');
-  const rows = page.getByRole('listitem').filter({ hasText: /测试评论/ });
-  await rows.last().waitFor();
-  assert.equal(await rows.count(), 10);
-  await page.getByTitle('2', { exact: true }).click();
-  await page.getByText('测试评论 12', { exact: true }).waitFor();
-  assert.equal(await rows.count(), 2);
-  await page.getByRole('checkbox', { name: '全选本页' }).check();
-  await page.getByText('已选 2 条').waitFor();
-  const reject = page.getByRole('button', { name: '批量拒绝', exact: true });
-  await reject.click();
-  await page.getByRole('dialog').getByRole('button', { name: '批量拒绝', exact: true }).click();
-  await page.getByText('1 条评论已拒绝，1 条失败。请求暂不可用').waitFor();
-  assert.equal(await rows.count(), 1);
-  assert.equal(await page.getByRole('checkbox', { name: '选择 访客 12 的评论' }).isChecked(), true);
-  await reject.click();
-  await page.getByRole('dialog').getByRole('button', { name: '批量拒绝', exact: true }).click();
-  await page.getByText('1 条评论已拒绝', { exact: true }).waitFor();
-  assert.deepEqual(reviewed, [
-    ['11', 'rejected'],
-    ['12', 'rejected'],
-    ['12', 'rejected'],
-  ]);
-  await page.getByRole('tab', { name: '已拒绝' }).click();
-  await page.getByText('测试评论 11', { exact: true }).waitFor();
-  assert.equal(await rows.count(), 2);
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320);
-});
-
 test('资源大小按二进制显示，文件名和类型可组合筛选', async (t) => {
   const page = await newPage(t);
   const assets = [
@@ -323,7 +267,9 @@ test('删除文章须重新确认变更的版本，失败可重试', async (t) =
   });
   let deleted = false;
   const versions = [];
-  await page.route('**/api/v1/admin/articles', (route) => route.fulfill({ json: deleted ? [] : [article] }));
+  await page.route('**/api/v1/admin/articles', (route) =>
+    route.fulfill({ json: deleted ? [] : [article] }),
+  );
   await page.route('**/api/v1/admin/articles/delete-example?*', (route) => {
     assert.equal(route.request().method(), 'DELETE');
     versions.push(new URL(route.request().url()).searchParams.get('expectedVersion'));
@@ -368,11 +314,15 @@ test('删除文章须重新确认变更的版本，失败可重试', async (t) =
   await confirm.click();
   await page.getByText('文章已删除', { exact: true }).waitFor();
   await dialog.waitFor({ state: 'hidden' });
-  await page.waitForFunction(() => document.activeElement?.textContent?.replace(/\s/g, '') === '刷新');
+  await page.waitForFunction(
+    () => document.activeElement?.textContent?.replace(/\s/g, '') === '刷新',
+  );
   assert.deepEqual(versions, ['2', '3', '3']);
   assert.equal(await page.getByRole('link', { name: article.title }).count(), 0);
   assert.equal(
-    await page.evaluate(() => localStorage.getItem('rendering-cms-article-editor-draft:delete-example')),
+    await page.evaluate(() =>
+      localStorage.getItem('rendering-cms-article-editor-draft:delete-example'),
+    ),
     null,
   );
 });

@@ -15,7 +15,6 @@ import (
 type store interface {
 	GetDashboardOverview(context.Context, int32) (dbgen.GetDashboardOverviewRow, error)
 	ListDashboardRecentArticles(context.Context, dbgen.ListDashboardRecentArticlesParams) ([]dbgen.ListDashboardRecentArticlesRow, error)
-	ListDashboardPendingComments(context.Context) ([]dbgen.ListDashboardPendingCommentsRow, error)
 	ListDashboardRecentImages(context.Context) ([]dbgen.ListDashboardRecentImagesRow, error)
 	ListDashboardArticles(context.Context, int32) ([]dbgen.ListDashboardArticlesRow, error)
 	ListDashboardAlbums(context.Context, int32) ([]dbgen.ListDashboardAlbumsRow, error)
@@ -33,12 +32,10 @@ func (h Handler) RegisterAdminRoutes(router chi.Router) {
 }
 
 type metrics struct {
-	TodayViews      int64 `json:"todayViews"`
-	PeriodViews     int64 `json:"periodViews"`
-	ArticleViews    int64 `json:"articleViews"`
-	AlbumViews      int64 `json:"albumViews"`
-	NewComments     int64 `json:"newComments"`
-	PendingComments int64 `json:"pendingComments"`
+	TodayViews   int64 `json:"todayViews"`
+	PeriodViews  int64 `json:"periodViews"`
+	ArticleViews int64 `json:"articleViews"`
+	AlbumViews   int64 `json:"albumViews"`
 }
 type content struct {
 	PublishedArticles    int64 `json:"publishedArticles"`
@@ -65,14 +62,6 @@ type articleSummary struct {
 	UpdatedAt     pgtype.Timestamptz  `json:"updatedAt"`
 	PublishedAt   pgtype.Timestamptz  `json:"publishedAt"`
 }
-type commentSummary struct {
-	CommentID    pgtype.UUID        `json:"commentId"`
-	ArticleID    pgtype.UUID        `json:"articleId"`
-	ArticleTitle string             `json:"articleTitle"`
-	AuthorName   string             `json:"authorName"`
-	Body         string             `json:"body"`
-	CreatedAt    pgtype.Timestamptz `json:"createdAt"`
-}
 type imageSummary struct {
 	AssetID   pgtype.UUID        `json:"assetId"`
 	Filename  string             `json:"filename"`
@@ -81,17 +70,16 @@ type imageSummary struct {
 	CreatedAt pgtype.Timestamptz `json:"createdAt"`
 }
 type overviewResponse struct {
-	Days            int32              `json:"days"`
-	GeneratedAt     pgtype.Timestamptz `json:"generatedAt"`
-	StartDate       string             `json:"startDate"`
-	EndDate         string             `json:"endDate"`
-	Metrics         metrics            `json:"metrics"`
-	Content         content            `json:"content"`
-	Resources       resources          `json:"resources"`
-	RecentArticles  []articleSummary   `json:"recentArticles"`
-	Drafts          []articleSummary   `json:"drafts"`
-	PendingComments []commentSummary   `json:"pendingComments"`
-	RecentImages    []imageSummary     `json:"recentImages"`
+	Days           int32              `json:"days"`
+	GeneratedAt    pgtype.Timestamptz `json:"generatedAt"`
+	StartDate      string             `json:"startDate"`
+	EndDate        string             `json:"endDate"`
+	Metrics        metrics            `json:"metrics"`
+	Content        content            `json:"content"`
+	Resources      resources          `json:"resources"`
+	RecentArticles []articleSummary   `json:"recentArticles"`
+	Drafts         []articleSummary   `json:"drafts"`
+	RecentImages   []imageSummary     `json:"recentImages"`
 }
 
 func (h Handler) overview(w http.ResponseWriter, r *http.Request) {
@@ -111,11 +99,6 @@ func (h Handler) overview(w http.ResponseWriter, r *http.Request) {
 		readError(w)
 		return
 	}
-	comments, err := h.queries.ListDashboardPendingComments(r.Context())
-	if err != nil {
-		readError(w)
-		return
-	}
 	images, err := h.queries.ListDashboardRecentImages(r.Context())
 	if err != nil {
 		readError(w)
@@ -123,17 +106,12 @@ func (h Handler) overview(w http.ResponseWriter, r *http.Request) {
 	}
 	response := overviewResponse{
 		Days: days, GeneratedAt: row.GeneratedAt, StartDate: row.StartDate.Time.Format("2006-01-02"), EndDate: row.EndDate.Time.Format("2006-01-02"),
-		Metrics:        metrics{row.TodayViews, row.PeriodViews, row.ArticleViews, row.AlbumViews, row.NewComments, row.PendingComments},
+		Metrics:        metrics{row.TodayViews, row.PeriodViews, row.ArticleViews, row.AlbumViews},
 		Content:        content{row.PublishedArticles, row.DraftArticles, row.PrivateArticles, row.ArchivedArticles, row.PublishedAlbums, row.DraftAlbums, row.PhotoCount, row.MissingCoverArticles},
 		Resources:      resources{row.AssetCount, row.ImageCount, row.TotalBytes},
-		RecentArticles: mapArticleSummaries(recent, 5), Drafts: mapArticleSummaries(drafts, 3), PendingComments: make([]commentSummary, 0, 3), RecentImages: make([]imageSummary, 0, 6),
-	}
-	for _, c := range comments[:min(len(comments), 3)] {
-		body := []rune(c.Body)
-		if len(body) > 120 {
-			body = body[:120]
-		}
-		response.PendingComments = append(response.PendingComments, commentSummary{c.CommentID, c.ArticleID, c.ArticleTitle, c.AuthorName, string(body), c.CreatedAt})
+		RecentArticles: mapArticleSummaries(recent, 5),
+		Drafts:         mapArticleSummaries(drafts, 3),
+		RecentImages:   make([]imageSummary, 0, 6),
 	}
 	for _, i := range images {
 		if u := publicURL(i.PublicUrl); u != "" {

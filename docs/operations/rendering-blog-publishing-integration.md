@@ -4,10 +4,12 @@ CMS 管理文章的草稿、发布状态和修订，Rendering 负责公开页面
 
 ## 内容消费
 
+博客文章页面不展示评论列表、输入框或第三方评论组件，也不向 CMS 请求评论。
+
 - Rendering 服务端用 `GET /api/v1/articles` 读取轻量列表，用 `GET /api/v1/articles/{slug}` 读取详情及 `bodyMdx`。公开链接、canonical 与上报使用 `canonicalSlug`，CMS 也支持通过 `articleName` 查找已发布文章。
 - Rendering 合并 CMS 和本地 MDX。CMS 记录优先，匹配的本地 MDX 以英文名去重。只有本地 MDX 的文章可继续独立展示，CMS 请求失败时 Rendering 可读取本地 MDX。详情取不到 CMS 数据时也会尝试回退。
 - 摘要和标签是可选字段。Rendering 以标题填充空摘要的页面描述，空标签按空数组展示。消费逻辑和回归见 [CMS 内容客户端](https://github.com/zhomboin/Rendering/blob/main/lib/cms-content.js) 与 [内容消费测试](https://github.com/zhomboin/Rendering/blob/main/lib/cms-content.test.js)。
-- CMS 下架后，公开详情、搜索、评论和访问入口按已发布状态过滤。Rendering 还受页面缓存、索引和本地 MDX 数据源影响。验收时分别确认 CMS 短链、博客 canonical、站点地图、RSS 与索引，以及存在本地副本时的预期可见性。[Rendering 公开数据源](https://github.com/zhomboin/Rendering/blob/main/lib/public-content.js)
+- CMS 下架后，公开详情、搜索和访问入口按已发布状态过滤。Rendering 还受页面缓存、索引和本地 MDX 数据源影响。验收时分别确认 CMS 短链、博客 canonical、站点地图、RSS 与索引，以及存在本地副本时的预期可见性。[Rendering 公开数据源](https://github.com/zhomboin/Rendering/blob/main/lib/public-content.js)
 
 ## 配置与索引刷新
 

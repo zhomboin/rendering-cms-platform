@@ -19,7 +19,7 @@ description: 为明确要求浅色拟物、新拟态或类似 Cieden 浅蓝紫�
 | 按钮、文字输入、搜索、选择、日期、开关、树选择和表单 | [操作与表单](references/controls.md) |
 | 导航、表格、列表、分页、卡片、标签、统计与图表 | [导航与数据](references/navigation-data.md) |
 | 菜单、提示、弹窗、抽屉、通知、加载、空状态和错误 | [弹层与反馈](references/overlays-feedback.md) |
-| 上传、图库、图片预览、文章编辑、审核、分发和登录 | [CMS 组件](references/cms-components.md) |
+| 上传、图库、图片预览、文章编辑、分发和登录 | [CMS 组件](references/cms-components.md) |
 
 ## 判断标准
 

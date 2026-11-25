@@ -10,7 +10,6 @@ const AlbumsPage = lazy(() => import('../pages/albums/AlbumsPage'));
 const ArticleEditorPage = lazy(() => import('../pages/articles/ArticleEditorPage'));
 const ArticleListPage = lazy(() => import('../pages/articles/ArticleListPage'));
 const ArticleReadingPage = lazy(() => import('../pages/articles/ArticleReadingPage'));
-const CommentsPage = lazy(() => import('../pages/comments/CommentsPage'));
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 const PostBridgePage = lazy(() => import('../pages/postbridge/PostBridgePage'));
@@ -37,7 +36,6 @@ export function AppRoutes() {
             <Route path="articles" element={<ArticleListPage />} />
             <Route path="articles/new" element={<ArticleEditorPage />} />
             <Route path="articles/:id/edit" element={<ArticleEditorPage />} />
-            <Route path="comments" element={<CommentsPage />} />
             <Route path="postbridge" element={<PostBridgePage />} />
             <Route path="mcp" element={<McpPage />} />
             <Route path="assets" element={<AssetsPage />} />

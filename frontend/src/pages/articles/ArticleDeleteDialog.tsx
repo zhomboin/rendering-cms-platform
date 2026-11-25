@@ -27,7 +27,6 @@ export function ArticleDeleteDialog({
     );
     for (const key of [
       'admin-articles',
-      'admin-comments',
       'dashboard-overview',
       'dashboard-articles',
       'dashboard-trend',
@@ -85,7 +84,7 @@ export function ArticleDeleteDialog({
       afterClose={onClose}
     >
       <p style={{ overflowWrap: 'anywhere' }}>
-        《{target.title}》及其修订、评论和访问记录将一并删除，无法在后台恢复。
+        《{target.title}》及其修订、访问记录等关联数据将一并删除，无法在后台恢复。
       </p>
       {deletion.isError && open && <Alert type="error" showIcon title={deletion.error.message} />}
     </Modal>

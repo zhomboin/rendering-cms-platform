@@ -20,7 +20,6 @@ import (
 type dashboardStub struct {
 	overview dbgen.GetDashboardOverviewRow
 	recent   []dbgen.ListDashboardRecentArticlesRow
-	comments []dbgen.ListDashboardPendingCommentsRow
 	images   []dbgen.ListDashboardRecentImagesRow
 	articles []dbgen.ListDashboardArticlesRow
 	albums   []dbgen.ListDashboardAlbumsRow
@@ -44,9 +43,6 @@ func (s *dashboardStub) ListDashboardRecentArticles(ctx context.Context, arg dbg
 		name = "drafts"
 	}
 	return s.recent, s.failure(name)
-}
-func (s *dashboardStub) ListDashboardPendingComments(ctx context.Context) ([]dbgen.ListDashboardPendingCommentsRow, error) {
-	return s.comments, s.failure("comments")
 }
 func (s *dashboardStub) ListDashboardRecentImages(ctx context.Context) ([]dbgen.ListDashboardRecentImagesRow, error) {
 	return s.images, s.failure("images")
@@ -97,7 +93,7 @@ func TestDashboardDaysAndEmptyCollections(t *testing.T) {
 				}
 				keys := []string{endpoint}
 				if endpoint == "overview" {
-					keys = []string{"recentArticles", "drafts", "pendingComments", "recentImages"}
+					keys = []string{"recentArticles", "drafts", "recentImages"}
 				}
 				for _, key := range keys {
 					if string(body[key]) != "[]" {
@@ -133,7 +129,7 @@ func TestDashboardAuthorization(t *testing.T) {
 	}
 }
 func TestDashboardQueryFailuresNeverReturnPartialSuccess(t *testing.T) {
-	for _, failure := range []string{"overview", "recent", "drafts", "comments", "images", "articles", "albums"} {
+	for _, failure := range []string{"overview", "recent", "drafts", "images", "articles", "albums"} {
 		t.Run(failure, func(t *testing.T) {
 			endpoint := "overview"
 			if failure == "articles" || failure == "albums" {
@@ -156,7 +152,6 @@ func TestDashboardMapsSummariesWithoutSensitiveFields(t *testing.T) {
 	s := &dashboardStub{overview: dbgen.GetDashboardOverviewRow{GeneratedAt: now, StartDate: date, EndDate: date, PeriodViews: 5000000000, TotalBytes: 6000000000}}
 	for i := 0; i < 8; i++ {
 		s.recent = append(s.recent, dbgen.ListDashboardRecentArticlesRow{ArticleID: id, Slug: "abc123", Title: "文章", Status: dbgen.ArticleStatusDraft, UpdatedAt: now})
-		s.comments = append(s.comments, dbgen.ListDashboardPendingCommentsRow{CommentID: id, ArticleID: id, ArticleTitle: "文章", Body: strings.Repeat("评", 160), CreatedAt: now})
 		s.images = append(s.images, dbgen.ListDashboardRecentImagesRow{AssetID: id, Filename: "image.jpg", PublicUrl: "https://cdn.example/image.jpg", CreatedAt: now})
 		s.articles = append(s.articles, dbgen.ListDashboardArticlesRow{ArticleID: id, Title: "文章", PeriodViews: 5000000000})
 		s.albums = append(s.albums, dbgen.ListDashboardAlbumsRow{AlbumID: id, Title: "相册", CoverUrl: "https://cdn.example/cover.jpg", UpdatedAt: now})
@@ -169,7 +164,7 @@ func TestDashboardMapsSummariesWithoutSensitiveFields(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	for key, want := range map[string]int{"recentArticles": 5, "drafts": 3, "pendingComments": 3, "recentImages": 6} {
+	for key, want := range map[string]int{"recentArticles": 5, "drafts": 3, "recentImages": 6} {
 		rows := body[key].([]interface{})
 		if len(rows) != want {
 			t.Errorf("%s length=%d want=%d", key, len(rows), want)
@@ -182,11 +177,7 @@ func TestDashboardMapsSummariesWithoutSensitiveFields(t *testing.T) {
 	if len(article["tags"].([]interface{})) != 0 || article["publishedAt"] != nil {
 		t.Errorf("nullable summary=%v", article)
 	}
-	comment := body["pendingComments"].([]interface{})[0].(map[string]interface{})
-	if len([]rune(comment["body"].(string))) > 121 {
-		t.Errorf("comment preview too long")
-	}
-	for _, key := range []string{"authorEmail", "ipHash", "userAgent", "storageKey", "bodyMdx", "passwordHash"} {
+	for _, key := range []string{"newComments", "pendingComments", "authorEmail", "ipHash", "userAgent", "storageKey", "bodyMdx", "passwordHash"} {
 		if strings.Contains(rec.Body.String(), key) {
 			t.Errorf("sensitive field %s returned", key)
 		}

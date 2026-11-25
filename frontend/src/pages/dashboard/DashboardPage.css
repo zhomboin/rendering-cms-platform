@@ -81,7 +81,7 @@
 }
 .dashboard-metrics {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border: 1px solid var(--cms-line);
   background: var(--cms-panel);
   border-radius: 16px;
@@ -480,11 +480,6 @@
   font-size: 11px;
   color: var(--cms-muted);
 }
-.dashboard-todo-group + .dashboard-todo-group {
-  border-top: 1px solid var(--cms-line);
-  margin-top: 16px;
-  padding-top: 16px;
-}
 .dashboard-todo-group h3 {
   margin: 0 0 10px;
   font-size: 12px;
@@ -507,36 +502,11 @@
   margin-top: 3px;
   font-size: 11px;
 }
-.dashboard-todo-comment {
-  margin: 12px 0;
-}
-.dashboard-todo-comment > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 12px;
-}
-.dashboard-todo-comment strong {
-  font-weight: 500;
-  overflow-wrap: anywhere;
-  min-width: 0;
-}
-.dashboard-todo-comment p {
-  margin: 4px 0;
-  color: var(--cms-muted);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
 .dashboard-truncate {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.dashboard-inline-link {
-  font-size: 12px;
-  display: inline-block;
-  padding: 4px 0;
 }
 .dashboard-cover-task {
   padding: 14px 0 0;
@@ -720,14 +690,12 @@
 }
 @container dashboard (max-width: 750px) {
   .dashboard-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .dashboard-metric:nth-child(4),
-  .dashboard-metric:nth-child(5),
-  .dashboard-metric:nth-child(6) {
+  .dashboard-metric:nth-child(n + 3) {
     border-top: 1px solid var(--cms-line);
   }
-  .dashboard-metric:nth-child(4)::before {
+  .dashboard-metric:nth-child(odd)::before {
     display: none;
   }
   .dashboard-two-columns {
@@ -767,23 +735,11 @@
   .dashboard-actions .ant-segmented-item {
     flex: 1;
   }
-  .dashboard-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .dashboard-metric {
     padding: 14px 16px;
   }
   .dashboard-metric strong {
     font-size: 26px;
-  }
-  .dashboard-metric:nth-child(3) {
-    border-top: 1px solid var(--cms-line);
-  }
-  .dashboard-metric:nth-child(odd)::before {
-    display: none;
-  }
-  .dashboard-metric:nth-child(4)::before {
-    display: block;
   }
   .dashboard-two-columns {
     margin-bottom: 16px;

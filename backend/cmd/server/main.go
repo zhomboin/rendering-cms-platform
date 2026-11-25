@@ -13,7 +13,6 @@ import (
 	"rendering-cms-platform/backend/internal/articles"
 	"rendering-cms-platform/backend/internal/assets"
 	"rendering-cms-platform/backend/internal/auth"
-	"rendering-cms-platform/backend/internal/comments"
 	"rendering-cms-platform/backend/internal/config"
 	"rendering-cms-platform/backend/internal/dashboard"
 	"rendering-cms-platform/backend/internal/database"
@@ -83,7 +82,6 @@ func main() {
 	articleHandler := articles.NewHandler(queries)
 	analyticsHandler := analytics.NewHandler(queries)
 	dashboardHandler := dashboard.NewHandler(queries)
-	commentHandler := comments.NewHandler(queries)
 	assetHandler := assets.NewHandlerWithOptions(queries, storageClient, assets.HandlerOptions{
 		PublicBaseURL:   cfg.S3.PublicBaseURL,
 		BlogImagePrefix: cfg.S3.BlogImagePrefix,
@@ -148,11 +146,9 @@ func main() {
 			httpapi.WithPublicArticleSearchRoutes(articleHandler.RegisterPublicSearchRoutes),
 			httpapi.WithPublicPhotoReadRoutes(albumHandler.RegisterPublicReadRoutes),
 			httpapi.WithPublicRoutes(analyticsHandler.RegisterPublicRoutes),
-			httpapi.WithPublicRoutes(commentHandler.RegisterPublicRoutes),
 			httpapi.WithAdminRoutes(articleHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(analyticsHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(dashboardHandler.RegisterAdminRoutes),
-			httpapi.WithAdminRoutes(commentHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(assetHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(albumHandler.RegisterAdminRoutes),
 			httpapi.WithAdminRoutes(postBridgeRoutes),

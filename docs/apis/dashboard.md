@@ -23,18 +23,15 @@ GET /admin/dashboard/overview
 | metrics.periodViews | 所选区间站点访问计数，包含文章、相册及站点上报 |
 | metrics.articleViews | 所选区间当前已发布文章访问计数，与文章趋势范围一致 |
 | metrics.albumViews | 所选区间相册访问计数，保留已下架相册的计数 |
-| metrics.newComments | 所选区间新增评论数量，包含所有审核状态 |
-| metrics.pendingComments | 当前待审核评论数量，不随区间变化 |
 | content | 当前文章各状态数量、相册各状态数量、有效照片数量及已发布文章缺封面数量 |
 | resources | 有效资源数量、图片数量和资源登记大小（字节） |
 | recentArticles | 最近更新文章摘要，最多 5 项，含私有状态，仅后台可读 |
 | drafts | 最近更新草稿摘要，最多 3 项，不含私有文章 |
-| pendingComments | 最新待审核评论摘要，最多 3 项，正文最多 120 个字符 |
 | recentImages | 最近登记且有有效公开图片地址的图片资源，最多 6 项 |
 
 content 的数量字段为 publishedArticles、draftArticles、privateArticles、archivedArticles、publishedAlbums、draftAlbums、photoCount、missingCoverArticles。资源字段为 assetCount、imageCount、totalBytes；有效资源要求状态 active 且删除时间为空。登记大小来源于数据库元数据，不代表对象存储实际用量，也不能证明直传文件已经完整到达对象存储。
 
-文章摘要包含 articleId、slug、title、status、coverImageUrl、tags、updatedAt、publishedAt。评论摘要包含 commentId、articleId、articleTitle、authorName、body、createdAt。图片摘要包含 assetId、filename、publicUrl、byteSize、createdAt。
+文章摘要包含 articleId、slug、title、status、coverImageUrl、tags、updatedAt、publishedAt。图片摘要包含 assetId、filename、publicUrl、byteSize、createdAt。
 
 ## 热门文章
 
