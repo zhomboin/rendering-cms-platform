@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { Alert, App, Modal } from 'antd';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { deleteAdminArticle, type AdminArticleRecord } from '../../api/articles';
@@ -73,6 +73,14 @@ export function ArticleDeleteDialog({
       }}
       onCancel={() => {
         if (!deletion.isPending) setOpen(false);
+      }}
+      wrapProps={{
+        onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
+          if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
+            event.stopPropagation();
+            if (!deletion.isPending) setOpen(false);
+          }
+        },
       }}
       afterClose={onClose}
     >

@@ -352,7 +352,7 @@ test('删除文章须重新确认变更的版本，失败可重试', async (t) =
     .locator('button:focus')
     .filter({ hasText: /取\s*消/ })
     .waitFor();
-  await page.keyboard.press('Escape');
+  await dialog.getByRole('button', { name: /取\s*消/ }).press('Escape');
   await dialog.waitFor({ state: 'hidden' });
   await page.waitForFunction(
     () => document.activeElement?.getAttribute('aria-label') === '更多操作：待删除的文章',
