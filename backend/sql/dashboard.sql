@@ -18,8 +18,6 @@ select
  (select coalesce(sum(views), 0)::bigint from site_views) as period_views,
  (select coalesce(sum(v.views), 0)::bigint from article_views v join articles a on a.article_id = v.article_id where a.status = 'published') as article_views,
  (select coalesce(sum(views), 0)::bigint from album_view_daily where view_date between bounds.start_date and bounds.end_date) as album_views,
- (select count(*) from comments where created_at >= bounds.start_date and created_at < bounds.end_date + 1) as new_comments,
- (select count(*) from comments where status = 'pending') as pending_comments,
  (select count(*) from articles where status = 'published') as published_articles,
  (select count(*) from articles where status = 'draft') as draft_articles,
  (select count(*) from articles where status = 'private') as private_articles,
@@ -39,14 +37,6 @@ from articles
 where (sqlc.arg(status)::text = '' or status::text = sqlc.arg(status)::text)
 order by updated_at desc, article_id
 limit sqlc.arg(row_limit)::int;
-
--- name: ListDashboardPendingComments :many
-select c.comment_id, c.article_id, a.title as article_title, c.author_name, left(c.body, 120)::text as body, c.created_at
-from comments c
-join articles a on a.article_id = c.article_id
-where c.status = 'pending'
-order by c.created_at desc, c.comment_id
-limit 3;
 
 -- name: ListDashboardRecentImages :many
 select asset_id, filename, public_url::text as public_url, byte_size::bigint as byte_size, created_at

@@ -7,10 +7,11 @@
 - [AI 文章 MCP](./article-mcp.md)
 - [统计 API](./analytics.md)
 - [首页数据驾驶舱 API](./dashboard.md)
-- [评论 API](./comments.md)
 - [文件 API](./assets.md)
 - [相册 API](./photos.md)
 - [PostBridge 接入 API](./postbridge.md)
+
+博客不开放评论。CMS 不提供公开评论列表、提交或后台审核接口。
 
 ## 通用规则
 
@@ -24,6 +25,6 @@
 }
 ```
 
-- 评论、下载审计和访问统计不得保存原始 IP；如需识别访问端，只保存哈希值。
+- 下载审计和访问统计不得保存原始 IP；如需识别访问端，只保存哈希值。
 - 触发速率限制时返回 `429` 并携带 `Retry-After`；公共并发容量耗尽时可能返回 `503`。
 - 公开 GET 可使用 `Cache-Control`、`ETag`、`If-None-Match` 和 `304`；后台和写入接口不得进入公共缓存。

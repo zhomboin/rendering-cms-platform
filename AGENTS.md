@@ -44,7 +44,7 @@
 - 本仓库提供 Rendering 博客的 CMS 后端和管理界面。
 - PostBridge 来源接入按 [接入与验收说明](docs/plans/2026-11-05-postbridge-integration.md)实施，CMS 代码已通过本地验证，环境验收由 V10 跟进。CMS 后端单向调用 PostBridge，负责来源授权、内容快照、事务发件箱与分发记录；PostBridge 负责平台账号、平台稿确认及外站执行。分发仅保存到单个 CSDN 账号的草稿箱。支持图片的目标可接收已发布相册的正文图片，图片地址须与有效照片记录完全一致。
 - 文章、授权或图片公开来源失效与待发来源事件须在同一事务提交。CMS 立即拒绝旧授权；在途任务按取消结果、来源事件生效或授权到期确定远端是否停止。外站结果未知时交由管理员核对。真实平台和生产操作须另获授权。
-- 不要把统计、评论、上传下载、后台编辑发布等动态能力直接叠加到原静态博客仓库。
+- 不要把统计、上传下载、后台编辑发布等动态能力直接叠加到原静态博客仓库。
 - 原 `Rendering` 静态博客只作为内容迁移来源、视觉参考和回退基线。
 - 当前静态博客中的 `content/posts/*.mdx` 只作为导入来源和备份格式，不作为新平台的运行时数据源。
 - 不要删除、重写或破坏原静态博客内容；需要迁移时应通过导入工具进入 PostgreSQL。
@@ -75,7 +75,6 @@ rendering-cms-platform/
     cmd/server/
     internal/auth/
     internal/articles/
-    internal/comments/
     internal/analytics/
     internal/assets/
     internal/config/
@@ -90,7 +89,6 @@ rendering-cms-platform/
     src/pages/
     src/components/
     src/features/articles/
-    src/features/comments/
     src/features/analytics/
     src/features/assets/
     src/features/auth/
@@ -108,16 +106,15 @@ rendering-cms-platform/
 - 私有文章：支持将草稿设为私有（日常记录、运维文档等），仅在登录后台可见、可编辑、可通过后台阅读页阅读，绝不进入公开站点；公开接口只返回 `published` 文章。
 - 相册：后台维护相册与照片，照片由后端代理上传（魔数校验、像素尺寸服务端提取、存储前剥离 EXIF/XMP 等元数据，含 GPS），相册仅 `published` 状态对外可见；向 Rendering 博客提供相册分页列表、相册元数据、照片分页清单的公开查询接口与相册浏览上报，契约见 `docs/apis/photos.md`。
 - 访问统计：采用每日去重计数，首页以浅色数据驾驶舱展示 7／30／90 天趋势、文章排行、相册、内容概况和待办；默认 30 天。不得把现有计数标为标准 PV 或 UV，不显示没有采集依据的增长率和实时指标。
-- 评论支持匿名提交、默认待审核及后台审核，评论为平面结构。
+- 博客不开放评论。CMS 不提供评论提交、读取或审核接口，后台不展示评论。
 - 文件：支持后台申请预签名上传 URL、直传对象存储、申请预签名下载 URL，并记录下载审计。
-- 后台：需要登录保护，覆盖仪表盘、文章编辑发布、相册管理、评论审核、资源上传下载。相册基本信息与图片管理使用独立页面；图片管理必须展示可复制的完整图片 URL。
-- CMS 公开接口仅提供已发布文章、已审核评论和已发布相册。Rendering 的展示及本地 MDX 回退见 [博客发布对接](docs/operations/rendering-blog-publishing-integration.md)。
+- 后台：需要登录保护，覆盖仪表盘、文章编辑发布、相册管理、资源上传下载。相册基本信息与图片管理使用独立页面；图片管理必须展示可复制的完整图片 URL。
+- CMS 公开接口仅提供已发布文章和已发布相册。Rendering 的展示及本地 MDX 回退见 [博客发布对接](docs/operations/rendering-blog-publishing-integration.md)。
 
 ## 安全与数据规则
 
 - 不得暴露未认证的后台 API。
 - 文章图库只能选择已有长期公开地址的图片；资源须为有效且未删除状态。不得使用临时签名下载地址插图，也不得在选择时创建公开副本或改变资源权限。
-- 不得公开未审核评论。
 - 不得保存原始 IP 地址；如需风控或去重，只保存哈希。
 - 后台登录在密码验证成功后按风险判定（登录 IP 变更或连续失败 3 次）触发邮箱验证码两步校验；验证码数据库只存哈希，校验失败响应不区分错误类型，生产环境不得开启 `LOGIN_MFA_DEV_LOG`。
 - 文件上传必须校验文件名、内容类型和大小。
@@ -146,7 +143,7 @@ rendering-cms-platform/
 
 ## 禁止事项
 
-- 不要用 JSON 文件保存评论、统计或文章运行时数据。
+- 不要用 JSON 文件保存统计或文章运行时数据。
 - 不要让后端直接写入原静态博客仓库的 `content/posts`。
 - 不要把上传文件提交进 Git。
 - 不要把 `reports/` 和 `temp/` 目录下的任何内容提交进 Git。

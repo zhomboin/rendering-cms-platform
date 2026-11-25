@@ -11,8 +11,6 @@ export function DashboardMetrics({ data, days }: { data: DashboardOverview; days
     ['区间站点访问', data.metrics.periodViews, '近 ' + days + ' 天'],
     ['文章访问', data.metrics.articleViews, '近 ' + days + ' 天'],
     ['相册访问', data.metrics.albumViews, '近 ' + days + ' 天'],
-    ['新增评论', data.metrics.newComments, '近 ' + days + ' 天 · 全部状态'],
-    ['待审核评论', data.metrics.pendingComments, '当前待审核'],
   ] as const;
   return (
     <div className="dashboard-metrics">
@@ -54,8 +52,7 @@ export function DashboardContent({ data }: { data: DashboardOverview }) {
 }
 
 export function DashboardTodos({ data }: { data: DashboardOverview }) {
-  const hasTasks =
-    data.drafts.length || data.pendingComments.length || data.content.missingCoverArticles;
+  const hasTasks = data.drafts.length || data.content.missingCoverArticles;
   return (
     <>
       {!hasTasks ? (
@@ -78,28 +75,6 @@ export function DashboardTodos({ data }: { data: DashboardOverview }) {
                   <span className="dashboard-muted">{date(article.updatedAt)} 更新</span>
                 </div>
               ))}
-            </div>
-          )}
-          {data.pendingComments.length > 0 && (
-            <div className="dashboard-todo-group">
-              <h3>
-                待审核评论 <span>当前 {number(data.metrics.pendingComments)} 条</span>
-              </h3>
-              {data.pendingComments.map((comment) => (
-                <div className="dashboard-todo-comment" key={comment.commentId}>
-                  <div>
-                    <strong>{comment.authorName}</strong>
-                    <span className="dashboard-muted">{date(comment.createdAt)}</span>
-                  </div>
-                  <p>{comment.body}</p>
-                  <span className="dashboard-muted dashboard-truncate">
-                    来自《{comment.articleTitle}》
-                  </span>
-                </div>
-              ))}
-              <Link className="dashboard-inline-link" to="/admin/comments">
-                前往评论审核 →
-              </Link>
             </div>
           )}
           {data.content.missingCoverArticles > 0 && (

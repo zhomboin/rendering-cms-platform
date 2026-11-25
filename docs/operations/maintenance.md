@@ -40,7 +40,7 @@ journalctl -u cms-rendering-deploy.service --since "7 days ago" | grep -c "==== 
 
 - 导出 R2 对象清单，与数据库备份一起归档（命令见 `docs/operations/backup.md`）。
 - 确认 Git deploy key 未失效：`journalctl -u cms-rendering-deploy.service | grep "git fetch 失败"` 无近期记录即正常。
-- 登录后台抽查明细功能（文章、评论、文件、统计），验收清单见 `docs/operations/runbook.md`。
+- 登录后台抽查明细功能（文章、文件、统计），验收清单见 `docs/operations/runbook.md`。
 - TLS 证书与系统安全更新按服务器既有节奏处理，不在本系统范围内。
 
 ## 三个自动化脚本

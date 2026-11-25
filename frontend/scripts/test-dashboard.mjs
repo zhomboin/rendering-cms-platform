@@ -54,8 +54,6 @@ const metrics = {
   periodViews: 132,
   articleViews: 89,
   albumViews: 12,
-  newComments: 8,
-  pendingComments: 3,
 };
 function data(days, empty) {
   return {
@@ -82,18 +80,6 @@ function data(days, empty) {
       },
       recentArticles: empty ? [] : [article, privateArticle],
       drafts: empty ? [] : [draft],
-      pendingComments: empty
-        ? []
-        : [
-            {
-              commentId: 'comment-1',
-              articleId: 'article-1',
-              articleTitle: article.title,
-              authorName: '读者',
-              body: '很有帮助的一篇文章',
-              createdAt: article.updatedAt,
-            },
-          ],
       recentImages: empty
         ? []
         : [
@@ -238,6 +224,13 @@ test('运营概览显示真实数据、封面、后台状态和所有管理入�
   ])
     await region(page, name);
   const metrics = await region(page, '关键指标');
+  assert.deepEqual(await metrics.locator('.dashboard-metric-label').allTextContents(), [
+    '今日站点访问',
+    '区间站点访问',
+    '文章访问',
+    '相册访问',
+  ]);
+  assert.equal(await page.getByText(/评论/).count(), 0);
   const chartPanel = await region(page, '访问趋势');
   assert.ok((await metrics.boundingBox()).y < (await chartPanel.boundingBox()).y);
   const content = await region(page, '内容状态');

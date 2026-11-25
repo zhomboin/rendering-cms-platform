@@ -36,7 +36,6 @@ df -h
 - `/api/v1/health` 返回 `{"status":"ok"}`。
 - 磁盘空间充足，备份目录和 Docker volume 所在磁盘没有接近满盘。
 - R2 bucket 可访问，上传和下载凭据没有过期。
-- 评论待审核队列没有异常堆积。
 - 登录失败次数没有异常升高。
 
 ## 发布 SOP
@@ -130,7 +129,7 @@ docker compose --env-file /etc/rendering-cms/production.env -f docker-compose.pr
 
 ## 恢复 SOP
 
-按 [PostgreSQL 恢复流程](restore.md)备份当前现场、停止写入、校验备份并导入到已确认的目标库。导入不成功时保持应用停机，排查后重新恢复。恢复成功后检查健康、文章、评论、资源、相册和统计。
+按 [PostgreSQL 恢复流程](restore.md)备份当前现场、停止写入、校验备份并导入到已确认的目标库。导入不成功时保持应用停机，排查后重新恢复。恢复成功后检查健康、文章、资源、相册和统计。
 
 ## 常见故障处理
 

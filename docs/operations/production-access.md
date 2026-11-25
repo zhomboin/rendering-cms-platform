@@ -41,7 +41,7 @@
 | 系统 | 访问方式 | 用途 |
 | --- | --- | --- |
 | 生产主机 | 从主工作区本地配置记录获取连接参数 | 连接验证及获准的生产运维 |
-| CMS 后台 | `https://cms.zhomboin.com` | 文章、评论、统计、文件等后台操作 |
+| CMS 后台 | `https://cms.zhomboin.com` | 文章、统计、文件等后台操作 |
 | PostgreSQL | Docker Compose `postgres` 服务内 `psql` | 数据查询、用户初始化、紧急数据核查 |
 | Cloudflare R2 | Cloudflare Dashboard 或 S3 API 工具 | 对象存储 bucket、对象、CORS 和访问密钥检查 |
 | 宿主机 Nginx | SSH 登录服务器后使用 `sudo nginx` | 反向代理、证书和域名入口配置 |

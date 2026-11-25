@@ -26,7 +26,6 @@ frontend/
       articles/
       assets/
       auth/
-      comments/
       dashboard/
       postbridge/
     routes/                   # 路由集中声明
@@ -48,7 +47,6 @@ frontend/
 - `/admin/articles/new`：新增文章。
 - `/admin/articles/:id/edit`：编辑文章。
 - `/admin/articles/:id/read`：登录后阅读文章。
-- `/admin/comments`：评论审核。
 - `/admin/postbridge`：管理员连接 PostBridge 并查看分发。
 - `/admin/assets`：资源管理。
 - `/admin/albums`：相册管理。
@@ -67,7 +65,6 @@ API client 位于 `src/api/client.ts`，使用 axios 实例统一封装请求。
 - `analytics.ts`：后台统计。
 - `dashboard.ts`：首页只读汇总。
 - `postbridge.ts`：PostBridge 连接与分发。
-- `comments.ts`：后台评论审核。
 - `assets.ts`：后台资源列表、预签名上传和下载。
 - `albums.ts`：相册管理与照片后端代理上传。
 

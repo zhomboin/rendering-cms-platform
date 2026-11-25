@@ -1,6 +1,6 @@
 # Go 后端项目导读
 
-Go 后端负责登录、文章、相册、评论、访问统计、资源及 PostBridge。目录以 `backend/` 为根，本地启动和数据库迁移见 [开发环境](../operations/development-environment.md)。
+Go 后端负责登录、文章、相册、访问统计、资源及 PostBridge。目录以 `backend/` 为根，本地启动和数据库迁移见 [开发环境](../operations/development-environment.md)。
 
 ## 从启动入口阅读
 
@@ -20,11 +20,10 @@ Go 后端负责登录、文章、相册、评论、访问统计、资源及 Post
 | 模块 | 代码与契约 |
 | --- | --- |
 | 登录 | [auth](../../backend/internal/auth/)校验密码、签发 JWT、记录登录失败并执行风险触发的邮箱验证。[认证 API](../apis/auth.md) |
-| 文章 | [articles](../../backend/internal/articles/)处理编辑、状态流转、修订与公开读取；公开详情、评论及统计复用同一个文章标识解析器。[文章 API](../apis/articles.md) |
+| 文章 | [articles](../../backend/internal/articles/)处理编辑、状态流转、修订与公开读取；公开详情及统计复用同一个文章标识解析器。[文章 API](../apis/articles.md) |
 | 相册 | [albums](../../backend/internal/albums/)负责公开分页、图片上传、相册事务与对象清理重试；[imaging](../../backend/internal/imaging/)提取尺寸与拍摄时间并清理隐私元数据。[相册 API](../apis/photos.md) |
 | 访问统计 | [analytics](../../backend/internal/analytics/)把文章、相册或站点事件及相应日计数原子写入，并归档文章和站点旧日计数。[统计 API](../apis/analytics.md) |
 | 首页 | [dashboard](../../backend/internal/dashboard/)读取已有业务数据并提供后台只读汇总。[首页 API](../apis/dashboard.md) |
-| 评论 | [comments](../../backend/internal/comments/)校验匿名提交与提交频率，后台审核后可公开读取。[评论 API](../apis/comments.md) |
 | 资源 | [assets](../../backend/internal/assets/)管理文件元数据并记录下载审计；[storage](../../backend/internal/storage/)封装 S3 兼容存储的预签名及对象操作。[文件 API](../apis/assets.md) |
 | PostBridge | [integrations/postbridge](../../backend/internal/integrations/postbridge/)管理来源授权、内容快照、分发状态及待发来源事件。[PostBridge API](../apis/postbridge.md) |
 

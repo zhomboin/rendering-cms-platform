@@ -23,8 +23,6 @@ export interface DashboardOverview {
     periodViews: number;
     articleViews: number;
     albumViews: number;
-    newComments: number;
-    pendingComments: number;
   };
   content: {
     publishedArticles: number;
@@ -39,14 +37,6 @@ export interface DashboardOverview {
   resources: { assetCount: number; imageCount: number; totalBytes: number };
   recentArticles: DashboardArticle[];
   drafts: DashboardArticle[];
-  pendingComments: {
-    commentId: string;
-    articleId: string;
-    articleTitle: string;
-    authorName: string;
-    body: string;
-    createdAt: string;
-  }[];
   recentImages: {
     assetId: string;
     filename: string;

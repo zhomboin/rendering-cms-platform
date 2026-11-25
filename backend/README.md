@@ -1,6 +1,6 @@
 # Rendering CMS Platform 后端
 
-`backend/` 是 Rendering CMS Platform 的 Go API 服务，负责后台管理、公开内容读取、认证授权、文章管理、评论审核、访问统计、文件元数据和数据库访问。
+`backend/` 是 Rendering CMS Platform 的 Go API 服务，负责后台管理、公开内容读取、认证授权、文章管理、访问统计、文件元数据和数据库访问。
 
 本模块只提供 API 与业务运行时能力，不直接写入原静态博客仓库，也不保存上传文件本体。上传文件本体应存储在 S3 兼容对象存储中，数据库只保存元数据与 `storage_key`。
 
@@ -28,7 +28,6 @@ backend/
   internal/articles/          # 文章管理
   internal/analytics/         # 访问统计
   internal/dashboard/         # 首页只读汇总、图文排行与相册摘要
-  internal/comments/          # 评论提交与审核
   internal/assets/            # 文件上传下载与审计
   internal/albums/            # 相册与照片管理（公开查询 + 后台管理）
   internal/imaging/           # 照片处理：魔数嗅探、尺寸提取、EXIF/XMP 等元数据剥离

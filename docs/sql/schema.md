@@ -1,6 +1,6 @@
 # 数据库 Schema
 
-PostgreSQL 是 CMS 唯一的运行时数据源。文章、评论、统计、文件元数据和后台用户都进入数据库管理；上传文件本体存储在 S3 兼容对象存储中，数据库只保存元数据和 `storage_key`。
+PostgreSQL 是 CMS 唯一的运行时数据源。文章、统计、文件元数据和后台用户都进入数据库管理；上传文件本体存储在 S3 兼容对象存储中，数据库只保存元数据和 `storage_key`。
 
 ## AI 写作连接
 
@@ -13,7 +13,7 @@ PostgreSQL 是 CMS 唯一的运行时数据源。文章、评论、统计、文�
 - `pgcrypto`：用于 `gen_random_uuid()` 生成 UUID 主键。
 - `user_role`：后台用户角色，当前包含 `admin`、`editor`。
 - `article_status`：文章状态，当前包含 `draft`、`published`、`private`、`archived`，其中 `private` 仅后台可见。
-- `comment_status`：评论审核状态，当前包含 `pending`、`approved`、`rejected`。
+- `comment_status`：存量评论的状态，取值为 `pending`、`approved`、`rejected`。
 - `asset_status`：资源生命周期状态，当前包含 `active`、`archived`、`deleted`。
 - `photo_album_status`：相册状态，包含 `draft`、`published`；仅 `published` 相册对外可见。
 
@@ -24,7 +24,7 @@ PostgreSQL 是 CMS 唯一的运行时数据源。文章、评论、统计、文�
 - `login_email_codes`：登录邮箱验证码表，保存用户、邮箱、验证码哈希、过期时间、校验尝试次数、占用时间和创建时间，用于登录两步验证。
 - `articles`：文章主表，保存系统生成的 6 位短链码 `slug`、用户命名的英文名 `article_name`、标题、摘要、MDX 正文、状态、标签、精选标记、精选排序 `featured_rank`、可选精选时间 `featured_at`、封面地址、发布时间、作者、版本号和全文搜索向量。
 - `article_logs`：文章版本日志表，字段与 `articles` 保持一致，以 `article_id` 和 `version` 作为联合主键。
-- `comments`：评论表，评论默认状态为 `pending`，后台审核后进入 `approved` 或 `rejected`。
+- `comments`：保存存量评论。CMS 不读写此表，永久删除文章时由外键级联清理关联记录。
 - `article_view_daily`：文章当日访问量聚合表，只保留当天写入中的访问量，以 `article_id` 和 `view_date` 作为联合主键。
 - `article_view_history`：文章历史日访问量表，每天统计完成后把当日访问量归档到该表。
 - `site_view_daily`：站点当日访问量聚合表，只保留当天写入中的访问量，以 `view_date` 作为主键。
@@ -64,8 +64,7 @@ PostgreSQL 是 CMS 唯一的运行时数据源。文章、评论、统计、文�
 - 登录尝试表 `login_attempts` 只保存 `ip_hash`。
 - 下载审计表 `download_events` 只保存 `ip_hash`。
 - 如后续需要风控、限流或去重，必须在进入数据库前完成 IP 哈希处理。
-- `author_email` 属于评论提交者隐私信息，只用于后台审核和必要联系，不应在公开接口中默认返回。
-- 评论限流通过 `comments_ip_hash_created_at_idx` 按 `ip_hash` 和 `created_at` 查询最近提交记录，不需要保存原始 IP。
+- `author_email` 属于存量评论的隐私字段，任何接口均不返回。
 - `private` 状态文章属于作者私有内容（日常记录、运维文档等），只允许出现在后台接口（登录态）中；公开读取 SQL 一律带 `status = 'published'` 过滤，私有文章的公开访问必须返回 `404`。
 
 ## 登录安全规则
@@ -82,7 +81,7 @@ PostgreSQL 是 CMS 唯一的运行时数据源。文章、评论、统计、文�
 
 ## 文章版本规则
 
-- `articles.slug` 和 `article_logs.slug` 必须满足 `^[0-9A-Za-z]{6}$`，作为公开文章访问、评论和统计接口使用的短链码。
+- `articles.slug` 和 `article_logs.slug` 必须满足 `^[0-9A-Za-z]{6}$`，作为公开文章访问和统计接口使用的短链码。
 - `articles.article_name` 和 `article_logs.article_name` 保存用户输入或导入来源中的文章英文名，格式为 `^[a-z0-9]+(?:-[a-z0-9]+)*$`。
 - 后台创建文章时由后端生成短链码，后台更新文章时不允许修改已有短链码。
 - `articles.featured` 映射到公开 API 的 `isFeatured`；`featured_rank` 默认值为 `100`，数字越小越适合作为首页精选靠前排序；`featured_at` 可为空。
@@ -156,4 +155,4 @@ PostgreSQL 是 CMS 唯一的运行时数据源。文章、评论、统计、文�
 
 ## 首页只读汇总
 
-首页通过现有访问聚合表、文章、相册、评论及资源数据输出有限摘要，不增加表或修改数据结构。文章与站点合并日表和历史表，相册读取相册日表；资源仅统计 active 且删除时间为空的记录。查询入口为 [dashboard.sql](../../backend/sql/dashboard.sql)，字段与统计口径见 [首页 API](../apis/dashboard.md)。
+首页通过现有访问聚合表、文章、相册及资源数据输出有限摘要，不增加表或修改数据结构。文章与站点合并日表和历史表，相册读取相册日表；资源仅统计 active 且删除时间为空的记录。查询入口为 [dashboard.sql](../../backend/sql/dashboard.sql)，字段与统计口径见 [首页 API](../apis/dashboard.md)。
