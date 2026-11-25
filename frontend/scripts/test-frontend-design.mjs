@@ -350,6 +350,9 @@ test('删除文章须重新确认变更的版本，失败可重试', async (t) =
   await openDelete();
   await page.keyboard.press('Escape');
   await dialog.waitFor({ state: 'hidden' });
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute('aria-label') === '更多操作：待删除的文章',
+  );
   assert.deepEqual(versions, []);
   await openDelete();
   await confirm.click();
@@ -360,6 +363,8 @@ test('删除文章须重新确认变更的版本，失败可重试', async (t) =
   await dialog.getByText('暂时无法删除').waitFor();
   await confirm.click();
   await page.getByText('文章已删除', { exact: true }).waitFor();
+  await dialog.waitFor({ state: 'hidden' });
+  await page.waitForFunction(() => document.activeElement?.textContent?.replace(/\s/g, '') === '刷新');
   assert.deepEqual(versions, ['2', '3', '3']);
   assert.equal(await page.getByRole('link', { name: article.title }).count(), 0);
   assert.equal(

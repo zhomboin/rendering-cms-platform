@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { createSearchParams, Link, useNavigate } from 'react-router-dom';
 import { App, Table, Button, Tag, Input, Select, Space, Typography, Alert, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
@@ -57,6 +57,7 @@ export default function ArticleListPage() {
   const navigate = useNavigate();
   const isAdmin = getAuthUser()?.role === 'admin';
   const queryClient = useQueryClient();
+  const refreshButton = useRef<HTMLButtonElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
@@ -278,6 +279,7 @@ export default function ArticleListPage() {
                 <Button
                   type="text"
                   size="small"
+                  id={`article-actions-${record.articleId}`}
                   aria-label={`更多操作：${record.title}`}
                   aria-haspopup="menu"
                 >
@@ -296,7 +298,12 @@ export default function ArticleListPage() {
       <div className="cms-page-heading">
         <Title level={1}>文章管理</Title>
         <Space>
-          <Button icon={<ReloadOutlined />} loading={isLoading} onClick={() => refetch()}>
+          <Button
+            ref={refreshButton}
+            icon={<ReloadOutlined />}
+            loading={isLoading}
+            onClick={() => refetch()}
+          >
             刷新
           </Button>
           <Button
@@ -339,7 +346,14 @@ export default function ArticleListPage() {
       </div>
 
       {deleteTarget && (
-        <ArticleDeleteDialog target={deleteTarget} onClose={() => setDeleteTarget(null)} />
+        <ArticleDeleteDialog
+          target={deleteTarget}
+          onClose={() => {
+            const trigger = document.getElementById(`article-actions-${deleteTarget.articleId}`);
+            (trigger ?? refreshButton.current)?.focus();
+            setDeleteTarget(null);
+          }}
+        />
       )}
 
       <Table<AdminArticleRecord>
