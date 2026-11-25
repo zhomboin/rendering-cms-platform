@@ -14,11 +14,13 @@ AI 客户端连接 `/api/v1/mcp`，选择 Streamable HTTP。服务使用官方 G
 
 | 工具 | 输入 | 返回与重试 |
 | --- | --- | --- |
-| `create_draft` | `requestKey`、`articleName`、`title`、`bodyMdx`，可选 `summary`、`tags` | 返回文章 ID、版本和需登录的预览链接。同一连接用同一请求键和内容重试得到同一篇文章的当前状态。相同键配不同内容会报错。 |
-| `get_article` | `articleId` | 按当前可见范围读取文章及版本。 |
-| `update_draft` | `articleId`、`expectedVersion`、完整标题和正文，可选摘要和标签 | 仅写草稿，省略的摘要和标签清空。名称、封面、精选设置保持原值。 |
+| `create_draft` | `requestKey`、`articleName`、`title`、`bodyMdx`，可选 `summary`、`tags`、`coverImageUrl`、`featured` 和 `featuredRank` | 返回文章 ID、版本和需登录的预览链接。同一连接用同一请求键和内容重试得到同一篇文章的当前状态。相同键配不同内容会报错。 |
+| `get_article` | `articleId` | 按当前可见范围读取文章及版本，包含封面、精选开关、精选排序和已记录的精选时间。 |
+| `update_draft` | `articleId`、`expectedVersion`，以及要修改的字段 | 支持单独提交封面、精选开关或精选排序。修改正文时同时提交 `title` 和 `bodyMdx`，省略的摘要和标签清空。省略的展示字段保留原值。 |
 | `publish_article` | `articleId`、`expectedVersion` | 仅向有发布权限的连接提供。成功返回 CMS 发布状态及预期博客地址。若响应丢失，先读状态；出现版本冲突后重新审稿。 |
 | `article_status` | `articleId` | 返回 CMS 状态、版本、页面核验、搜索核验和观察时间。 |
+
+封面 `coverImageUrl` 接受长期有效的 HTTP(S) 图片地址或以单个 `/` 开头的站内路径，传空字符串可清除。首页精选开关为 `featured`，默认关闭；首次开启会记录 `featuredAt`。精选排序 `featuredRank` 为 1 至 999 的整数，默认 100，数字越小越靠前。修改草稿会产生新版本，发布使用更新后的版本号。缺少读取文章权限时，写入回执省略展示字段。
 
 文章英文名使用小写字母、数字和中划线，最多 128 字节。请求键不能为空，最多 128 字节。正文遵循[Markdown 规则](../guides/markdown.md)。缓存草稿 ID 供后续会话继续编辑；预览链接供作者在已登录的后台打开。
 

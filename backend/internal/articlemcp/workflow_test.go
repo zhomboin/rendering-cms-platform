@@ -47,7 +47,9 @@ func TestMCPThroughHTTP(t *testing.T) {
 	t.Cleanup(blog.Close)
 	service := New(pool, config.ArticleMCPConfig{BlogOrigin: blog.URL, AdminOrigin: "https://cms.example.invalid", Origin: "https://mcp.example.invalid"})
 	const secret = "test-only-signing-secret"
-	host := httptest.NewServer(httpapi.NewRouter(httpapi.WithJWTSecret(secret), httpapi.WithPublicRoutes(service.Register), httpapi.WithAdminRoutes(service.RegisterAdmin), httpapi.WithAdminRoutes(articles.NewHandler(dbgen.New(pool)).RegisterAdminRoutes)))
+	articleAPI := articles.NewHandler(dbgen.New(pool))
+	host := httptest.NewServer(httpapi.NewRouter(httpapi.WithJWTSecret(secret), httpapi.WithPublicRoutes(service.Register),
+		httpapi.WithPublicRoutes(articleAPI.RegisterPublicReadRoutes), httpapi.WithAdminRoutes(service.RegisterAdmin), httpapi.WithAdminRoutes(articleAPI.RegisterAdminRoutes)))
 	t.Cleanup(host.Close)
 	admin, _ := auth.IssueToken(secret, owner.String(), "admin")
 	editor, _ := auth.IssueToken(secret, owner.String(), "editor")
@@ -161,7 +163,7 @@ func TestMCPThroughHTTP(t *testing.T) {
 	call(session, statusTool, lookup, false, nil)
 	call(session, readTool, lookup, true, nil)
 	call(session, createTool, in, true, nil)
-	call(session, editTool, EditInput{VersionInput: VersionInput{first.ArticleID, first.Version}, Content: in.Content}, true, nil)
+	call(session, editTool, EditInput{VersionInput: VersionInput{first.ArticleID, first.Version}, Title: &in.Title, Body: &in.Body}, true, nil)
 	call(session, publishTool, VersionInput{first.ArticleID, first.Version}, true, nil)
 	// 直接验证已完成鉴权的在途调用仍需在数据库事务内复核。
 	grantPrincipal := principal{id: mustArticleID(t, g.ID), publishScope: true}
@@ -227,7 +229,7 @@ func TestMCPThroughHTTP(t *testing.T) {
 	call(other, statusTool, article, true, nil)
 	action := VersionInput{ArticleID: first.ArticleID, ExpectedVersion: first.Version}
 	call(session, "publish_article", action, true, nil)
-	edit := EditInput{VersionInput: action, Content: Content{Title: "修订", Body: "修订正文"}}
+	edit := EditInput{VersionInput: action, Title: new("修订"), Body: new("修订正文")}
 	call(other, editTool, edit, true, nil)
 	call(other, publishTool, action, true, nil)
 	call(session, "update_draft", edit, false, &again)
@@ -303,6 +305,21 @@ func TestMCPThroughHTTP(t *testing.T) {
 		}
 	}
 	anotherAdmin, _ := auth.IssueToken(secret, "00000000-0000-0000-0000-000000000002", "admin")
+	t.Run("草稿封面与首页精选", func(t *testing.T) {
+		grant := issue()
+		grantPath := connections + "/" + grant.ID
+		permissions := func(body string) { request("PATCH", grantPath, admin, body, 204) }
+		slug := checkPresentationTools(t, connect(grant.Token), permissions, dbgen.New(pool))
+		var metadata struct {
+			IsFeatured    bool
+			FeaturedRank  int
+			CoverImageURL string
+		}
+		raw := request("GET", "/api/v1/articles/"+slug, "", "", 200)
+		if err := json.Unmarshal(raw, &metadata); err != nil || !metadata.IsFeatured || metadata.FeaturedRank != 999 || metadata.CoverImageURL != "/images/cover.png" {
+			t.Fatal("公开文章未返回发布时的封面与精选信息", metadata, err)
+		}
+	})
 	t.Run("已发布相册追加授权", func(t *testing.T) {
 		checkUploadGrantAPI(t, pool, owner, request, admin, anotherAdmin)
 	})
@@ -372,7 +389,7 @@ func TestConcurrentVersions(t *testing.T) {
 	}
 	for range 2 {
 		go func() {
-			content := Content{Title: "并发改稿", Body: "正文"}
+			content := EditInput{Title: new("并发改稿"), Body: new("正文")}
 			a, e := s.change(ctx, p, VersionInput{one.a.ArticleID, one.a.Version}, &content)
 			results <- outcome{a, e}
 		}()

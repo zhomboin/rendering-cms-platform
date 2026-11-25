@@ -40,7 +40,8 @@ select article_id,payload_hash from article_mcp_drafts where connection_id=$1 an
 insert into article_mcp_drafts(article_id,connection_id,request_key,payload_hash) values ($1,$2,$3,$4);
 
 -- name: GetMCPArticle :one
-select a.article_id,a.slug,a.article_name,a.title,a.summary,a.body_mdx,a.tags,a.version,a.status,d.search_version,d.search_result,d.search_checked_at
+select a.article_id,a.slug,a.article_name,a.title,a.summary,a.body_mdx,a.tags,a.version,a.status,
+       a.cover_image_url,a.featured,a.featured_rank,a.featured_at,d.search_version,d.search_result,d.search_checked_at
 from articles a left join article_mcp_drafts d using(article_id)
 where a.article_id=sqlc.arg(article_id)
   and not coalesce(d.detached and d.connection_id=sqlc.arg(connection_id),false)
@@ -49,7 +50,8 @@ where a.article_id=sqlc.arg(article_id)
 for update of a;
 
 -- name: EditMCPDraft :execrows
-update articles set title=$3,summary=$4,body_mdx=$5,tags=$6,updated_at=now()
+update articles set title=$3,summary=$4,body_mdx=$5,tags=$6,
+    cover_image_url=$7,featured=$8,featured_rank=$9,featured_at=$10,updated_at=now()
 where article_id=$1 and version=$2 and status='draft';
 
 -- name: MCPVerificationTarget :one

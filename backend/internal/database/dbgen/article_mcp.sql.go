@@ -119,17 +119,22 @@ func (q *Queries) CreateMCPConnection(ctx context.Context, arg CreateMCPConnecti
 }
 
 const editMCPDraft = `-- name: EditMCPDraft :execrows
-update articles set title=$3,summary=$4,body_mdx=$5,tags=$6,updated_at=now()
+update articles set title=$3,summary=$4,body_mdx=$5,tags=$6,
+    cover_image_url=$7,featured=$8,featured_rank=$9,featured_at=$10,updated_at=now()
 where article_id=$1 and version=$2 and status='draft'
 `
 
 type EditMCPDraftParams struct {
-	ArticleID pgtype.UUID
-	Version   int32
-	Title     string
-	Summary   string
-	BodyMdx   string
-	Tags      []string
+	ArticleID     pgtype.UUID
+	Version       int32
+	Title         string
+	Summary       string
+	BodyMdx       string
+	Tags          []string
+	CoverImageUrl pgtype.Text
+	Featured      bool
+	FeaturedRank  int32
+	FeaturedAt    pgtype.Timestamptz
 }
 
 func (q *Queries) EditMCPDraft(ctx context.Context, arg EditMCPDraftParams) (int64, error) {
@@ -140,6 +145,10 @@ func (q *Queries) EditMCPDraft(ctx context.Context, arg EditMCPDraftParams) (int
 		arg.Summary,
 		arg.BodyMdx,
 		arg.Tags,
+		arg.CoverImageUrl,
+		arg.Featured,
+		arg.FeaturedRank,
+		arg.FeaturedAt,
 	)
 	if err != nil {
 		return 0, err
@@ -169,7 +178,8 @@ func (q *Queries) FindMCPRequest(ctx context.Context, arg FindMCPRequestParams) 
 }
 
 const getMCPArticle = `-- name: GetMCPArticle :one
-select a.article_id,a.slug,a.article_name,a.title,a.summary,a.body_mdx,a.tags,a.version,a.status,d.search_version,d.search_result,d.search_checked_at
+select a.article_id,a.slug,a.article_name,a.title,a.summary,a.body_mdx,a.tags,a.version,a.status,
+       a.cover_image_url,a.featured,a.featured_rank,a.featured_at,d.search_version,d.search_result,d.search_checked_at
 from articles a left join article_mcp_drafts d using(article_id)
 where a.article_id=$1
   and not coalesce(d.detached and d.connection_id=$2,false)
@@ -194,6 +204,10 @@ type GetMCPArticleRow struct {
 	Tags            []string
 	Version         int32
 	Status          ArticleStatus
+	CoverImageUrl   pgtype.Text
+	Featured        bool
+	FeaturedRank    int32
+	FeaturedAt      pgtype.Timestamptz
 	SearchVersion   pgtype.Int4
 	SearchResult    pgtype.Text
 	SearchCheckedAt pgtype.Timestamptz
@@ -212,6 +226,10 @@ func (q *Queries) GetMCPArticle(ctx context.Context, arg GetMCPArticleParams) (G
 		&i.Tags,
 		&i.Version,
 		&i.Status,
+		&i.CoverImageUrl,
+		&i.Featured,
+		&i.FeaturedRank,
+		&i.FeaturedAt,
 		&i.SearchVersion,
 		&i.SearchResult,
 		&i.SearchCheckedAt,
