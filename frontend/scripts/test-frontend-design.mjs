@@ -348,6 +348,10 @@ test('删除文章须重新确认变更的版本，失败可重试', async (t) =
   }
   const confirm = dialog.getByRole('button', { name: '删除文章' });
   await openDelete();
+  await dialog
+    .locator('button:focus')
+    .filter({ hasText: /取\s*消/ })
+    .waitFor();
   await page.keyboard.press('Escape');
   await dialog.waitFor({ state: 'hidden' });
   await page.waitForFunction(
