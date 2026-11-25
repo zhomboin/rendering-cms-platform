@@ -2,7 +2,7 @@
 
 ## 本地启动
 
-1. 在 WSL 仓库根目录按[本地开发](development-environment.md#推荐开发启动顺序)准备本地配置、启动依赖并执行全部迁移，包括 `000024_mcp_published_uploads`。
+1. 在 WSL 仓库根目录按[本地开发](development-environment.md#推荐开发启动顺序)准备本地配置、启动依赖并执行全部迁移，包括 `000025_article_delete_request_keys`。
 2. 启动 CMS，在浏览器登录管理员账号，打开侧栏 **MCP 管理 → 服务设置**。
 
    ```bash

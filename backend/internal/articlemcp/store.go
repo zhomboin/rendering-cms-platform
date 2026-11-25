@@ -179,6 +179,9 @@ func (s store) create(ctx context.Context, p principal, in CreateInput) (Article
 				if !bytes.Equal(prev.PayloadHash, hash[:]) {
 					return pgtype.UUID{}, errKey
 				}
+				if !prev.ArticleID.Valid {
+					return pgtype.UUID{}, errMissing
+				}
 				return prev.ArticleID, nil
 			}
 			if !errors.Is(err, pgx.ErrNoRows) {

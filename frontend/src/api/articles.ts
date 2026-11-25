@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from './client';
+import { apiDelete, apiGet, apiPatch, apiPost } from './client';
 
 export type ArticleStatus = 'draft' | 'published' | 'archived' | 'private';
 
@@ -63,6 +63,10 @@ export function publishAdminArticle(articleId: string, version?: number) {
   return apiPost<AdminArticleRecord>(
     `/admin/articles/${articleId}/publish${versionQuery(version)}`,
   );
+}
+
+export function deleteAdminArticle(articleId: string, version: number) {
+  return apiDelete<void>(`/admin/articles/${articleId}${versionQuery(version)}`);
 }
 
 export function unpublishAdminArticle(articleId: string) {

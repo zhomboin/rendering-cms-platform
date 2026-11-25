@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { createSearchParams, Link, useNavigate } from 'react-router-dom';
 import { App, Table, Button, Tag, Input, Select, Space, Typography, Alert, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
 import {
+  DeleteOutlined,
   PlusOutlined,
   ReloadOutlined,
   StopOutlined,
@@ -19,6 +20,7 @@ import {
 } from '../../api/articles';
 import type { AdminArticleRecord } from '../../api/articles';
 import { getAuthUser } from '../../api/auth';
+import { ArticleDeleteDialog, type DeleteTarget } from './ArticleDeleteDialog';
 import './ArticleListPage.css';
 
 const { Title } = Typography;
@@ -55,6 +57,8 @@ export default function ArticleListPage() {
   const navigate = useNavigate();
   const isAdmin = getAuthUser()?.role === 'admin';
   const queryClient = useQueryClient();
+  const refreshButton = useRef<HTMLButtonElement>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchText, setSearchText] = useState<string>('');
   const {
@@ -250,6 +254,18 @@ export default function ArticleListPage() {
           });
         }
 
+        const version = record.version;
+        if (isAdmin && version !== undefined) {
+          items.push({
+            key: 'delete',
+            icon: <DeleteOutlined aria-hidden="true" />,
+            label: '删除文章',
+            danger: true,
+            onClick: () =>
+              setDeleteTarget({ articleId: record.articleId, title: record.title, version }),
+          });
+        }
+
         return (
           <Space size={0} className="article-list-actions">
             <Button type="link" size="small" onClick={() => navigate(`${articlePath}/read`)}>
@@ -263,6 +279,7 @@ export default function ArticleListPage() {
                 <Button
                   type="text"
                   size="small"
+                  id={`article-actions-${record.articleId}`}
                   aria-label={`更多操作：${record.title}`}
                   aria-haspopup="menu"
                 >
@@ -281,7 +298,12 @@ export default function ArticleListPage() {
       <div className="cms-page-heading">
         <Title level={1}>文章管理</Title>
         <Space>
-          <Button icon={<ReloadOutlined />} loading={isLoading} onClick={() => refetch()}>
+          <Button
+            ref={refreshButton}
+            icon={<ReloadOutlined />}
+            loading={isLoading}
+            onClick={() => refetch()}
+          >
             刷新
           </Button>
           <Button
@@ -322,6 +344,17 @@ export default function ArticleListPage() {
           style={{ width: 280, maxWidth: '100%' }}
         />
       </div>
+
+      {deleteTarget && (
+        <ArticleDeleteDialog
+          target={deleteTarget}
+          onClose={() => {
+            const trigger = document.getElementById(`article-actions-${deleteTarget.articleId}`);
+            (trigger ?? refreshButton.current)?.focus();
+            setDeleteTarget(null);
+          }}
+        />
+      )}
 
       <Table<AdminArticleRecord>
         columns={columns}

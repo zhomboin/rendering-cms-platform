@@ -14,7 +14,7 @@ AI 客户端连接 `/api/v1/mcp`，选择 Streamable HTTP。服务使用官方 G
 
 | 工具 | 输入 | 返回与重试 |
 | --- | --- | --- |
-| `create_draft` | `requestKey`、`articleName`、`title`、`bodyMdx`，可选 `summary`、`tags`、`coverImageUrl`、`featured` 和 `featuredRank` | 返回文章 ID、版本和需登录的预览链接。同一连接用同一请求键和内容重试得到同一篇文章的当前状态。相同键配不同内容会报错。 |
+| `create_draft` | `requestKey`、`articleName`、`title`、`bodyMdx`，可选 `summary`、`tags`、`coverImageUrl`、`featured` 和 `featuredRank` | 返回文章 ID、版本和需登录的预览链接。同一连接用同一请求键和内容重试得到同一篇文章的当前状态。相同键配不同内容会报错。管理员删除文章后，原请求键仍被占用，重试返回错误。 |
 | `get_article` | `articleId` | 按当前可见范围读取文章及版本，包含封面、精选开关、精选排序和已记录的精选时间。 |
 | `update_draft` | `articleId`、`expectedVersion`，以及要修改的字段 | 支持单独提交封面、精选开关或精选排序。修改正文时同时提交 `title` 和 `bodyMdx`，省略的摘要和标签清空。省略的展示字段保留原值。 |
 | `publish_article` | `articleId`、`expectedVersion` | 仅向有发布权限的连接提供。成功返回 CMS 发布状态及预期博客地址。若响应丢失，先读状态；出现版本冲突后重新审稿。 |
